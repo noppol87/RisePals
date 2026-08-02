@@ -83,7 +83,7 @@ npm run build
 npm run check
 ```
 
-Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional in this scaffold and must be an absolute URL when provided. Never commit a real `.env` file or secret.
+Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
 
 The exact install, verification results and Windows notes are recorded in [Local Development](docs/10_LOCAL_DEVELOPMENT.md).
 

@@ -215,7 +215,20 @@ RP-TURN-003 used Create Next App `16.2.12` only in a temporary directory to revi
 - typed server-only `APP_BASE_URL` validation with no required secret and no `NEXT_PUBLIC_` value
 - a neutral semantic page, responsive defaults, visible focus and reduced-motion baseline
 
-Selected runtime versions are Next.js `16.2.12`, React/React DOM `19.2.4` and `server-only` `0.0.1`. The initial official template graph exposed high-severity advisories through Next's pinned PostCSS and optional Sharp dependencies. The reviewed root graph overrides only those transitive versions to PostCSS `8.5.25` and Sharp `0.35.3`; clean install, unit tests, production build and both audits verify the result. Remove these overrides when a future reviewed Next.js release no longer needs them.
+Selected runtime versions are Next.js `16.2.12`, React/React DOM `19.2.4` and `server-only` `0.0.1`. The initial official template graph exposed high-severity advisories through Next's pinned PostCSS and optional Sharp dependencies. The reviewed root graph overrides only those transitive versions to PostCSS `8.5.25` and Sharp `0.35.3`; clean install, unit tests, production build and both audits verify the result.
+
+Exact override rationale:
+
+- Next.js `16.2.12` declares PostCSS `8.4.31`. The override to `8.5.25` addresses GHSA-qx2v-qp2m-jg93, GHSA-6g55-p6wh-862q and GHSA-r28c-9q8g-f849.
+- Next.js `16.2.12` declares optional Sharp `^0.34.5`. The override to Sharp `0.35.3` addresses GHSA-f88m-g3jw-g9cj, but `0.35.3` is outside that declared range. It is a reviewed temporary security exception, not an accepted dependency-architecture change.
+- Re-evaluate both overrides on every Next.js upgrade. Re-evaluate Sharp again before introducing Next image optimization or any production imagery; RP-TURN-003 and R1 add neither an image feature nor an image dependency.
+
+Install-script policy is deny-by-default for reviewed dependencies:
+
+- `unrs-resolver@1.12.2` is a development-only transitive dependency reached through `eslint-config-next → eslint-import-resolver-typescript`. Its postinstall calls `napi-postinstall` to prepare its native package, but the verified lint, test and production-build paths succeed without that script. `package.json` therefore records `allowScripts.unrs-resolver = false`.
+- `fsevents@2.3.3` is Vite's development-only optional dependency, declares only `os: darwin` and uses `node-gyp rebuild` as its install script. It is neither installed nor required on the Windows development/production target, so `allowScripts.fsevents = false`. npm's supported deny command cannot select this platform-excluded package from Windows `node_modules`; the project policy records the equivalent explicit denial directly.
+
+`.npmrc` sets `strict-allow-scripts=true` so any future install script without an individual allow/deny decision fails installation rather than producing only a warning. Do not replace this with `ignore-scripts=true`, a blanket approval or `dangerously-allow-all-scripts`.
 
 ## Verified day-to-day commands
 
