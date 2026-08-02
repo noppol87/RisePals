@@ -8,13 +8,15 @@ import {
   productLoopSteps,
   type LandingCatalog,
 } from "@/lib/i18n/catalogs";
+import { assessmentPath, type Locale } from "@/lib/i18n/config";
 
 type PublicNarrativeProps = Readonly<{
   evidence: readonly PublishedEvidence[];
+  locale: Locale;
   messages: LandingCatalog;
 }>;
 
-export function PublicNarrative({ evidence, messages }: PublicNarrativeProps) {
+export function PublicNarrative({ evidence, locale, messages }: PublicNarrativeProps) {
   return (
     <Stack className="landing-page">
       <section className="landing-hero" aria-labelledby="landing-hero-heading">
@@ -23,7 +25,7 @@ export function PublicNarrative({ evidence, messages }: PublicNarrativeProps) {
         <p className="landing-hero__lead">{messages.hero.introduction}</p>
         <p className="landing-hero__supporting">{messages.hero.supporting}</p>
         <div className="landing-hero__action">
-          <TextLink className="narrative-cta" href="#why-now">
+          <TextLink className="narrative-cta" href={assessmentPath(locale)}>
             {messages.hero.ctaLabel}
           </TextLink>
           <p>{messages.hero.availability}</p>

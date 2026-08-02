@@ -58,18 +58,20 @@ test("both evidence items expose attribution, limitations, and exact source dest
   await expect(page).toHaveURL(/\/en$/);
 });
 
-test("the honest CTA targets public explanation without collecting data", async ({ page }) => {
+test("the honest CTA opens the locale-matched player without collecting data on landing", async ({
+  page,
+}) => {
   await page.goto("/th");
 
-  const cta = page.getByRole("link", { name: "ดูหลักฐานว่าโลกงานกำลังเปลี่ยนอย่างไร" });
-  await expect(cta).toHaveAttribute("href", "#why-now");
-  await expect(page.getByText(/แบบประเมินและ onboarding ยังไม่เปิด/)).toBeVisible();
-  await expect(page.getByText(/หน้านี้ไม่เก็บข้อมูลของคุณ/)).toBeVisible();
+  const cta = page.getByRole("link", { name: "ทดลอง 6 สถานการณ์จำลอง" });
+  await expect(cta).toHaveAttribute("href", "/th/assessment");
+  await expect(page.getByText(/ยังไม่ใช่แบบประเมินที่ผ่านการตรวจสอบ/)).toBeVisible();
+  await expect(page.getByText(/เก็บเฉพาะรหัสตัวเลือกชั่วคราว/)).toBeVisible();
   await expect(page.locator("input, textarea, select, form")).toHaveCount(0);
 
   await cta.click();
-  await expect(page).toHaveURL(/\/th#why-now$/);
-  await expect(page.getByRole("heading", { name: /เห็นสัญญาณให้ชัด/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/th\/assessment$/);
+  await expect(page.getByRole("heading", { name: /ทดลองตอบ 6 สถานการณ์จำลอง/ })).toBeVisible();
 });
 
 test("the page exposes the complete product loop and the 8+2 distinction", async ({ page }) => {
@@ -84,7 +86,7 @@ test("the page exposes the complete product loop and the 8+2 distinction", async
   await expect(page.getByRole("heading", { name: "8 core competencies" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "+2 behavioural multipliers" })).toBeVisible();
   await expect(page.getByText(/not ninth and tenth core skills/)).toBeVisible();
-  await expect(page.getByText(/no assessment questions, scores, weights/)).toBeVisible();
+  await expect(page.getByText(/exposes no score or weights/)).toBeVisible();
 });
 
 test("unsupported locale segments return not found", async ({ page }) => {
@@ -107,9 +109,7 @@ test("the skip link is first, visibly focused, and moves focus to main", async (
   await expect(page.getByRole("main")).toBeFocused();
 
   await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("link", { name: "ดูหลักฐานว่าโลกงานกำลังเปลี่ยนอย่างไร" }),
-  ).toBeFocused();
+  await expect(page.getByRole("link", { name: "ทดลอง 6 สถานการณ์จำลอง" })).toBeFocused();
 });
 
 test("the 320px and 400%-equivalent reflow view has no horizontal overflow", async ({ page }) => {

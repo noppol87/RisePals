@@ -99,3 +99,12 @@
 - **Reason:** ชุดคำถามจำลองหกข้อครอบคลุม core เพียง 2 จาก 8 ด้านและ multiplier ด้านละหนึ่งสถานการณ์ จึงไม่มีหลักฐานเพียงพอสำหรับคะแนนรวม pattern พฤติกรรม ความมั่นใจ หรือการพยากรณ์บุคคล
 - **Consequence:** canonical core weights ยังคงเป็น metadata รวม 100% แต่ไม่ถูกใช้สร้าง partial aggregate; +2 ไม่คูณหรือเปลี่ยน core signals; output และ explanation ต้องระบุว่า provisional/fixture-only, แสดงหก core ที่ยังไม่ถูกประเมิน และห้ามใช้ทำนาย job loss, job performance, employability หรือ hiring eligibility
 - **Open:** assessment methodology, psychometric/content validation, calibration, confidence semantics, proficiency mapping, priority logic และการใช้ผลกับ UX จริงต้องผ่าน review และ turn แยกก่อน
+
+## D-014 — Prototype-only assessment resume state
+
+- **Date:** 2026-08-02
+- **Status:** Accepted by Jeff in RP-TURN-007 authorization
+- **Decision:** RP-TURN-007 ใช้ versioned same-tab `sessionStorage` เท่านั้นเพื่อ resume ขั้นและตัวเลือกของ player โดยเก็บเฉพาะ storage schema version, assessment version ID, phase/current item และคู่ item/option IDs ที่เลือก; selected IDs จัดเป็นข้อมูล assessment ระดับ P3 แม้อยู่ใน browser ชั่วคราว
+- **Reason:** ทดสอบ usability ของ multi-step flow และ refresh recovery ได้โดยไม่สร้าง account, cookie, API, server persistence, consent receipt, analytics หรือ dependency เพิ่ม
+- **Consequence:** payload ต้องใช้ exact allowlist, validate กับ assessment definition ปัจจุบัน, ล้าง record ที่ malformed/unknown/incomplete/version-incompatible, ทำงานต่อได้เมื่อ storage ถูก block และมี clear action โดยผู้ใช้; ห้ามเก็บ copy, rubric, target, weight, score, timestamp, profile หรือ free text และห้ามส่งคำตอบใน URL/log/network
+- **Open:** durable/cross-device resume, authentication, consent, retention, export/deletion, server-side assessment sessions/responses และ production storage ต้องผ่าน privacy/product review และ turn แยก; decision นี้ห้ามใช้เป็น production persistence design

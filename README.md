@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-006 synthetic assessment-domain contract accepted / no assessment player, real assessment, data collection or persistence  
+**Project status:** RP-TURN-007 assessment player prototype accepted / no validated assessment, result, server response collection or durable persistence  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -58,32 +58,37 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaces the structural verification panel with a bounded public narrative prototype; it is not onboarding, assessment or a production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios; none of these turns creates onboarding, a validated assessment, a result or a production launch.
 
 Locale routes:
 
 - `/` redirects to the Thai default at `/th`
 - `/th` renders the Thai shell and catalog
 - `/en` renders the prepared English shell and catalog
+- `/th/assessment` and `/en/assessment` render the matching six-scenario player prototype
 - unsupported locale segments return not found
 
 The public narrative now provides:
 
-- Thai-first optimistic-realism hero copy with an honest internal CTA and no data collection
+- Thai-first optimistic-realism hero copy with an honest locale-matched CTA to the prototype and no landing-page collection
 - exactly two localized evidence items from the ILO–NASK occupational-exposure study and the World Economic Forum Future of Jobs Report 2025
 - visible source, date, geography, method/context, limitation and review metadata for every evidence item
 - the complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity loop
 - a compact preview that keeps the eight core competencies distinct from the two behavioural multipliers
-- no assessment questions, scoring, personalized risk, waitlist form, pricing, account creation or external runtime fetch
+- no scoring, personalized risk, waitlist form, pricing, account creation or external runtime fetch
 
-The repository also contains the accepted RP-TURN-006 versioned synthetic assessment-domain contract. It is not connected to the public routes and provides:
+The repository also contains the accepted RP-TURN-006 versioned synthetic assessment-domain contract. RP-TURN-007 reads its reviewed item wording through a client-safe presentation adapter while keeping the scoring contract out of the interactive client boundary. The domain contract provides:
 
 - exactly six synthetic bilingual scenario-choice items: two Critical Thinking & Fact-Checking, two Systematic Thinking, one Ownership Thinking and one Sense of Urgency
 - all eight canonical core identities and exact weights, with both behavioural multipliers structurally separate and unweighted
 - pure deterministic integer-rubric scoring with earned/available points, evidence counts and traceable item keys
 - two synthetic raw-response fixtures kept separate from expected scores and expected explanations
 - explicit provisional limitations, six unassessed core competencies and no overall score, proficiency stage, priority recommendation or employment implication
-- no React/Next.js route, browser API, profile, session, personal data, persistence or dependency addition
+- no profile, server assessment session, durable persistence or dependency addition
+
+The RP-TURN-007 player presents exactly those six accepted items one at a time with native radio groups, accessible progress and validation, Back/Continue controls and an explicit no-result completion state. A server-side adapter sends the interactive Client Component only localized prompts, item identity/order and option IDs/labels; scoring and explanation internals stay out of the client boundary.
+
+For same-tab refresh recovery only, the player may store a versioned allowlisted payload in `sessionStorage`: the assessment version, player phase/current item and selected item/option IDs. Selected IDs are sensitive assessment data even though they remain local and temporary. The payload contains no copy, rubric, score, timestamp, profile field or free text; malformed or incompatible state is cleared, blocked storage does not crash the flow, and the user can clear state explicitly. Nothing is sent to an API or persisted on a server.
 
 Verified prerequisites for this branch:
 
@@ -110,7 +115,7 @@ npm run test:e2e:install
 npm run test:e2e
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, language switching, evidence attribution/limitations/source destinations, the honest CTA, keyboard and skip-link behavior, 320px reflow, desktop layout, reduced motion, absence of unexpected third-party requests and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, 320px reflow, desktop layout, reduced motion, absence of answer data in URLs/requests, absence of unexpected third-party requests and serious/critical axe findings.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
 
@@ -127,4 +132,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is Accepted. Its outcome is a versioned synthetic contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation. No assessment player, real assessment, onboarding, personalized result, lesson, profile, user data collection, persistence, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-007 — Assessment Player Prototype is the next recommended turn but is not authorized or started.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract and RP-TURN-007 — Assessment Player Prototype are Accepted. The player is a Thai/English usability prototype for six synthetic scenarios and produces no score, proficiency, priority gap, result or recommendation. Selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but no response is sent to a server and no durable assessment session, onboarding, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-008 — Skill Map and Priority Result Prototype is recommended but has not been started or authorized.

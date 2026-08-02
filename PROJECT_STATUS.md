@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Versioned synthetic assessment-domain contract accepted; no assessment player, real assessment, user data collection or persistence  
-**Current turn:** RP-TURN-006 Accepted
+**Current phase:** Accessible session-only assessment player prototype accepted; no validated assessment, result, server-side response collection or durable persistence  
+**Current turn:** RP-TURN-007 Accepted
 
 ## Locked decisions
 
@@ -58,6 +58,11 @@
 - Separate synthetic raw-response, expected-score, expected-explanation and localized limitation contracts with traceable item keys
 - Explicit runtime validation for framework and item target kinds, preserving the authorized 2/2/1/1 slice and deterministic scoring boundary
 - RP-TURN-006 versioned synthetic assessment-domain contract and quality gates accepted by Project Codex
+- Thai-first `/th/assessment` and English-complete `/en/assessment` prototype routes using the accepted six synthetic scenarios and locale shell
+- Client-safe assessment view stripped of rubric points, target mappings, framework weights, scoring configuration and explanation internals
+- Accessible one-question flow with native radio groups, honest current/answered progress, Back/Continue behavior, focus management, inline validation and a no-result completion state
+- Versioned same-tab `sessionStorage` resume containing only assessment/player state plus selected item/option IDs, with strict validation, safe discard and explicit clearing
+- RP-TURN-007 assessment player prototype, privacy/client boundaries and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -90,11 +95,11 @@
 
 ## Next recommended action
 
-**RP-TURN-007 — Assessment Player Prototype**
+**RP-TURN-008 — Skill Map and Priority Result Prototype**
 
-Recommended goal after separate authorization: prototype the assessment player against the accepted synthetic domain contract without representing the fixture as a validated real assessment.
+Recommended goal after separate authorization: design a bounded skill-map and priority-result prototype without weakening the accepted assessment-validation, confidence, privacy or no-employment-prediction boundaries.
 
-RP-TURN-006 is Accepted. RP-TURN-007 is the next recommended turn but is not authorized. No assessment player, real assessment, onboarding, personalized result, lesson, user data collection, persistence, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007 is Accepted. The prototype may keep selected item/option IDs temporarily in the current browser tab's `sessionStorage`; it sends no response to a server and creates no durable assessment session, score, personalized result, recommendation, onboarding, profile, authentication, database, CI, production service or deployment. RP-TURN-008 is recommended but has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -107,3 +112,4 @@ RP-TURN-006 is Accepted. RP-TURN-007 is the next recommended turn but is not aut
 | 004 | Accepted | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification accepted by Project Codex |
 | 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
+| 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |

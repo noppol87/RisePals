@@ -16,3 +16,7 @@ export function isLocale(value: string): value is Locale {
 export function localePath(locale: Locale): `/${Locale}` {
   return `/${locale}`;
 }
+
+export function assessmentPath(locale: Locale): `/${Locale}/assessment` {
+  return `/${locale}/assessment`;
+}

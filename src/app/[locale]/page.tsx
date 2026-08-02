@@ -17,5 +17,11 @@ export default async function PublicNarrativePage({ params }: PublicNarrativePag
 
   const evidence = getPublishedEvidence(resolved.locale);
 
-  return <PublicNarrative evidence={evidence} messages={resolved.catalog.landing} />;
+  return (
+    <PublicNarrative
+      evidence={evidence}
+      locale={resolved.locale}
+      messages={resolved.catalog.landing}
+    />
+  );
 }
