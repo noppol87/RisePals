@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Design foundation, localized app shell and quality gates pending review; no product features implemented  
-**Current turn:** RP-TURN-004 complete pending Project Codex review
+**Current phase:** Design foundation, localized app shell and quality gates accepted; no product features implemented  
+**Current turn:** RP-TURN-004 accepted
 
 ## Locked decisions
 
@@ -46,7 +46,7 @@
 - Thai-first `/th` and prepared English `/en` route boundary, with `/` default redirect, deterministic unsupported-locale handling and correct document language
 - Matching typed Thai/English shell catalogs resolved server-side, semantic app shell, real-link language switcher, accessible layout primitives and provisional semantic design tokens
 - Pinned Chromium-only Playwright and axe browser-test foundation covering locale routing, keyboard/focus, 320px reflow, desktop layout, reduced motion and serious/critical accessibility findings
-- RP-TURN-004 implementation complete on bounded branch `agent/design-foundation`, pending Project Codex review
+- RP-TURN-004 design foundation, localized app shell and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -77,13 +77,13 @@
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
-## Next recommended action
+## Next recommended turn
 
-**Project Codex review of RP-TURN-004 — Design Foundation, App Shell and Localization**
+**RP-TURN-005 — Public Narrative and Evidence Contract**
 
-Goal: inspect the bounded implementation, exact verification evidence and Draft PR before accepting, revising or authorizing any later work.
+Goal: establish the landing narrative structure with a source-backed evidence-block contract and an honest CTA placeholder after a separate approved turn brief.
 
-RP-TURN-004 remains pending Project Codex review. RP-TURN-005 is not authorized. No landing narrative, assessment, lesson, product feature, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-004 is accepted. RP-TURN-005 is the next recommended turn but is not authorized. No landing narrative, assessment, lesson, product feature, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -93,4 +93,4 @@ RP-TURN-004 remains pending Project Codex review. RP-TURN-005 is not authorized.
 | 001 | Accepted | Architecture/data/plan/local baseline, Public `noppol87/RisePals` decision, first-push security gates and canonical workflow/status/decision/template updates verified |
 | 002 | Accepted | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
 | 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |
-| 004 | Complete pending review | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification prepared on a bounded Draft PR |
+| 004 | Accepted | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification accepted by Project Codex |

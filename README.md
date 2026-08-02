@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Design foundation, localized app shell and quality gates pending review / no product features  
+**Project status:** Design foundation, localized app shell and quality gates accepted / no product features  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 adds a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. The current page remains structural verification content; it is not the Rise Pals landing page or a product experience.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. The current page remains structural verification content; it is not the Rise Pals landing page or a product experience.
 
 Locale routes:
 
@@ -109,4 +109,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-No landing narrative, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-004 is complete on its bounded branch and remains pending Project Codex review; its Draft PR must not be merged by this turn. RP-TURN-005 has not been authorized.
+No landing narrative, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-004 has passed Project Codex review and is accepted. RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but it has not been authorized.

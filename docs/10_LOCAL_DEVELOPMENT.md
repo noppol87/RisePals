@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-004  
-**Status:** Verified host, source-control, application scaffold and localized shell baseline; no product feature or deployment exists  
+**Status:** RP-TURN-004 localized shell baseline accepted; no product feature or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -385,8 +385,8 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 
 ## Current boundary after RP-TURN-004
 
-- The localized shell branch remains pending Project Codex review and its Draft PR must not be merged by this turn.
+- The RP-TURN-004 localized shell baseline has passed Project Codex review and is accepted.
 - No cloud or paid provider, database, product feature, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository now supplies reproducible local browser checks.
 - Exact visual identity, final color/typography and the Pal character system remain open.
-- No landing narrative, assessment, lesson or RP-TURN-005 implementation was created or authorized.
+- RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but no landing narrative, assessment, lesson or RP-TURN-005 implementation was created or authorized.
