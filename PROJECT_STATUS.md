@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Git and Public GitHub foundation established; pending Project Codex review  
-**Current turn:** RP-TURN-002 complete pending Project Codex review
+**Current phase:** Application scaffold and quality gates accepted; no product features implemented  
+**Current turn:** RP-TURN-003 Accepted
 
 ## Locked decisions
 
@@ -39,6 +39,10 @@
 - RP-TURN-002 Git/Public-GitHub brief and corrected engineering-turn sequence
 - Git `2.55.0.windows.3`, GitHub CLI `2.97.0` and Gitleaks `8.30.1` verified from official releases
 - Reviewed 20-file initial foundation baseline published without force to Public `noppol87/RisePals`
+- Official Node.js `24.18.1` LTS x64 and bundled npm `11.16.0` installed per-user with matching official SHA-256 and a valid OpenJS Foundation executable signature
+- Minimal Next.js `16.2.12` App Router scaffold on bounded branch `agent/application-scaffold`, with React `19.2.4`, strict TypeScript, Tailwind CSS tokens and Server Components by default
+- Reproducible npm lockfile, typed server-only environment boundary, semantic scaffold render tests and format/lint/typecheck/test/build gates
+- RP-TURN-003 application scaffold and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -55,7 +59,6 @@
 - Exact visual identity, color, typography and Pal character system
 - Localization library and translation operations beyond the Thai-first route/catalog contract
 - Pilot audience and recruitment method
-- Installation of Node.js 24 LTS/npm for the separately authorized scaffold turn
 
 ## Current risks
 
@@ -65,17 +68,18 @@
 - Gamification can reward superficial activity unless XP is tied to practice and demonstrated capability
 - Self-learning content production may become the largest operational bottleneck
 - Assessment, career and employment data will require strong privacy controls
-- Node.js, npm and the VS Code CLI are not currently available in the checked shell, so scaffolding remains a separately authorized turn
+- The scaffold proves the toolchain only; it contains no validated product flow and must not be presented as Milestone 1 user-experience progress
+- Current npm audits pass only with reviewed lockfile overrides for vulnerable transitive PostCSS and Sharp versions; future Next.js upgrades must re-evaluate and remove overrides when upstream is safe
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended turn
 
-**Project Codex review of RP-TURN-002**
+**RP-TURN-004 — Design Foundation, App Shell and Localization**
 
-Goal: Project Codex verifies the actual initial commit, matching local/remote hashes, Public repository inventory, security scans, credential cleanup and factual documentation updates, then returns Accepted, Revision required or Decision required.
+Goal: establish the approved design foundation, application shell and Thai-first localization boundary under a separately approved implementation brief.
 
-No next implementation turn is authorized by this status file. RP-TURN-003, branch protection/CI and VPS infrastructure work each require their own approved brief.
+RP-TURN-004 is not yet authorized. No product feature, CI, database, production service or deployment exists; RP-TURN-004, branch protection/CI and VPS infrastructure work each require their own approved brief.
 
 ## Turn history
 
@@ -83,4 +87,5 @@ No next implementation turn is authorized by this status file. RP-TURN-003, bran
 |---|---|---|
 | 000 | Complete | Initialized the Rise Pals project folder and operating documents |
 | 001 | Accepted | Architecture/data/plan/local baseline, Public `noppol87/RisePals` decision, first-push security gates and canonical workflow/status/decision/template updates verified |
-| 002 | Complete pending review | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
+| 002 | Accepted | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
+| 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |
