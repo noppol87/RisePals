@@ -1,0 +1,11 @@
+.next/
+coverage/
+node_modules/
+
+# Existing product and process documents retain their reviewed formatting.
+AGENTS.md
+PROJECT_STATUS.md
+README.md
+docs/
+prompts/
+content/

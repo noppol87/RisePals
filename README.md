@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Product foundation / pre-development  
-**Last updated:** 2026-08-01
+**Project status:** Application scaffold and quality gates / no product features  
+**Last updated:** 2026-08-02
 
 ## Product thesis
 
@@ -49,8 +49,43 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 - [Product Roadmap](docs/04_PRODUCT_ROADMAP.md)
 - [Brand, Visual and Content Principles](docs/05_BRAND_VISUAL_CONTENT.md)
 - [Codex Collaboration Workflow](docs/06_CODEX_COLLABORATION_WORKFLOW.md)
+- [Technical Architecture](docs/07_TECHNICAL_ARCHITECTURE.md)
+- [Data Model](docs/08_DATA_MODEL.md)
+- [Engineering Plan](docs/09_ENGINEERING_PLAN.md)
+- [Local Development](docs/10_LOCAL_DEVELOPMENT.md)
 - [Decision Log](docs/DECISION_LOG.md)
 - [Current Project Status](PROJECT_STATUS.md)
+
+## Application foundation
+
+RP-TURN-003 adds one minimal Next.js App Router application at the repository root. It uses React, strict TypeScript, Tailwind CSS design tokens, Server Components by default, typed server-only environment parsing, Vitest and Testing Library. The page is a neutral scaffold used to prove the toolchain; it is not the Rise Pals landing page or a product experience.
+
+Verified prerequisites for this branch:
+
+- Node.js `24.18.1` LTS x64
+- npm `11.16.0`
+
+Install from the committed lockfile and run the local application:
+
+```powershell
+npm ci
+npm run dev
+```
+
+Run individual quality gates or the aggregate gate:
+
+```powershell
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run check
+```
+
+Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional in this scaffold and must be an absolute URL when provided. Never commit a real `.env` file or secret.
+
+The exact install, verification results and Windows notes are recorded in [Local Development](docs/10_LOCAL_DEVELOPMENT.md).
 
 ## วิธีทำงานของโปรเจกต์
 
@@ -61,7 +96,6 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ทุก turn ต้องจบด้วย handoff ที่ตรวจสอบได้ จากนั้น Project Codex จะอ่านไฟล์และ diff จริงก่อนออก brief รอบถัดไป รายละเอียดอยู่ใน [Codex Collaboration Workflow](docs/06_CODEX_COLLABORATION_WORKFLOW.md)
 
-## Next action
+## Current boundary
 
-เริ่มด้วย [Turn 001 — Repository Foundation and Technical Architecture](prompts/TURN_001_REPO_FOUNDATION.md) โดยนำ copy block ในไฟล์ไปให้ Codex ใน VS Code ทำงาน
-
+No assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-003 remains pending Project Codex review; later implementation requires a separately approved turn.

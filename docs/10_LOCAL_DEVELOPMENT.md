@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-002  
-**Status:** Verified host baseline plus established Git/Public-GitHub source-control baseline; no application or deployment exists  
+**Turn:** RP-TURN-003  
+**Status:** Verified host, source-control and minimal application-scaffold baseline; no product feature or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -31,8 +31,9 @@ C:\Codex PC SG2\Jeff\risepals
 | Shell | Windows PowerShell 5.1.20348.1, Desktop edition |
 | Git | Git for Windows `2.55.0.windows.3`, official signed PortableGit distribution installed per-user |
 | GitHub CLI | `gh 2.97.0`, official checksum-verified ZIP installed per-user |
-| Node.js | Not found in `PATH` |
-| npm / npx / Corepack | Not found in `PATH` |
+| Node.js | `v24.18.1` LTS (Krypton), official x64 ZIP installed per-user; official SHA-256 matched and `node.exe` has a valid OpenJS Foundation signature |
+| npm / npx | Bundled npm `11.16.0`; resolves from the same per-user Node.js directory |
+| Corepack | Not required or enabled by this npm-based scaffold |
 | pnpm / Yarn / Bun / Deno | Not found in `PATH` |
 | Python / Python launcher | Not found in `PATH` |
 | Docker CLI | Not found in `PATH` |
@@ -41,7 +42,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. It did not install Node.js, scaffold an application or change a service/deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm, created the bounded `agent/application-scaffold` branch and established the minimal application/tooling baseline. It did not create a product feature, service or deployment.
 
 ## Environment commands actually executed
 
@@ -69,15 +70,15 @@ wsl --list --quiet
 
 ## Development prerequisites
 
-Git and GitHub CLI were installed only for the authorized RP-TURN-002 source-control work. Node.js/npm remain absent and belong to the separately authorized RP-TURN-003 scaffold turn.
+Git and GitHub CLI were installed for the authorized RP-TURN-002 source-control work. RP-TURN-003 installed Node.js/npm from the official current Node 24 LTS distribution without requiring elevation.
 
 ### Required
 
-1. **Node.js 24 LTS x64** from the [official Node.js download page](https://nodejs.org/en/download), with bundled npm — proposed for RP-TURN-003 only after authorization
+1. **Node.js 24 LTS x64** from the [official Node.js download page](https://nodejs.org/en/download), with bundled npm — installed as Node.js `24.18.1` and npm `11.16.0`; `.node-version`, `package.json` engines and `packageManager` record the baseline
 2. **Git for Windows** from [git-scm.com](https://git-scm.com/download/win), added to the terminal `PATH` — installed in RP-TURN-002 as a verified per-user PortableGit distribution
 3. An editor that preserves UTF-8; VS Code is recommended but its CLI is optional
 
-Why Node 24: the official Node release table listed v24 as LTS on 2026-08-01 and recommends LTS lines for production. Avoid v26 Current until it becomes an accepted LTS baseline and project dependencies support it.
+Why Node 24: the official Node distribution index listed v24.18.1 as the current Krypton LTS release on 2026-08-02. Avoid v26 Current until it becomes an accepted LTS baseline and project dependencies support it.
 
 ### Not required yet
 
@@ -89,7 +90,7 @@ Why Node 24: the official Node release table listed v24 as LTS on 2026-08-01 and
 
 ## Runtime prerequisite verification
 
-Git/gh versions were verified in RP-TURN-002. After installing Node in a separately approved scaffold turn, reopen the terminal and run:
+Git/gh versions were verified in RP-TURN-002. Node/npm were verified in RP-TURN-003 with:
 
 ```powershell
 git --version
@@ -103,11 +104,7 @@ where.exe node
 where.exe npm
 ```
 
-Expected policy, not an asserted result:
-
-- Node reports major version 24
-- npm/npx resolve from the same Node installation
-- Git resolves from Git for Windows
+Verified result: Node reports `v24.18.1`, npm reports `11.16.0`, npm/npx resolve from `C:\Users\Administrator\AppData\Local\Programs\node-v24.18.1-win-x64`, and Git continues to resolve from the verified per-user PortableGit distribution.
 
 If a future supported Next.js or Playwright release changes its Node support before scaffolding, review the official requirements and record the new LTS choice rather than forcing an incompatible version.
 
@@ -141,9 +138,9 @@ authorized bounded branch → commit → public GitHub noppol87/RisePals → pul
 
 GitHub stores source/history, not `.env`, credentials, database dumps, uploads, generated production data, runtime logs, telemetry or backups.
 
-## Proposed repository shape
+## Established repository shape
 
-**Proposed — no application directories exist yet:** RP-TURN-003 should keep one application at the repository root:
+RP-TURN-003 keeps one application at the repository root:
 
 ```text
 content/                 trusted, versioned lesson and evidence-claim source
@@ -154,12 +151,10 @@ src/
   modules/               domain/application modules with public entry points
   components/            shared accessible UI primitives
   lib/                   narrow cross-cutting infrastructure/configuration
-tests/
-  integration/           disposable PostgreSQL and boundary tests
-  e2e/                   Playwright critical journeys
+tests/                    Vitest render and configuration tests
 ```
 
-Do not create a monorepo, separate API service or shared-package workspace until a real second deployable/package makes that complexity useful.
+No `public/` directory is required by the current page. Integration/E2E suites, a monorepo, a separate API and shared-package workspaces remain deferred until a real boundary requires them.
 
 ## Proposed production-host layout
 
@@ -207,23 +202,24 @@ These requirements belong to a later bounded VPS infrastructure-readiness turn a
 
 Docker, WSL and Linux are not assumed. Caddy/Windows services and IIS/ARR are candidates documented in `docs/07_TECHNICAL_ARCHITECTURE.md`; neither is installed or selected.
 
-## Proposed scaffold behavior
+## Verified scaffold behavior
 
-**Proposed — not executed:** the scaffold turn should create a Next.js App Router project with:
+RP-TURN-003 used Create Next App `16.2.12` only in a temporary directory to review the current official template, then added reviewed files explicitly to the non-empty repository. The scaffold provides:
 
-- TypeScript strict mode
+- TypeScript strict mode with `skipLibCheck: false`, unchecked-index access checks and exact optional-property types
 - `src/` directory and `@/*` import alias
 - ESLint and an explicit formatter check
-- Tailwind CSS plus design tokens
-- npm lockfile
-- test scripts and a minimal build/render check
-- server-only environment validation
+- Tailwind CSS `4.3.3` plus CSS custom-property design tokens
+- an exact npm lockfile and Node/npm pins
+- Vitest `4.1.10`, Testing Library and jsdom semantic render/configuration tests
+- typed server-only `APP_BASE_URL` validation with no required secret and no `NEXT_PUBLIC_` value
+- a neutral semantic page, responsive defaults, visible focus and reduced-motion baseline
 
-The repository is already non-empty, so RP-TURN-003 must verify the current `create-next-app` behavior before choosing between a controlled temporary scaffold/merge and a reviewed manual root scaffold. It must preserve all existing documents and report every created file. This document deliberately does not prescribe a command that could overwrite the current repository.
+Selected runtime versions are Next.js `16.2.12`, React/React DOM `19.2.4` and `server-only` `0.0.1`. The initial official template graph exposed high-severity advisories through Next's pinned PostCSS and optional Sharp dependencies. The reviewed root graph overrides only those transitive versions to PostCSS `8.5.25` and Sharp `0.35.3`; clean install, unit tests, production build and both audits verify the result. Remove these overrides when a future reviewed Next.js release no longer needs them.
 
-## Proposed day-to-day commands
+## Verified day-to-day commands
 
-**Proposed — scripts do not exist and were not run:** after the scaffold turn defines them:
+The scaffold defines and verifies:
 
 ```powershell
 npm ci
@@ -232,13 +228,28 @@ npm run format:check
 npm run lint
 npm run typecheck
 npm run test
-npm run test:integration
-npm run test:e2e
-npm run content:validate
+npm run test:watch
 npm run build
+npm run check
 ```
 
 Use `npm ci` for clean/CI installs and commit `package-lock.json`. Developers may use `npm install` only when deliberately changing dependencies and must review the lockfile diff.
+
+RP-TURN-003 verification on 2026-08-02:
+
+| Command | Exact result |
+|---|---|
+| `node --version` | PASS — `v24.18.1` |
+| `npm --version` | PASS — `11.16.0` |
+| `npm ci` | PASS — 458 packages installed, 459 audited, 0 vulnerabilities |
+| `npm run format:check` | PASS — all matched files use Prettier style |
+| `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`) |
+| `npm run typecheck` | PASS — strict `tsc --noEmit`, exit 0 |
+| `npm run test` | PASS — 2 files and 3 tests passed |
+| `npm run build` | PASS — optimized Next.js 16.2.12 build; `/` and `/_not-found` statically generated |
+| `npm run check` | PASS — aggregate format, lint, typecheck, test and build gates |
+| `npm audit --omit=dev` | PASS — 0 production vulnerabilities |
+| `npm audit` | PASS — 0 vulnerabilities across production and development graph |
 
 ## Environment-variable policy
 
@@ -304,8 +315,9 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current blockers for RP-TURN-003
+## Current boundary after RP-TURN-003
 
-- Node.js 24 LTS/npm installation remains separately authorized work for the application-scaffold turn; it is currently absent.
-- No cloud or paid provider, production service or deployment is needed to begin the local scaffold after that authorization.
-- CI and branch protection remain separate decisions until the scaffold supplies real checks.
+- The scaffold branch remains pending Project Codex review and must not be merged by this turn.
+- No cloud or paid provider, database, product feature, production service or deployment was created.
+- CI and branch protection remain separately authorized work even though the scaffold now supplies real local checks.
+- Full Thai-first locale routing and the first product-facing experience remain RP-TURN-004-or-later work.
