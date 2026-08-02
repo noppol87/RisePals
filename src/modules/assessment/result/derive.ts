@@ -12,7 +12,17 @@ import { scoreAssessmentFixture } from "@/modules/assessment/scoring";
 export const SYNTHETIC_EXAMPLE_RESULT_CONTRACT_VERSION_ID = "synthetic-example-result-contract-v1";
 export const VISIBLE_SYNTHETIC_EXAMPLE_FIXTURE_ID = "synthetic-mixed-review";
 
+const fixtureKeys = [
+  "assessmentId",
+  "fixtureId",
+  "frameworkVersionId",
+  "responses",
+  "scoringModelId",
+] as const;
+const responseKeys = ["itemKey", "optionId"] as const;
+
 export function getVisibleSyntheticExampleFixture(): SyntheticFixtureInput {
+  validateReviewedSyntheticFixtureRegistry(syntheticRawResponseFixtures);
   const fixture = syntheticRawResponseFixtures.find(
     (candidate) => candidate.fixtureId === VISIBLE_SYNTHETIC_EXAMPLE_FIXTURE_ID,
   );
@@ -28,7 +38,8 @@ export function deriveSyntheticExampleResult(
   fixture: SyntheticFixtureInput,
   nextPractice: ExampleNextPracticeDefinition = exampleNextPracticeDefinition,
 ): SyntheticExampleResult {
-  const score = scoreAssessmentFixture(fixture);
+  const reviewedFixture = resolveReviewedSyntheticFixture(fixture);
+  const score = scoreAssessmentFixture(reviewedFixture);
   validateExampleNextPractice(nextPractice, score);
 
   const multiplierObservations = score.multiplierObservations.map((observation) => {
@@ -50,7 +61,7 @@ export function deriveSyntheticExampleResult(
     contractVersionId: SYNTHETIC_EXAMPLE_RESULT_CONTRACT_VERSION_ID,
     exampleOnly: true,
     source: "reviewed-synthetic-fixture",
-    fixtureId: fixture.fixtureId,
+    fixtureId: reviewedFixture.fixtureId,
     assessmentVersionId: score.assessmentId,
     frameworkVersionId: score.frameworkVersionId,
     scoringModelVersionId: score.scoringModelId,
@@ -67,7 +78,7 @@ export function deriveSyntheticExampleResult(
       definitionId: nextPractice.id,
       definitionVersion: nextPractice.version,
       exampleOnly: true,
-      fixtureId: fixture.fixtureId,
+      fixtureId: reviewedFixture.fixtureId,
       targetCompetencyId: nextPractice.targetCompetencyId,
       scoringModelVersionId: nextPractice.scoringModelVersionId,
       scoringModelVersion: nextPractice.scoringModelVersion,
@@ -75,6 +86,120 @@ export function deriveSyntheticExampleResult(
       plannedLesson: { ...nextPractice.plannedLesson },
     },
   };
+}
+
+export function validateReviewedSyntheticFixtureRegistry(
+  registry: readonly SyntheticFixtureInput[],
+): void {
+  if (registry.length === 0) {
+    throw new Error("reviewed synthetic fixture registry must not be empty.");
+  }
+
+  const fixtureIds = new Set<string>();
+  const contentSignatures = new Map<string, string>();
+
+  for (const fixture of registry) {
+    if (!hasExactKeys(fixture, fixtureKeys)) {
+      throw new Error(
+        `reviewed synthetic fixture ${fixture.fixtureId} must use the exact canonical fixture shape.`,
+      );
+    }
+
+    if (fixtureIds.has(fixture.fixtureId)) {
+      throw new Error(
+        `reviewed synthetic fixture registry contains duplicate fixture ID: ${fixture.fixtureId}.`,
+      );
+    }
+    fixtureIds.add(fixture.fixtureId);
+
+    for (const response of fixture.responses) {
+      if (!hasExactKeys(response, responseKeys)) {
+        throw new Error(
+          `reviewed synthetic fixture ${fixture.fixtureId} must use exact response item/option pairs.`,
+        );
+      }
+    }
+
+    const contentSignature = fixtureContentSignature(fixture);
+    const existingFixtureId = contentSignatures.get(contentSignature);
+    if (existingFixtureId) {
+      throw new Error(
+        `reviewed synthetic fixture registry contains ambiguous content for ${existingFixtureId} and ${fixture.fixtureId}.`,
+      );
+    }
+    contentSignatures.set(contentSignature, fixture.fixtureId);
+  }
+}
+
+function resolveReviewedSyntheticFixture(fixture: SyntheticFixtureInput): SyntheticFixtureInput {
+  validateReviewedSyntheticFixtureRegistry(syntheticRawResponseFixtures);
+
+  const reviewedFixture = syntheticRawResponseFixtures.find(
+    (candidate) => candidate.fixtureId === fixture.fixtureId,
+  );
+  if (!reviewedFixture) {
+    throw new Error(`synthetic fixture ${fixture.fixtureId} is not an approved reviewed fixture.`);
+  }
+
+  if (!hasExactKeys(fixture, fixtureKeys)) {
+    throw new Error(
+      `synthetic fixture ${fixture.fixtureId} must exactly match the reviewed canonical fixture shape.`,
+    );
+  }
+
+  if (
+    fixture.assessmentId !== reviewedFixture.assessmentId ||
+    fixture.frameworkVersionId !== reviewedFixture.frameworkVersionId ||
+    fixture.scoringModelId !== reviewedFixture.scoringModelId
+  ) {
+    throw new Error(
+      `synthetic fixture ${fixture.fixtureId} compatibility metadata must exactly match the reviewed fixture.`,
+    );
+  }
+
+  if (!hasExactResponses(fixture, reviewedFixture)) {
+    throw new Error(
+      `synthetic fixture ${fixture.fixtureId} response item/option pairs must exactly match the reviewed fixture.`,
+    );
+  }
+
+  return reviewedFixture;
+}
+
+function hasExactResponses(
+  fixture: SyntheticFixtureInput,
+  reviewedFixture: SyntheticFixtureInput,
+): boolean {
+  return (
+    fixture.responses.length === reviewedFixture.responses.length &&
+    fixture.responses.every((response, index) => {
+      const reviewedResponse = reviewedFixture.responses[index];
+      return (
+        reviewedResponse !== undefined &&
+        hasExactKeys(response, responseKeys) &&
+        response.itemKey === reviewedResponse.itemKey &&
+        response.optionId === reviewedResponse.optionId
+      );
+    })
+  );
+}
+
+function fixtureContentSignature(fixture: SyntheticFixtureInput): string {
+  return JSON.stringify([
+    fixture.assessmentId,
+    fixture.frameworkVersionId,
+    fixture.scoringModelId,
+    fixture.responses.map((response) => [response.itemKey, response.optionId]),
+  ]);
+}
+
+function hasExactKeys(value: object, expectedKeys: readonly string[]): boolean {
+  const actualKeys = Object.keys(value).sort();
+  const sortedExpectedKeys = [...expectedKeys].sort();
+  return (
+    actualKeys.length === sortedExpectedKeys.length &&
+    actualKeys.every((key, index) => key === sortedExpectedKeys[index])
+  );
 }
 
 function validateExampleNextPractice(

@@ -2,7 +2,7 @@
 
 **Status date:** 2026-08-02  
 **Current phase:** Synthetic example-result prototype complete pending Project Codex review; no validated or personalized assessment result, server-side response collection or durable persistence  
-**Current turn:** RP-TURN-008 Complete — pending Project Codex review
+**Current turn:** RP-TURN-008-R1 Complete — pending Project Codex review
 
 ## Locked decisions
 
@@ -65,6 +65,7 @@
 - RP-TURN-007 assessment player prototype, privacy/client boundaries and quality gates accepted by Project Codex
 - Thai-first `/th/assessment/example-result` and English-complete `/en/assessment/example-result` static example routes, explicitly independent of the user's temporary player selections
 - Pure versioned `synthetic-example-result` derivation using reviewed fixture `synthetic-mixed-review`, with exact raw core signals `1/4` and `3/4`, all six unassessed core identities and two separate one-scenario multiplier observations
+- Exact reviewed-fixture provenance guard that rejects unknown IDs, changed compatibility metadata, changed response pairs and duplicate or ambiguous canonical registry identities before scoring
 - Code-native segmented evidence visualization with complete text equivalents, 320px reflow, reduced-motion compatibility and no overall/proficiency/confidence/employment inference
 - One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and planned/unavailable lesson reference `lesson-source-verification-practice-planned-v1`
 - RP-TURN-008 brief and D-015 synthetic-example-only boundary; implementation complete on the bounded feature branch pending Project Codex review
@@ -120,4 +121,4 @@ RP-TURN-007 is Accepted. RP-TURN-008 is complete pending Project Codex review an
 | 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
-| 008 | Complete — pending review | Static Thai/English synthetic example result with two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
+| 008 | R1 Complete — pending review | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |

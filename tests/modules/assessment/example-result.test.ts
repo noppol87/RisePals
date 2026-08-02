@@ -5,9 +5,11 @@ import {
   VISIBLE_SYNTHETIC_EXAMPLE_FIXTURE_ID,
   deriveSyntheticExampleResult,
   getVisibleSyntheticExampleFixture,
+  validateReviewedSyntheticFixtureRegistry,
 } from "@/modules/assessment/result/derive";
 import { exampleNextPracticeDefinition } from "@/modules/assessment/result/next-practice";
 import type { ExampleNextPracticeDefinition } from "@/modules/assessment/result/types";
+import type { SyntheticRawResponseFixture } from "@/modules/assessment/types";
 
 describe("synthetic example-result contract", () => {
   it("derives both reviewed fixtures deterministically without mutating fixture inputs", () => {
@@ -56,6 +58,72 @@ describe("synthetic example-result contract", () => {
       "ethical-judgement-governance",
       "strategic-storytelling-framing",
     ]);
+  });
+
+  it("rejects an unknown fixture ID even when every response and compatibility field is valid", () => {
+    const fixture = {
+      ...structuredClone(getVisibleSyntheticExampleFixture()),
+      fixtureId: "synthetic-unreviewed-copy",
+    };
+
+    expect(() => deriveSyntheticExampleResult(fixture)).toThrow(
+      "synthetic fixture synthetic-unreviewed-copy is not an approved reviewed fixture.",
+    );
+  });
+
+  it("rejects a known fixture ID when one valid response is altered", () => {
+    const canonicalFixture = getVisibleSyntheticExampleFixture();
+    const fixture: SyntheticRawResponseFixture = {
+      ...canonicalFixture,
+      responses: canonicalFixture.responses.map((response, index) =>
+        index === 0
+          ? { ...response, optionId: "verify-ai-summary-source-check-claims" }
+          : { ...response },
+      ),
+    };
+
+    expect(() => deriveSyntheticExampleResult(fixture)).toThrow(
+      "synthetic fixture synthetic-mixed-review response item/option pairs must exactly match the reviewed fixture.",
+    );
+  });
+
+  it.each([
+    ["assessmentId", "assessment-unreviewed-v1"],
+    ["frameworkVersionId", "framework-unreviewed-v1"],
+    ["scoringModelId", "scoring-unreviewed-v1"],
+  ] as const)(
+    "rejects a known fixture ID with altered %s compatibility metadata",
+    (field, value) => {
+      const fixture: SyntheticRawResponseFixture = {
+        ...structuredClone(getVisibleSyntheticExampleFixture()),
+        [field]: value,
+      };
+
+      expect(() => deriveSyntheticExampleResult(fixture)).toThrow(
+        "synthetic fixture synthetic-mixed-review compatibility metadata must exactly match the reviewed fixture.",
+      );
+    },
+  );
+
+  it("rejects duplicate canonical fixture IDs before resolving reviewed provenance", () => {
+    const fixture = structuredClone(getVisibleSyntheticExampleFixture());
+    const duplicateRegistry = [fixture, structuredClone(fixture)];
+
+    expect(() => validateReviewedSyntheticFixtureRegistry(duplicateRegistry)).toThrow(
+      "reviewed synthetic fixture registry contains duplicate fixture ID: synthetic-mixed-review.",
+    );
+  });
+
+  it("rejects ambiguous canonical fixture content under different identities", () => {
+    const fixture = structuredClone(getVisibleSyntheticExampleFixture());
+    const ambiguousCopy = {
+      ...structuredClone(fixture),
+      fixtureId: "synthetic-ambiguous-copy",
+    } as SyntheticRawResponseFixture;
+
+    expect(() => validateReviewedSyntheticFixtureRegistry([fixture, ambiguousCopy])).toThrow(
+      "reviewed synthetic fixture registry contains ambiguous content for synthetic-mixed-review and synthetic-ambiguous-copy.",
+    );
   });
 
   it("keeps Ownership Thinking and Sense of Urgency as separate one-scenario observations", () => {
