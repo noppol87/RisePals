@@ -1,9 +1,18 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
 import { catalogs } from "@/lib/i18n/catalogs";
 
+const navigation = vi.hoisted(() => ({ pathname: "/th" }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigation.pathname,
+}));
+
 describe("localized application shell", () => {
+  beforeEach(() => {
+    navigation.pathname = "/th";
+  });
   it("renders semantic Thai navigation, a skip target, and real locale links", () => {
     render(
       <AppShell locale="th" messages={catalogs.th.shell}>
@@ -45,6 +54,7 @@ describe("localized application shell", () => {
   });
 
   it("renders the same shell contract with intentional English labels", () => {
+    navigation.pathname = "/en";
     render(
       <AppShell locale="en" messages={catalogs.en.shell}>
         <h1>{catalogs.en.landing.hero.heading}</h1>
@@ -54,5 +64,17 @@ describe("localized application shell", () => {
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Choose language" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /Work is changing/ })).toBeVisible();
+  });
+
+  it("preserves the assessment route while switching locale", () => {
+    navigation.pathname = "/th/assessment";
+    render(
+      <AppShell locale="th" messages={catalogs.th.shell}>
+        <h1>{catalogs.th.assessment.heading}</h1>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "English" })).toHaveAttribute("href", "/en/assessment");
+    expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
   });
 });

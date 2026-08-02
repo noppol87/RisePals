@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-006  
-**Status:** RP-TURN-006 versioned synthetic assessment-domain contract accepted; no assessment player, real assessment, data collection, persistence or deployment exists  
+**Turn:** RP-TURN-007  
+**Status:** RP-TURN-007 assessment player prototype complete pending Project Codex review; no validated assessment, result, server response collection, durable persistence or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 established the accepted versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation; it creates no assessment UI, real assessment, personal data, persistence, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 established the accepted versioned synthetic assessment-domain contract. RP-TURN-007 adds the bounded player prototype and temporary browser-session state described below; it creates no validated assessment, result, server response collection, durable persistence, service or deployment.
 
 ## Environment commands actually executed
 
@@ -256,7 +256,7 @@ The clean dependency installation returned no install-script warning or pending 
 RP-TURN-005 keeps the accepted shell and Server Components as the default while replacing only the structural page content. It adds no dependency, runtime fetch, Client Component, raster/vector asset, remote font or third-party script. `/th` and `/en` remain statically generated and provide the same intentional information architecture:
 
 - an optimistic-realism hero that does not predict job loss or guarantee employment
-- an honest `#why-now` internal CTA that states assessment/onboarding are unavailable and collects no data
+- an honest locale-matched CTA to the six-scenario player prototype, stating that no validated assessment or result exists and that the landing page collects no data
 - exactly two evidence records, each with a localized claim, interpretation, constructive action, geography, method/context and visible limitation
 - direct original-source links, publication dates, last-verified dates and review dates
 - the complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity loop, with practice, feedback and proof distinguished from passive completion
@@ -293,6 +293,18 @@ RP-TURN-006-R1 also validates runtime discriminator values before target lookup:
 The contract emits no overall score, validated confidence, Aware–Leading stage, priority gap, lesson recommendation or employment/hiring field. Bilingual limitations state that the local slice is not a validated assessment and cannot predict job loss, job performance, employability or hiring eligibility.
 
 R1 replaces internal English implementation terms in Thai scenario, explanation and limitation copy with natural Thai equivalents for the system contract, scoring criteria, competency, behavioral pattern, risk guardrails and workflow. Targeted tests scan Thai values only and allow established proper names such as AI, Ownership Thinking and Sense of Urgency.
+
+## Verified assessment player prototype behavior
+
+RP-TURN-007 adds statically generated `/th/assessment` and `/en/assessment` routes. The page and app shell remain Server Components; only `AssessmentPlayer` and the narrowly route-aware `ShellNavigation` are client boundaries. Route awareness preserves the equivalent assessment route during locale switching without converting the public narrative or full shell into a Client Component.
+
+The server presentation adapter validates the accepted six-item domain and emits only assessment identity/version, localized prompt, item key/order and option ID/label. The client receives no rubric points, target mappings, framework weights, scoring-model configuration, explanation internals or raw/expected fixtures.
+
+Player transitions and loaded-state validation are pure TypeScript. The interactive island presents one exact accepted scenario at a time with native `fieldset`/`legend`/required radios, separate current-position and answered-count text, Back/Continue controls, preserved selections, inline announced errors and deliberate non-trapping focus after transitions. Completion confirms six answers but calculates and displays no score, proficiency, confidence, multiplier pattern, priority gap, result or recommendation.
+
+Same-tab refresh recovery uses `sessionStorage` key `rise-pals:assessment-player:v1` with schema version `1`. The exact allowlist is `schemaVersion`, `assessmentVersionId`, `phase`, `currentItemKey` and `selections[]` containing only `itemKey`/`optionId`. Selected IDs are P3 sensitive assessment data. No copy, rubric, score, timestamp, profile or free text is stored; no response enters a URL, cookie, log, analytics event or network request. Invalid/incompatible state is cleared, blocked storage degrades safely and the user-controlled clear/restart action removes state.
+
+The route visibly labels the experience synthetic, unvalidated and uncalibrated, states that it cannot predict job loss, performance, employability or hiring eligibility, explains local temporary storage before start, and uses `noindex, noarchive` metadata. Starting is not represented as legal consent.
 
 ## Verified day-to-day commands
 
@@ -401,6 +413,28 @@ Final RP-TURN-006-R1 verification on 2026-08-02:
 | rejected inputs | PASS — incompatible assessment/framework/scoring versions, missing/duplicate responses, unknown items/options, unknown or wrong item target kind, wrong core/multiplier definition kind, changed core weights, multiplier weights, invalid rubric maxima, impossible option points and invalid scoring scale |
 | explanation/limitation review | PASS — exact supporting-item traces and codes; complete Thai/English copy; Thai internal-implementation-term guard; explicit not-validated, job-loss, job-performance, employability, hiring and single-scenario limitations |
 
+Final RP-TURN-007 verification on 2026-08-02:
+
+| Command or review | Exact result |
+|---|---|
+| `node --version` / `npm --version` | PASS — `v24.18.1` / `11.16.0` |
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — `npm approve-scripts --allow-scripts-pending --json` reported no packages with unreviewed install scripts; `npm config get strict-allow-scripts` returned `true` |
+| `npm run format:check` | PASS — all matched files use Prettier style |
+| `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`) |
+| `npm run typecheck` | PASS — `next typegen` succeeded and strict `tsc --noEmit` exited 0 |
+| `npm run test` | PASS — 13 files and 97 tests, including pure player state/storage/view, Thai/English component behavior and existing evidence/scoring contracts |
+| `npm run build` | PASS — optimized Next.js `16.2.12` build; `/th`, `/en`, `/th/assessment` and `/en/assessment` are statically generated |
+| `npm run check` | PASS — aggregate format, lint, generated-route strict typecheck, 13 files/97 tests and production build |
+| `npm run test:e2e` | PASS — 26 Chromium tests covering locale-matched CTA, keyboard flow, missing-answer focus, Back/refresh/clear/locale resume, no-result completion, motion modes, 320px/desktop layout, axe and no answer in URL/request |
+| `npm audit --omit=dev` / `npm audit` | PASS — 0 production and 0 full-graph vulnerabilities |
+| strict UTF-8 / Markdown fences / markers / `git diff --check` | PASS — 29 changed files decode as strict UTF-8; all 25 Markdown files have balanced fences; no unresolved markers or whitespace errors |
+| dependency/config review | PASS — `package.json`, `package-lock.json` and `.npmrc` are unchanged; no dependency was added |
+| client-reference manifest | PASS — landing has only project client reference `shell-navigation.tsx`; assessment has only `shell-navigation.tsx` and `assessment-player.tsx` |
+| static client chunks | PASS — no scoring model ID, `rubricPoints`, raw fixture IDs/exports or expected fixture output markers |
+| browser privacy/network review | PASS — selected IDs remain in versioned same-tab `sessionStorage`; no unexpected third-party origin, request body or option ID in URL/request was observed |
+| Gitleaks `8.30.1` nonignored worktree scan | PASS — 95 files / approximately 504.65 KB scanned, no leaks found |
+
 ## Environment-variable policy
 
 ### Files
@@ -465,11 +499,12 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-006
+## Current boundary after RP-TURN-007
 
-- RP-TURN-006 is Accepted as a versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation.
-- The repository contains a static public narrative plus synthetic assessment-domain definitions and scoring tests, but no real assessment, onboarding, assessment player, personalized result, lesson experience, learner profile, account system, user data collection or persistence exists.
+- RP-TURN-006 is Accepted. RP-TURN-007 is complete pending Project Codex review, not Accepted.
+- The repository contains a static public narrative, synthetic assessment-domain definitions/tests and a Thai/English six-scenario usability player. It is not a validated real assessment and creates no score, personalized result, recommendation, onboarding, lesson experience, learner profile or account system.
+- Selected item/option IDs may exist temporarily in same-tab `sessionStorage`; no response is sent to a server and no durable assessment session or response persistence exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, priority logic, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-007 — Assessment Player Prototype is the next recommended turn but has not been started or authorized.
+- RP-TURN-008 has not been started or authorized.

@@ -347,6 +347,28 @@ Run-level limitations state that the slice is not a validated or calibrated asse
 
 Before scoring, validation rejects incompatible assessment/framework/scoring versions, missing required responses, duplicate responses, unknown item/option IDs, non-canonical framework weights, multiplier weights, malformed rubric scales, non-integer/out-of-range contributions and the wrong item distribution. This local contract is review material for later assessment methodology work, not evidence of scientific validity.
 
+## RP-TURN-007 session-only player boundary
+
+RP-TURN-007 adds a browser interaction prototype, not an implementation of the durable `assessment_session` or `assessment_response` entities above. It creates no database row, API request, server action, cookie, account, consent receipt, analytics event or production persistence.
+
+The presentation adapter validates the accepted domain definition on the server and passes the Client Component only the assessment identity/version plus each item's key, display order, localized prompt and option ID/label. Rubric points, target IDs/kinds, framework weights, scoring configuration, explanations and raw/expected fixture outputs do not cross this client-safe view boundary.
+
+For same-tab refresh recovery, the client may write one JSON record under `rise-pals:assessment-player:v1` in `sessionStorage` with exactly:
+
+| Field | Allowed value |
+|---|---|
+| `schemaVersion` | Integer `1` |
+| `assessmentVersionId` | Exact accepted assessment version ID |
+| `phase` | `intro`, `question` or `complete` |
+| `currentItemKey` | Current item key or `null` |
+| `selections` | Array of exact `{ itemKey, optionId }` pairs |
+
+Selected item/option IDs are classified P3 sensitive assessment data even though storage is local and temporary. The payload therefore excludes localized copy, rubric points, targets, weights, scores, results, timestamps, profile/identity data and free text, and it must never appear in URLs, cookies, logs, console output, analytics or network requests.
+
+Pure TypeScript validation requires exact object keys, compatible schema/assessment versions, unique known item keys, option IDs valid for their item, consistent prior-answer/current-step state and all six answers before `complete`. Malformed, unknown, incomplete or incompatible records are rejected and removed. Unavailable or throwing storage degrades to non-resumable play without crashing. The explicit clear/restart action removes the record.
+
+This storage choice is prototype-only and non-production: it is scoped to the current browser tab/session, is not guaranteed durable and does not provide cross-device resume. Any durable assessment response design requires a separately reviewed privacy, consent, authentication, retention, export/deletion and server-persistence turn.
+
 ## Learning content and practice
 
 ### `lesson_version`

@@ -6,6 +6,7 @@ type LanguageSwitcherProps = Readonly<{
   label: string;
   currentLanguageLabel: string;
   languageNames: Readonly<Record<Locale, string>>;
+  routeSuffix: "" | "/assessment";
 }>;
 
 export function LanguageSwitcher({
@@ -13,6 +14,7 @@ export function LanguageSwitcher({
   label,
   currentLanguageLabel,
   languageNames,
+  routeSuffix,
 }: LanguageSwitcherProps) {
   return (
     <nav className="language-switcher" aria-label={label}>
@@ -25,7 +27,7 @@ export function LanguageSwitcher({
           <li key={locale}>
             <TextLink
               className="language-switcher__link"
-              href={localePath(locale)}
+              href={`${localePath(locale)}${routeSuffix}`}
               hrefLang={locale}
               lang={locale}
               aria-current={locale === currentLocale ? "page" : undefined}

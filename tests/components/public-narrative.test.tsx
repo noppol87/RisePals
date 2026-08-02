@@ -9,6 +9,7 @@ describe("public narrative", () => {
     render(
       <PublicNarrative
         evidence={getPublishedEvidence("th", "2026-08-02")}
+        locale="th"
         messages={catalogs.th.landing}
       />,
     );
@@ -18,10 +19,10 @@ describe("public narrative", () => {
     );
     expect(screen.getByRole("link", { name: catalogs.th.landing.hero.ctaLabel })).toHaveAttribute(
       "href",
-      "#why-now",
+      "/th/assessment",
     );
-    expect(screen.getByText(/แบบประเมินและ onboarding ยังไม่เปิด/)).toBeVisible();
-    expect(screen.getByText(/หน้านี้ไม่เก็บข้อมูลของคุณ/)).toBeVisible();
+    expect(screen.getByText(/ยังไม่ใช่แบบประเมินที่ผ่านการตรวจสอบ/)).toBeVisible();
+    expect(screen.getByText(/เก็บเฉพาะรหัสตัวเลือกชั่วคราว/)).toBeVisible();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -30,6 +31,7 @@ describe("public narrative", () => {
     render(
       <PublicNarrative
         evidence={getPublishedEvidence("en", "2026-08-02")}
+        locale="en"
         messages={catalogs.en.landing}
       />,
     );
@@ -60,6 +62,7 @@ describe("public narrative", () => {
     render(
       <PublicNarrative
         evidence={getPublishedEvidence("en", "2026-08-02")}
+        locale="en"
         messages={catalogs.en.landing}
       />,
     );
@@ -90,6 +93,6 @@ describe("public narrative", () => {
       ).toBeVisible();
     }
     expect(screen.getByText(/not ninth and tenth core skills/)).toBeVisible();
-    expect(screen.getByText(/no assessment questions, scores, weights/)).toBeVisible();
+    expect(screen.getByText(/provides no personal risk level, assessment result/)).toBeVisible();
   });
 });

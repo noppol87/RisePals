@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { catalogs } from "@/lib/i18n/catalogs";
-import { defaultLocale, intlLocales, isLocale, locales, localePath } from "@/lib/i18n/config";
+import {
+  assessmentPath,
+  defaultLocale,
+  intlLocales,
+  isLocale,
+  locales,
+  localePath,
+} from "@/lib/i18n/config";
 
 function messageKeys(value: unknown, prefix = ""): string[] {
   if (typeof value === "string") {
@@ -36,6 +43,7 @@ describe("locale configuration", () => {
     expect(isLocale("en")).toBe(true);
     expect(isLocale("fr")).toBe(false);
     expect(localePath("th")).toBe("/th");
+    expect(assessmentPath("th")).toBe("/th/assessment");
   });
 
   it("uses canonical BCP 47-compatible identifiers prepared for Intl", () => {
@@ -49,6 +57,7 @@ describe("typed sample catalogs", () => {
     expect(messageKeys(catalogs.th).sort()).toEqual(messageKeys(catalogs.en).sort());
     expect(messageKeys(catalogs.th)).toContain("shell.skipToContent");
     expect(messageKeys(catalogs.th)).toContain("landing.hero.heading");
+    expect(messageKeys(catalogs.th)).toContain("assessment.storageBody");
     expect(messageKeys(catalogs.th)).toContain(
       "landing.framework.multiplierItems.senseOfUrgency.name",
     );
@@ -60,5 +69,9 @@ describe("typed sample catalogs", () => {
       expect(values.every((value) => value.trim().length > 0)).toBe(true);
       expect(values.every((value) => !/<[^>]+>/.test(value))).toBe(true);
     }
+  });
+
+  it("keeps internal player terminology out of Thai user-facing copy", () => {
+    expect(messageValues(catalogs.th).some((value) => /\bplayer\b/i.test(value))).toBe(false);
   });
 });
