@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Public narrative and evidence contract complete pending review / no assessment or data collection  
+**Project status:** Public narrative and evidence contract accepted / no assessment or data collection  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -118,4 +118,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-The RP-TURN-005 public narrative and evidence contract is complete on `agent/public-narrative-evidence` pending Project Codex review; it is not Accepted or merged. No onboarding, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-006 has not been authorized or started.
+The RP-TURN-005 public narrative and evidence contract has passed Project Codex review and is accepted. No onboarding, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is the next recommended turn, but it has not been authorized or started.

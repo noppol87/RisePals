@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-005  
-**Status:** Public narrative and evidence contract complete pending Project Codex review; no assessment, data collection or deployment exists  
+**Status:** Public narrative and evidence contract accepted; no assessment, data collection or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 uses bounded branch `agent/public-narrative-evidence` for the public narrative and static evidence contract only; it creates no assessment, data collection, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract only; it creates no assessment, data collection, service or deployment.
 
 ## Environment commands actually executed
 
@@ -426,9 +426,9 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 
 ## Current boundary after RP-TURN-005
 
-- RP-TURN-005 is complete on `agent/public-narrative-evidence` pending Project Codex review; it is not yet accepted or merged.
+- RP-TURN-005 has passed Project Codex review and is accepted.
 - The repository now contains a static public narrative and evidence contract, but no onboarding, assessment flow, personalized advice, scoring, lesson experience, learner profile, account system or data collection exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-006 has not been started or authorized.
+- RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is the next recommended turn, but it has not been started or authorized.

@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Public narrative and evidence contract complete pending review; no assessment or data collection  
-**Current turn:** RP-TURN-005 complete pending Project Codex review
+**Current phase:** Public narrative and evidence contract accepted; no assessment or data collection  
+**Current turn:** RP-TURN-005 accepted
 
 ## Locked decisions
 
@@ -51,7 +51,7 @@
 - Typed static evidence contract with deterministic provenance, locale, URL, ISO-date, review-expiry, raw-HTML and duplicate-ID validation
 - Exactly two source-backed evidence items from ILO–NASK and the World Economic Forum, each paired with localized interpretation, action, visible scope and limitations
 - Complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity explanation and an 8-core/+2-multiplier preview without scoring or assessment content
-- RP-TURN-005 implementation complete on bounded branch `agent/public-narrative-evidence`, pending Project Codex review
+- RP-TURN-005 public narrative, evidence contract and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -84,11 +84,11 @@
 
 ## Next recommended action
 
-**Project Codex review of RP-TURN-005 — Public Narrative and Evidence Contract**
+**RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract**
 
-Goal: inspect the bounded implementation, rendered evidence against both original sources, exact validation/security evidence and Draft PR before accepting, revising or authorizing later work.
+Goal: define the next bounded assessment-domain contract and synthetic fixtures only after a separate Project Codex authorization, while preserving the open assessment methodology and validation decisions.
 
-RP-TURN-005 is complete pending Project Codex review and is not Accepted or merged. RP-TURN-006 is not authorized. No onboarding, assessment, lesson, personalized recommendation, user data collection, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-005 is Accepted. RP-TURN-006 is the next recommended turn but is not authorized. No onboarding, assessment, lesson, personalized recommendation, user data collection, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -99,4 +99,4 @@ RP-TURN-005 is complete pending Project Codex review and is not Accepted or merg
 | 002 | Accepted | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
 | 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |
 | 004 | Accepted | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification accepted by Project Codex |
-| 005 | Complete pending review | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview prepared on a bounded Draft PR |
+| 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
