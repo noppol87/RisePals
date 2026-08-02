@@ -4,7 +4,12 @@ import { usePathname } from "next/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { TextLink } from "@/components/primitives/text-link";
 import type { ShellCatalog } from "@/lib/i18n/catalogs";
-import { assessmentPath, localePath, type Locale } from "@/lib/i18n/config";
+import {
+  assessmentExampleResultPath,
+  assessmentPath,
+  localePath,
+  type Locale,
+} from "@/lib/i18n/config";
 
 type ShellNavigationProps = Readonly<{
   currentLocale: Locale;
@@ -15,6 +20,7 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
   const pathname = usePathname();
   const homePath = localePath(currentLocale);
   const onAssessmentRoute = pathname === assessmentPath(currentLocale);
+  const onExampleResultRoute = pathname === assessmentExampleResultPath(currentLocale);
 
   return (
     <>
@@ -32,7 +38,13 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
         label={messages.languageSwitcherLabel}
         currentLanguageLabel={messages.currentLanguageLabel}
         languageNames={messages.languageNames}
-        routeSuffix={onAssessmentRoute ? "/assessment" : ""}
+        routeSuffix={
+          onExampleResultRoute
+            ? "/assessment/example-result"
+            : onAssessmentRoute
+              ? "/assessment"
+              : ""
+        }
       />
     </>
   );

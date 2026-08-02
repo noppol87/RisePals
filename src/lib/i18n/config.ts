@@ -20,3 +20,9 @@ export function localePath(locale: Locale): `/${Locale}` {
 export function assessmentPath(locale: Locale): `/${Locale}/assessment` {
   return `/${locale}/assessment`;
 }
+
+export function assessmentExampleResultPath(
+  locale: Locale,
+): `/${Locale}/assessment/example-result` {
+  return `/${locale}/assessment/example-result`;
+}

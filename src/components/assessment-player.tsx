@@ -24,6 +24,7 @@ import {
 import type { AssessmentPlayerView } from "@/modules/assessment/player/view";
 
 type AssessmentPlayerProps = Readonly<{
+  exampleResultHref: string;
   homeHref: string;
   messages: AssessmentPlayerCatalog;
   view: AssessmentPlayerView;
@@ -31,7 +32,12 @@ type AssessmentPlayerProps = Readonly<{
 
 type StorageStatus = "empty" | "loaded" | "discarded" | "unavailable" | "cleared";
 
-export function AssessmentPlayer({ homeHref, messages, view }: AssessmentPlayerProps) {
+export function AssessmentPlayer({
+  exampleResultHref,
+  homeHref,
+  messages,
+  view,
+}: AssessmentPlayerProps) {
   const [state, setState] = useState<AssessmentPlayerState>(createInitialPlayerState);
   const [hydrated, setHydrated] = useState(false);
   const [storageStatus, setStorageStatus] = useState<StorageStatus>("empty");
@@ -308,6 +314,11 @@ export function AssessmentPlayer({ homeHref, messages, view }: AssessmentPlayerP
               })}
             </p>
           </div>
+          <aside className="assessment-example-link" aria-labelledby="assessment-example-heading">
+            <h2 id="assessment-example-heading">{messages.exampleResultHeading}</h2>
+            <p>{messages.exampleResultBody}</p>
+            <TextLink href={exampleResultHref}>{messages.exampleResultLinkLabel}</TextLink>
+          </aside>
           <div className="assessment-player__actions">
             <button
               className="player-button player-button--secondary"

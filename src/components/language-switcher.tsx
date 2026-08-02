@@ -6,7 +6,7 @@ type LanguageSwitcherProps = Readonly<{
   label: string;
   currentLanguageLabel: string;
   languageNames: Readonly<Record<Locale, string>>;
-  routeSuffix: "" | "/assessment";
+  routeSuffix: "" | "/assessment" | "/assessment/example-result";
 }>;
 
 export function LanguageSwitcher({

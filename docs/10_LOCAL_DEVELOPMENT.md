@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-007  
-**Status:** RP-TURN-007 assessment player prototype accepted by Project Codex; no validated assessment, result, server response collection, durable persistence or deployment exists  
+**Turn:** RP-TURN-008  
+**Status:** Synthetic example-result prototype complete pending Project Codex review; no validated or personalized result, server response collection, durable persistence or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 established the accepted versioned synthetic assessment-domain contract. RP-TURN-007 adds the bounded player prototype and temporary browser-session state described below; it creates no validated assessment, result, server response collection, durable persistence, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 established the accepted versioned synthetic assessment-domain contract. RP-TURN-007 adds the bounded player prototype and temporary browser-session state described below. RP-TURN-008 adds only the fixed server-rendered synthetic example described below; neither turn creates a validated or personalized result, server response collection, durable persistence, service or deployment.
 
 ## Environment commands actually executed
 
@@ -306,6 +306,18 @@ Same-tab refresh recovery uses `sessionStorage` key `rise-pals:assessment-player
 
 The route visibly labels the experience synthetic, unvalidated and uncalibrated, states that it cannot predict job loss, performance, employability or hiring eligibility, explains local temporary storage before start, and uses `noindex, noarchive` metadata. Starting is not represented as legal consent.
 
+## Verified synthetic example-result prototype behavior
+
+RP-TURN-008 adds statically generated `/th/assessment/example-result` and `/en/assessment/example-result` routes. The result page and presentation component are Server Components. Existing `ShellNavigation` remains the only client reference on the example route and preserves the equivalent result path when switching locale.
+
+The visible example is fixed to reviewed fixture `synthetic-mixed-review`; changing or completing the RP-TURN-007 player has no effect on it. The route never imports the player storage adapter, reads `rise-pals:assessment-player:v1`, or receives answer data through a prop, URL, cookie, log, analytics event or request. The completion screen links to the example with explicit Thai/English copy that the user's choices are not used.
+
+Pure versioned derivation emits contract `synthetic-example-result-contract-v1`. It validates the accepted domain and compatible fixture, then exposes exactly two provisional raw core signals: Critical Thinking & Fact-Checking `1/4` from two item keys and Systematic Thinking `3/4` from two item keys. Six other core competencies are listed as unassessed. Ownership Thinking and Sense of Urgency remain separate observations with one supporting scenario each; the example result intentionally omits their rubric points and never aggregates or multiplies them into core signals.
+
+The code-native visualization uses four discrete segments for each raw signal and provides the exact `earned / available` relationship as visible text. It does not create percentage proficiency, an Aware–Leading stage, a confidence percentage, an overall or weighted score, readiness/risk/personality semantics or an employment/hiring inference.
+
+One fixed example next practice targets Critical Thinking & Fact-Checking. Its independently defined trace identifies `scoring-integer-rubric-fixture-v1@1.0.0`, item keys `verify-ai-summary-source` and `test-process-assumption`, and `lesson-source-verification-practice-planned-v1`. Both locales label the lesson reference planned and unavailable; there is no lesson route or lesson player.
+
 ## Verified day-to-day commands
 
 The scaffold defines and verifies:
@@ -435,6 +447,26 @@ Final RP-TURN-007 verification on 2026-08-02:
 | browser privacy/network review | PASS — selected IDs remain in versioned same-tab `sessionStorage`; no unexpected third-party origin, request body or option ID in URL/request was observed |
 | Gitleaks `8.30.1` nonignored worktree scan | PASS — 95 files / approximately 504.65 KB scanned, no leaks found |
 
+Final RP-TURN-008 verification on 2026-08-02:
+
+| Command or review | Exact result |
+|---|---|
+| `node --version` / `npm --version` | PASS — `v24.18.1` / `11.16.0` |
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — `npm approve-scripts --allow-scripts-pending --json` reported no packages with unreviewed install scripts; `npm config get strict-allow-scripts` returned `true` |
+| `npm run check` | PASS — Prettier, ESLint with zero warnings, `next typegen`, strict `tsc`, 15 files / 111 unit-component tests and the production build all passed |
+| `npm run build` within `check` | PASS — `/th`, `/en`, both assessment routes and both `/assessment/example-result` routes are statically generated by Next.js `16.2.12` |
+| `npm run test:e2e` | PASS — 35 Chromium tests covering the accepted shell/player plus Thai/English result content, keyboard/focus, locale switching, text equivalence, 320px reflow, both motion modes, axe and storage/network/privacy boundaries |
+| `npm audit --omit=dev --audit-level=low` / `npm audit --audit-level=low` | PASS — 0 production and 0 full-graph vulnerabilities |
+| result contract | PASS — both reviewed fixtures derive deterministically without mutation; visible `synthetic-mixed-review` yields exact core signals `1/4` and `3/4`, six unassessed cores and two separate single-scenario observations |
+| next-practice trace | PASS — exact scoring model/version, two supporting item keys, target core and planned/unavailable lesson-version reference; incompatible traces and available-lesson claims are rejected |
+| forbidden output review | PASS — no overall/weighted score, percentage proficiency, stage, confidence percentage, priority gap, personalized recommendation, employment/hiring, readiness/risk/personality or framework-weight field |
+| client-reference manifest / result-route chunk | PASS — only project client reference is `shell-navigation.tsx`; the route client chunk contains no result/scoring fixture, rubric, player-storage or selected-option markers |
+| browser privacy review | PASS — the result route did not read `rise-pals:assessment-player:v1`; the selected option ID was absent from DOM, URL, request bodies/URLs, console output and cookies; no unexpected origin was contacted |
+| strict UTF-8 / Markdown fences / markers / `git diff --check` | PASS — 102 text files decoded as strict UTF-8; all 26 Markdown files had balanced fences; no unresolved markers or whitespace errors |
+| dependency/config review | PASS — `package.json`, `package-lock.json` and `.npmrc` are unchanged; no dependency, raster asset, CI, infrastructure or deployment change exists |
+| Gitleaks `8.30.1` scope-correct nonignored worktree scan | PASS — 105 files / approximately 849.43 KB scanned through `stdin`, no leaks found |
+
 ## Environment-variable policy
 
 ### Files
@@ -499,12 +531,13 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-007
+## Current boundary after RP-TURN-008
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
-- The repository contains a static public narrative, synthetic assessment-domain definitions/tests and a Thai/English six-scenario usability player. It is not a validated real assessment and creates no score, personalized result, recommendation, onboarding, lesson experience, learner profile or account system.
-- Selected item/option IDs may exist temporarily in same-tab `sessionStorage`; no response is sent to a server and no durable assessment session or response persistence exists.
+- RP-TURN-008 is complete pending Project Codex review and contains one static Thai/English example result derived from `synthetic-mixed-review`.
+- The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player and the separate fixed example result. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, available lesson experience, learner profile or account system.
+- Selected item/option IDs may exist temporarily in same-tab `sessionStorage`; the example route never reads them, no response is sent to a server and no durable assessment session or response persistence exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
-- Assessment methodology/validation, confidence semantics, proficiency mapping, priority logic, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-008 — Skill Map and Priority Result Prototype is recommended but has not been started or authorized.
+- Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, real lesson content, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
+- RP-TURN-009 — One End-to-End Lesson and Practice Prototype is recommended but has not been started or authorized.

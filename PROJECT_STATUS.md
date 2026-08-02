@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Accessible session-only assessment player prototype accepted; no validated assessment, result, server-side response collection or durable persistence  
-**Current turn:** RP-TURN-007 Accepted
+**Current phase:** Synthetic example-result prototype complete pending Project Codex review; no validated or personalized assessment result, server-side response collection or durable persistence  
+**Current turn:** RP-TURN-008 Complete — pending Project Codex review
 
 ## Locked decisions
 
@@ -63,6 +63,11 @@
 - Accessible one-question flow with native radio groups, honest current/answered progress, Back/Continue behavior, focus management, inline validation and a no-result completion state
 - Versioned same-tab `sessionStorage` resume containing only assessment/player state plus selected item/option IDs, with strict validation, safe discard and explicit clearing
 - RP-TURN-007 assessment player prototype, privacy/client boundaries and quality gates accepted by Project Codex
+- Thai-first `/th/assessment/example-result` and English-complete `/en/assessment/example-result` static example routes, explicitly independent of the user's temporary player selections
+- Pure versioned `synthetic-example-result` derivation using reviewed fixture `synthetic-mixed-review`, with exact raw core signals `1/4` and `3/4`, all six unassessed core identities and two separate one-scenario multiplier observations
+- Code-native segmented evidence visualization with complete text equivalents, 320px reflow, reduced-motion compatibility and no overall/proficiency/confidence/employment inference
+- One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and planned/unavailable lesson reference `lesson-source-verification-practice-planned-v1`
+- RP-TURN-008 brief and D-015 synthetic-example-only boundary; implementation complete on the bounded feature branch pending Project Codex review
 
 ## Open decisions
 
@@ -75,6 +80,8 @@
 - Payment provider and Thailand-specific billing requirements
 - Analytics/monitoring vendors, privacy consent implementation and retention periods
 - Assessment question methodology and validation process
+- Validated result UX, personalized priority logic, proficiency/confidence semantics and real learner recommendation rules
+- Lesson content and availability for the planned example reference
 - Future content-operations workflow beyond the accepted pilot Git-versioned MDX/metadata baseline
 - Exact visual identity, color, typography and Pal character system
 - Localization library and translation operations beyond the native Thai-first typed route/catalog contract
@@ -95,11 +102,11 @@
 
 ## Next recommended action
 
-**RP-TURN-008 — Skill Map and Priority Result Prototype**
+**RP-TURN-009 — One End-to-End Lesson and Practice Prototype**
 
-Recommended goal after separate authorization: design a bounded skill-map and priority-result prototype without weakening the accepted assessment-validation, confidence, privacy or no-employment-prediction boundaries.
+Recommended goal after separate authorization: create one bounded lesson/practice prototype only after Project Codex reviews RP-TURN-008 and explicitly authorizes the next turn.
 
-RP-TURN-007 is Accepted. The prototype may keep selected item/option IDs temporarily in the current browser tab's `sessionStorage`; it sends no response to a server and creates no durable assessment session, score, personalized result, recommendation, onboarding, profile, authentication, database, CI, production service or deployment. RP-TURN-008 is recommended but has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007 is Accepted. RP-TURN-008 is complete pending Project Codex review and adds only a fixed result example derived from `synthetic-mixed-review`; it does not read or score the user's temporary `sessionStorage` selections and creates no validated or personalized result, real recommendation, available lesson, durable session, profile, authentication, database, CI, production service or deployment. RP-TURN-009 has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -113,3 +120,4 @@ RP-TURN-007 is Accepted. The prototype may keep selected item/option IDs tempora
 | 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
+| 008 | Complete — pending review | Static Thai/English synthetic example result with two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
