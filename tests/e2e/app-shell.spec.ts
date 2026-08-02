@@ -15,22 +15,76 @@ test("the root route resolves to the Thai default", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/th$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("พื้นฐานประสบการณ์");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("งานกำลังเปลี่ยน");
 });
 
-test("Thai and English routes use complete localized shell content", async ({ page }) => {
+test("Thai and English routes use complete intentional narrative content", async ({ page }) => {
   await page.goto("/th");
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
   await expect(page.getByRole("navigation", { name: "การนำทางหลัก" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ไทย" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "เตรียมตัวและสร้างคุณค่าใหม่ได้",
+  );
 
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Rise Pals experience foundation",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Work is changing");
   await expect(page.getByRole("link", { name: "English" })).toHaveAttribute("aria-current", "page");
+});
+
+test("both evidence items expose attribution, limitations, and exact source destinations", async ({
+  page,
+}) => {
+  await page.goto("/en");
+
+  await expect(page.getByRole("article")).toHaveCount(2);
+  await expect(page.getByText(/about one in four workers/)).toBeVisible();
+  await expect(page.getByText(/39% of workers’ core skills/)).toBeVisible();
+  await expect(page.getByText(/not a Thailand-specific figure/)).toBeVisible();
+  await expect(page.getByText(/not a certainty or individual prediction/)).toBeVisible();
+
+  const sources = page.getByRole("link", { name: "Read the original source" });
+  await expect(sources).toHaveCount(2);
+  await expect(sources.nth(0)).toHaveAttribute(
+    "href",
+    "https://www.ilo.org/publications/generative-ai-and-jobs-refined-global-index-occupational-exposure",
+  );
+  await expect(sources.nth(1)).toHaveAttribute(
+    "href",
+    "https://www.weforum.org/publications/the-future-of-jobs-report-2025/in-full/3-skills-outlook/",
+  );
+  await expect(page).toHaveURL(/\/en$/);
+});
+
+test("the honest CTA targets public explanation without collecting data", async ({ page }) => {
+  await page.goto("/th");
+
+  const cta = page.getByRole("link", { name: "ดูหลักฐานว่าโลกงานกำลังเปลี่ยนอย่างไร" });
+  await expect(cta).toHaveAttribute("href", "#why-now");
+  await expect(page.getByText(/แบบประเมินและ onboarding ยังไม่เปิด/)).toBeVisible();
+  await expect(page.getByText(/หน้านี้ไม่เก็บข้อมูลของคุณ/)).toBeVisible();
+  await expect(page.locator("input, textarea, select, form")).toHaveCount(0);
+
+  await cta.click();
+  await expect(page).toHaveURL(/\/th#why-now$/);
+  await expect(page.getByRole("heading", { name: /เห็นสัญญาณให้ชัด/ })).toBeVisible();
+});
+
+test("the page exposes the complete product loop and the 8+2 distinction", async ({ page }) => {
+  await page.goto("/en");
+
+  const loop = page.getByRole("list", { name: "The Rise Pals development loop" });
+  await expect(loop.getByRole("listitem")).toHaveCount(6);
+  for (const step of ["Diagnose", "Prioritize", "Learn", "Practice", "Prove", "Opportunity"]) {
+    await expect(loop.getByRole("heading", { name: step })).toBeVisible();
+  }
+
+  await expect(page.getByRole("heading", { name: "8 core competencies" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "+2 behavioural multipliers" })).toBeVisible();
+  await expect(page.getByText(/not ninth and tenth core skills/)).toBeVisible();
+  await expect(page.getByText(/no assessment questions, scores, weights/)).toBeVisible();
 });
 
 test("unsupported locale segments return not found", async ({ page }) => {
@@ -51,6 +105,11 @@ test("the skip link is first, visibly focused, and moves focus to main", async (
 
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
+
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "ดูหลักฐานว่าโลกงานกำลังเปลี่ยนอย่างไร" }),
+  ).toBeFocused();
 });
 
 test("the 320px and 400%-equivalent reflow view has no horizontal overflow", async ({ page }) => {
@@ -60,8 +119,9 @@ test("the 320px and 400%-equivalent reflow view has no horizontal overflow", asy
   await expectNoHorizontalOverflow(page);
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(2);
 
-  for (const link of await page.getByRole("banner").getByRole("link").all()) {
+  for (const link of await page.getByRole("link").all()) {
     const box = await link.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);
     expect(box?.x).toBeGreaterThanOrEqual(0);
@@ -76,6 +136,7 @@ test("the representative desktop shell preserves reading and navigation order", 
   await page.goto("/en");
 
   await expectNoHorizontalOverflow(page);
+  await expect(page.getByRole("article")).toHaveCount(2);
   const wordmarkBox = await page
     .getByRole("banner")
     .getByRole("link", { name: "Rise Pals" })
@@ -83,6 +144,23 @@ test("the representative desktop shell preserves reading and navigation order", 
   const languageBox = await page.getByRole("navigation", { name: "Choose language" }).boundingBox();
   expect(Math.abs((wordmarkBox?.y ?? 0) - (languageBox?.y ?? 0))).toBeLessThan(32);
 });
+
+for (const locale of ["th", "en"] as const) {
+  test(`${locale} initial page load makes no unexpected third-party request`, async ({ page }) => {
+    const unexpectedOrigins = new Set<string>();
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.hostname !== "127.0.0.1") {
+        unexpectedOrigins.add(url.origin);
+      }
+    });
+
+    await page.goto(`/${locale}`);
+    await page.waitForLoadState("networkidle");
+
+    expect([...unexpectedOrigins]).toEqual([]);
+  });
+}
 
 test("reduced motion removes meaningful animation and transition duration", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });

@@ -9,7 +9,7 @@ import { getCatalogForSegment } from "@/lib/i18n/server";
 
 export const metadata: Metadata = {
   title: "Rise Pals",
-  description: "Rise Pals localized application foundation",
+  description: "A Thai-first public narrative for building skills and evidence for changing work.",
 };
 
 export const dynamicParams = false;

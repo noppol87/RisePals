@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-004  
-**Status:** RP-TURN-004 localized shell baseline accepted; no product feature or deployment exists  
+**Turn:** RP-TURN-005  
+**Status:** Public narrative and evidence contract accepted; no assessment, data collection or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 creates the bounded `agent/design-foundation` branch and adds only the localized structural shell and its verification foundation. It does not create a product feature, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract only; it creates no assessment, data collection, service or deployment.
 
 ## Environment commands actually executed
 
@@ -251,6 +251,28 @@ The clean dependency installation returned no install-script warning or pending 
 
 `tsconfig.typecheck.json` inherits every strict compiler option, includes the generated production route declarations and excludes `.next/dev` from the standalone compiler program. `next.config.ts` uses the standard `tsconfig.json` for the development server and the isolated configuration for production/type generation. Together, the supported generation step and isolated compiler input preserve production route-type validation without mixing duplicate development declarations.
 
+## Verified public narrative and evidence behavior
+
+RP-TURN-005 keeps the accepted shell and Server Components as the default while replacing only the structural page content. It adds no dependency, runtime fetch, Client Component, raster/vector asset, remote font or third-party script. `/th` and `/en` remain statically generated and provide the same intentional information architecture:
+
+- an optimistic-realism hero that does not predict job loss or guarantee employment
+- an honest `#why-now` internal CTA that states assessment/onboarding are unavailable and collects no data
+- exactly two evidence records, each with a localized claim, interpretation, constructive action, geography, method/context and visible limitation
+- direct original-source links, publication dates, last-verified dates and review dates
+- the complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity loop, with practice, feedback and proof distinguished from passive completion
+- the documented eight core competencies and two behavioural multipliers kept in separate labeled groups, without questions, scoring, weights, personal risk or recommendations
+
+The evidence model and validation live separately from presentation components. Build/publication validation rejects missing fields, incomplete/unsupported locales, blank localized values, malformed or non-HTTPS URLs, invalid ISO dates, review dates not later than verification, evidence past review, raw HTML and duplicate stable IDs. Unit tests exercise every required rejection path.
+
+Both records were checked directly against their original sources on `2026-08-02`:
+
+- ILO–NASK, *Generative AI and Jobs: A Refined Global Index of Occupational Exposure*, published `2025-05-20`: the rendered claim is global occupational/task exposure and explicitly is not a Thailand-specific estimate or an individual job-loss prediction.
+- World Economic Forum, *The Future of Jobs Report 2025 — Skills Outlook*, published `2025-01-07`: the rendered `39%` is a surveyed-employer expectation. Visible context records 1,043 global-company responses, more than 14.1 million represented employees, 22 industry clusters, 55 economies and the large-employer emphasis; it is not certainty or an individual forecast and excludes small enterprises and the informal sector.
+
+Both records use review date `2027-02-02`, six months after verification. The six-month review window reflects that labour-market and employer-expectation evidence is time-sensitive even when the original report is stable. Review must happen earlier if a source is corrected, replaced or superseded.
+
+Production build evidence shows `/th` and `/en` as SSG. `src` contains no `use client` directive; the locale client-reference manifest and `.next/static/chunks` contain no narrative/evidence module. The narrative therefore adds no client hydration boundary or narrative client bundle. Browser tests also observe no unexpected third-party request during either locale's initial load.
+
 ## Verified day-to-day commands
 
 The scaffold defines and verifies:
@@ -319,6 +341,25 @@ RP-TURN-004-R1 repeated the development/typecheck transition from the same works
 | `npm audit --omit=dev --audit-level=low` | PASS — 0 production vulnerabilities |
 | `npm audit --audit-level=low` | PASS — 0 vulnerabilities across the full graph |
 
+Final RP-TURN-005 verification on 2026-08-02:
+
+| Command or review | Exact result |
+|---|---|
+| `node --version` / `npm --version` | PASS — `v24.18.1` / `11.16.0` |
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — `npm approve-scripts --allow-scripts-pending --json` returned no packages with unreviewed scripts; `npm config get strict-allow-scripts` returned `true` |
+| `npm run format:check` | PASS — all matched files use Prettier style |
+| `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`); the first invocation reached the 124-second command timeout without a result, and the exact command then passed with a longer timeout |
+| `npm run typecheck` | PASS — `next typegen` succeeded and strict `tsc --noEmit` exited 0 |
+| `npm run test` | PASS — 5 files and 32 tests, including every evidence-validation rejection path and public-narrative semantics |
+| `npm run build` | PASS — optimized Next.js `16.2.12` build; `/th` and `/en` remained statically generated |
+| `npm run check` | PASS — aggregate format, lint, generated-route strict typecheck, 5 files/32 unit tests and production build |
+| `npm run test:e2e` | PASS — 14 Chromium tests covering both locales, sources and qualifiers, CTA/no-form contract, loop/framework, routing, keyboard/focus, 320px and desktop layouts, reduced motion, no unexpected third-party initial requests and Thai/English axe scans |
+| `npm audit --omit=dev --audit-level=low` / `npm audit --audit-level=low` | PASS — 0 production and 0 full-graph vulnerabilities |
+| evidence review | PASS — exactly the approved ILO–NASK and World Economic Forum primary-source records, required source metadata, visible context/limitations and `2027-02-02` review dates |
+| client/network review | PASS — no `use client` directive, narrative/evidence module in the client-reference manifest or narrative/evidence module in static client chunks; no unexpected third-party initial request in either locale |
+| visual and accessibility review | PASS — Thai and English at 320px and desktop preserve reading order and wrapping with no horizontal overflow; visible 44px source links and focus treatment; automated reduced-motion and axe checks passed |
+
 ## Environment-variable policy
 
 ### Files
@@ -383,10 +424,11 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-004
+## Current boundary after RP-TURN-005
 
-- The RP-TURN-004 localized shell baseline has passed Project Codex review and is accepted.
-- No cloud or paid provider, database, product feature, production service or deployment was created.
-- CI and branch protection remain separately authorized work even though the repository now supplies reproducible local browser checks.
-- Exact visual identity, final color/typography and the Pal character system remain open.
-- RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but no landing narrative, assessment, lesson or RP-TURN-005 implementation was created or authorized.
+- RP-TURN-005 has passed Project Codex review and is accepted.
+- The repository now contains a static public narrative and evidence contract, but no onboarding, assessment flow, personalized advice, scoring, lesson experience, learner profile, account system or data collection exists.
+- No cloud or paid provider, database, production service or deployment was created.
+- CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
+- Exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
+- RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is the next recommended turn, but it has not been started or authorized.

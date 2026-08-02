@@ -48,7 +48,10 @@ describe("typed sample catalogs", () => {
   it("resolves the same complete message contract for Thai and English", () => {
     expect(messageKeys(catalogs.th).sort()).toEqual(messageKeys(catalogs.en).sort());
     expect(messageKeys(catalogs.th)).toContain("shell.skipToContent");
-    expect(messageKeys(catalogs.th)).toContain("foundation.heading");
+    expect(messageKeys(catalogs.th)).toContain("landing.hero.heading");
+    expect(messageKeys(catalogs.th)).toContain(
+      "landing.framework.multiplierItems.senseOfUrgency.name",
+    );
   });
 
   it("contains intentional text values without raw HTML", () => {

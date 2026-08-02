@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
+import { PublicNarrative } from "@/components/public-narrative";
+import { getPublishedEvidence } from "@/lib/evidence/records";
 import { getCatalogForSegment } from "@/lib/i18n/server";
 
-type FoundationPageProps = Readonly<{
+type PublicNarrativePageProps = Readonly<{
   params: Promise<{ locale: string }>;
 }>;
 
-export default async function FoundationPage({ params }: FoundationPageProps) {
+export default async function PublicNarrativePage({ params }: PublicNarrativePageProps) {
   const { locale: localeSegment } = await params;
   const resolved = getCatalogForSegment(localeSegment);
 
@@ -13,11 +15,7 @@ export default async function FoundationPage({ params }: FoundationPageProps) {
     notFound();
   }
 
-  return (
-    <section className="foundation-panel" aria-labelledby="foundation-heading">
-      <p className="foundation-panel__eyebrow">{resolved.catalog.foundation.eyebrow}</p>
-      <h1 id="foundation-heading">{resolved.catalog.foundation.heading}</h1>
-      <p className="foundation-panel__description">{resolved.catalog.foundation.description}</p>
-    </section>
-  );
+  const evidence = getPublishedEvidence(resolved.locale);
+
+  return <PublicNarrative evidence={evidence} messages={resolved.catalog.landing} />;
 }
