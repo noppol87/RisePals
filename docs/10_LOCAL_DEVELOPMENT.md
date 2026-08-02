@@ -1,12 +1,12 @@
 # Local Development
 
-**Turn:** RP-TURN-003  
-**Status:** Verified host, source-control and minimal application-scaffold baseline; no product feature or deployment exists  
+**Turn:** RP-TURN-004  
+**Status:** RP-TURN-004 localized shell baseline accepted; no product feature or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
 
-This Windows Server 2022 VPS is the intended production application target. It currently also contains the pre-development workspace at `C:\Codex PC SG2\Jeff\risepals`, but no application, service or deployment exists.
+This Windows Server 2022 VPS is the intended production application target. It currently also contains the development workspace and repository application scaffold at `C:\Codex PC SG2\Jeff\risepals`, but no production application is installed or running as a service and no deployment exists.
 
 The current workspace is not a future live release directory. Once deployment begins:
 
@@ -33,6 +33,8 @@ C:\Codex PC SG2\Jeff\risepals
 | GitHub CLI | `gh 2.97.0`, official checksum-verified ZIP installed per-user |
 | Node.js | `v24.18.1` LTS (Krypton), official x64 ZIP installed per-user; official SHA-256 matched and `node.exe` has a valid OpenJS Foundation signature |
 | npm / npx | Bundled npm `11.16.0`; resolves from the same per-user Node.js directory |
+| Playwright | `@playwright/test` and Playwright `1.62.1`; Chromium for Testing `151.0.7922.34` installed locally |
+| Accessibility browser checker | `@axe-core/playwright` and `axe-core` `4.12.1` |
 | Corepack | Not required or enabled by this npm-based scaffold |
 | pnpm / Yarn / Bun / Deno | Not found in `PATH` |
 | Python / Python launcher | Not found in `PATH` |
@@ -42,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm, created the bounded `agent/application-scaffold` branch and established the minimal application/tooling baseline. It did not create a product feature, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 creates the bounded `agent/design-foundation` branch and adds only the localized structural shell and its verification foundation. It does not create a product feature, service or deployment.
 
 ## Environment commands actually executed
 
@@ -85,12 +87,12 @@ Why Node 24: the official Node distribution index listed v24.18.1 as the current
 - Docker/Podman or a local PostgreSQL server: defer until the database turn decides disposable integration-test infrastructure
 - WSL: Next.js supports Windows directly; use WSL only if the team deliberately standardizes it
 - Python: the proposed web stack does not require it
-- GitHub CLI: installed for RP-TURN-002 authentication and remote verification; persistent interactive authentication is removed after the initial push
+- GitHub CLI: installed for repository authentication and remote verification; Jeff has approved retaining the current development login for convenience
 - A cloud CLI: no cloud application host has been selected; production target is this VPS
 
 ## Runtime prerequisite verification
 
-Git/gh versions were verified in RP-TURN-002. Node/npm were verified in RP-TURN-003 with:
+Git/gh versions were verified in RP-TURN-002. Node/npm were verified again in RP-TURN-004 with:
 
 ```powershell
 git --version
@@ -112,7 +114,7 @@ If a future supported Next.js or Playwright release changes its Node support bef
 
 Jeff selected his personal-account repository [`noppol87/RisePals`](https://github.com/noppol87/RisePals), with **Public** visibility, as canonical source/history. RP-TURN-002 verified the owner, URL, visibility and empty remote before mutation; initialized this exact workspace with `main`; configured a repository-local GitHub noreply identity; added exactly one `origin`; created one reviewed foundation commit; and pushed without force.
 
-The direct initial push to `main` was allowed only because the remote had no branch, tag or commit. Future implementation work uses bounded branches and reviewed pull requests. Interactive GitHub authentication was removed after post-push verification; the public read-only `origin` remains. Branch protection, CI and deployment transport remain open and require separate authorization.
+The direct initial push to `main` was allowed only because the remote had no branch, tag or commit. Future implementation work uses bounded branches and reviewed pull requests. Jeff has approved retaining GitHub CLI authentication as a development convenience; no token material, scope or storage detail belongs in repository documentation. Before any production-readiness turn, persistent development credentials must be separately reviewed and narrowed or revoked. The public read-only `origin` remains. Branch protection, CI and deployment transport remain open and require separate authorization.
 
 The root `.gitignore` covers application output, secrets/key material, local databases/dumps, uploads/proof artifacts and authentication state. Public-repository inventory, operational-document review and secret scanning remain mandatory before every push.
 
@@ -151,10 +153,10 @@ src/
   modules/               domain/application modules with public entry points
   components/            shared accessible UI primitives
   lib/                   narrow cross-cutting infrastructure/configuration
-tests/                    Vitest render and configuration tests
+tests/                    Vitest unit/render tests and Chromium-only Playwright E2E tests
 ```
 
-No `public/` directory is required by the current page. Integration/E2E suites, a monorepo, a separate API and shared-package workspaces remain deferred until a real boundary requires them.
+No `public/` directory is required by the current page. Database integration suites, a monorepo, a separate API and shared-package workspaces remain deferred until a real boundary requires them.
 
 ## Proposed production-host layout
 
@@ -230,6 +232,25 @@ Install-script policy is deny-by-default for reviewed dependencies:
 
 `.npmrc` sets `strict-allow-scripts=true` so any future install script without an individual allow/deny decision fails installation rather than producing only a warning. Do not replace this with `ignore-scripts=true`, a blanket approval or `dangerously-allow-all-scripts`.
 
+## Verified localized shell behavior
+
+RP-TURN-004 keeps Server Components as the default and adds no localization, component or animation library. It provides:
+
+- `/` redirecting with Next.js `redirect()` to the Thai default `/th`
+- statically generated `/th` and `/en` routes, deterministic not-found behavior for unsupported locale segments and locale-correct `<html lang>`
+- matching typed Thai/English shell catalogs, BCP 47-compatible locale identifiers and a server-only catalog-resolution boundary prepared for native `Intl`
+- a semantic skip link, header, text home/wordmark, primary navigation, real-link language switcher and stable focusable main target
+- the currently required `PageContainer`, `Stack` and `TextLink` primitives only
+- explicitly provisional semantic CSS roles for color, typography, spacing, containers, borders, radii, elevation, focus and reduced motion, using only system/local font fallbacks
+
+Browser verification adds exact development dependencies `@playwright/test@1.62.1` and `@axe-core/playwright@4.12.1`; the latter resolves `axe-core@4.12.1`. `npm run test:e2e:install` installs only Playwright Chromium, which resolved to Chromium for Testing `151.0.7922.34` (`chromium v1234`) plus Playwright's required headless shell, FFmpeg and Winldd support files. These browser binaries are local tool state and are not committed.
+
+The clean dependency installation returned no install-script warning or pending package. Existing `allowScripts.fsevents = false`, `allowScripts.unrs-resolver = false`, `strict-allow-scripts=true` and the reviewed PostCSS/Sharp overrides remain unchanged.
+
+`npm run typecheck` runs the supported `next typegen` command before strict `tsc`. A development server writes ignored development route declarations under `.next/dev` and generates `next-env.d.ts` with a development-route import. `next typegen` deterministically regenerates production route declarations under `.next/types` and rewrites that generated import to the production route file before the compiler starts. The repository never edits `next-env.d.ts` manually and does not delete `.next` as a workaround.
+
+`tsconfig.typecheck.json` inherits every strict compiler option, includes the generated production route declarations and excludes `.next/dev` from the standalone compiler program. `next.config.ts` uses the standard `tsconfig.json` for the development server and the isolated configuration for production/type generation. Together, the supported generation step and isolated compiler input preserve production route-type validation without mixing duplicate development declarations.
+
 ## Verified day-to-day commands
 
 The scaffold defines and verifies:
@@ -244,6 +265,8 @@ npm run test
 npm run test:watch
 npm run build
 npm run check
+npm run test:e2e:install
+npm run test:e2e
 ```
 
 Use `npm ci` for clean/CI installs and commit `package-lock.json`. Developers may use `npm install` only when deliberately changing dependencies and must review the lockfile diff.
@@ -265,6 +288,36 @@ Final RP-TURN-003-R1 verification on 2026-08-02:
 | `npm run check` | PASS — aggregate format, lint, typecheck, test and build gates |
 | `npm audit --omit=dev` | PASS — 0 production vulnerabilities |
 | `npm audit` | PASS — 0 vulnerabilities across production and development graph |
+
+Final RP-TURN-004 verification on 2026-08-02:
+
+| Command or review | Exact result |
+|---|---|
+| `node --version` / `npm --version` | PASS — `v24.18.1` / `11.16.0` |
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — no packages with unreviewed install scripts; `strict-allow-scripts=true` |
+| `npm run format:check` | PASS — all matched files use Prettier style |
+| `npm run lint` / `npm run typecheck` | PASS — zero ESLint warnings; `next typegen` succeeded and strict `tsc --noEmit` exited 0 |
+| `npm run test` | PASS — 3 files and 17 tests passed, including matching complete catalogs and shell semantics |
+| `npm run build` | PASS — `/`, `/_not-found`, `/th` and `/en` generated by Next.js `16.2.12` |
+| `npm run check` | PASS — aggregate format, lint, typecheck, unit test and production-build gates |
+| `npm run test:e2e` | PASS — 9 Chromium tests covering default/locale/not-found routing, document language, switching, skip-link focus, 320px/reflow, desktop, reduced motion and Thai/English axe scans |
+| `npm audit --omit=dev` / `npm audit` | PASS — 0 production and 0 full-graph vulnerabilities |
+| visual review | PASS — Thai at 320px and desktop plus English at 320px and desktop preserve reading order and Thai wrapping; 320px in-app browser review confirmed equal document client/scroll widths after scrollbar-aware correction |
+
+RP-TURN-004-R1 repeated the development/typecheck transition from the same workspace in the required order:
+
+| Ordered command | Exact result |
+|---|---|
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — no packages with unreviewed install scripts; `strict-allow-scripts=true` |
+| first `npm run test:e2e` | PASS — 9 Chromium tests; `next dev` generated development route declarations |
+| first `npm run typecheck` | PASS — `next typegen` regenerated production route types, then strict `tsc` exited 0 |
+| `npm run check` | PASS — format, lint, generated-route strict typecheck, 3 files/17 unit tests and production build |
+| second `npm run test:e2e` | PASS — 9 Chromium tests from a fresh `next dev` process |
+| second `npm run typecheck` | PASS — production route types regenerated again and strict `tsc` exited 0 |
+| `npm audit --omit=dev --audit-level=low` | PASS — 0 production vulnerabilities |
+| `npm audit --audit-level=low` | PASS — 0 vulnerabilities across the full graph |
 
 ## Environment-variable policy
 
@@ -330,9 +383,10 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-003
+## Current boundary after RP-TURN-004
 
-- The scaffold branch remains pending Project Codex review and must not be merged by this turn.
+- The RP-TURN-004 localized shell baseline has passed Project Codex review and is accepted.
 - No cloud or paid provider, database, product feature, production service or deployment was created.
-- CI and branch protection remain separately authorized work even though the scaffold now supplies real local checks.
-- Full Thai-first locale routing and the first product-facing experience remain RP-TURN-004-or-later work.
+- CI and branch protection remain separately authorized work even though the repository now supplies reproducible local browser checks.
+- Exact visual identity, final color/typography and the Pal character system remain open.
+- RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but no landing narrative, assessment, lesson or RP-TURN-005 implementation was created or authorized.

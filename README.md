@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Application scaffold and quality gates / no product features  
+**Project status:** Design foundation, localized app shell and quality gates accepted / no product features  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -58,7 +58,14 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 adds one minimal Next.js App Router application at the repository root. It uses React, strict TypeScript, Tailwind CSS design tokens, Server Components by default, typed server-only environment parsing, Vitest and Testing Library. The scaffold and quality gates have passed Project Codex review. The page is a neutral scaffold used to prove the toolchain; it is not the Rise Pals landing page or a product experience.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. The current page remains structural verification content; it is not the Rise Pals landing page or a product experience.
+
+Locale routes:
+
+- `/` redirects to the Thai default at `/th`
+- `/th` renders the Thai shell and catalog
+- `/en` renders the prepared English shell and catalog
+- unsupported locale segments return not found
 
 Verified prerequisites for this branch:
 
@@ -81,7 +88,11 @@ npm run typecheck
 npm run test
 npm run build
 npm run check
+npm run test:e2e:install
+npm run test:e2e
 ```
+
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, language switching, skip-link focus, 320px reflow, desktop layout, reduced motion and serious/critical axe findings.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
 
@@ -98,4 +109,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-No assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. The RP-TURN-003 scaffold has passed Project Codex review. RP-TURN-004 is the next recommended implementation turn but is not yet authorized.
+No landing narrative, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-004 has passed Project Codex review and is accepted. RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but it has not been authorized.

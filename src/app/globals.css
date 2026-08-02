@@ -1,22 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  --rp-color-canvas: #f7f7f2;
+  /* Provisional RP-TURN-004 roles; final brand identity and Pal system remain open. */
+  --rp-color-canvas: #f3f7f4;
   --rp-color-surface: #ffffff;
-  --rp-color-ink: #18211a;
-  --rp-color-muted: #526057;
-  --rp-color-accent: #166534;
-  --rp-color-focus: #1d4ed8;
-  --space-page: clamp(1.25rem, 4vw, 3rem);
-  --radius-surface: 1.25rem;
+  --rp-color-surface-accent: #dcefe7;
+  --rp-color-text: #15231e;
+  --rp-color-text-subtle: #40554c;
+  --rp-color-action: #075b47;
+  --rp-color-action-hover: #034535;
+  --rp-color-border: #b8c9c1;
+  --rp-color-focus: #8a3509;
+  --rp-font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Leelawadee UI", Tahoma, sans-serif;
+  --rp-font-size-sm: 0.875rem;
+  --rp-font-size-body: 1rem;
+  --rp-font-size-lead: 1.125rem;
+  --rp-font-size-heading: clamp(2rem, 8vw, 3.75rem);
+  --rp-line-height-body: 1.75;
+  --rp-line-height-heading: 1.2;
+  --rp-space-1: 0.25rem;
+  --rp-space-2: 0.5rem;
+  --rp-space-3: 0.75rem;
+  --rp-space-4: 1rem;
+  --rp-space-5: 1.5rem;
+  --rp-space-6: 2rem;
+  --rp-space-7: 3rem;
+  --rp-space-page: clamp(1rem, 4vw, 3rem);
+  --rp-container-wide: 70rem;
+  --rp-container-reading: 48rem;
+  --rp-radius-sm: 0.5rem;
+  --rp-radius-md: 0.875rem;
+  --rp-radius-lg: 1.5rem;
+  --rp-border-width: 1px;
+  --rp-elevation-surface: 0 1rem 2.5rem rgb(21 35 30 / 10%);
+  --rp-focus-width: 3px;
+  --rp-motion-fast: 120ms;
+  --rp-motion-standard: 180ms;
+  --rp-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --rp-breakpoint-navigation: 48rem;
 }
 
 @theme inline {
   --color-canvas: var(--rp-color-canvas);
   --color-surface: var(--rp-color-surface);
-  --color-ink: var(--rp-color-ink);
-  --color-muted: var(--rp-color-muted);
-  --color-accent: var(--rp-color-accent);
+  --color-ink: var(--rp-color-text);
+  --color-muted: var(--rp-color-text-subtle);
+  --color-accent: var(--rp-color-action);
 }
 
 * {
@@ -25,20 +55,195 @@
 
 html {
   background: var(--rp-color-canvas);
+  scroll-behavior: smooth;
 }
 
 body {
-  min-width: 320px;
   margin: 0;
   background: var(--rp-color-canvas);
-  color: var(--rp-color-ink);
-  font-family: Arial, "Noto Sans Thai", sans-serif;
-  line-height: 1.6;
+  color: var(--rp-color-text);
+  font-family: var(--rp-font-sans);
+  font-size: var(--rp-font-size-body);
+  line-height: var(--rp-line-height-body);
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+}
+
+p,
+h1,
+h2,
+h3 {
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3 {
+  line-height: var(--rp-line-height-heading);
 }
 
 :focus-visible {
-  outline: 3px solid var(--rp-color-focus);
-  outline-offset: 3px;
+  outline: var(--rp-focus-width) solid var(--rp-color-focus);
+  outline-offset: var(--rp-space-1);
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 10;
+  inset-block-start: var(--rp-space-3);
+  inset-inline-start: var(--rp-space-3);
+  min-height: 2.75rem;
+  padding: var(--rp-space-2) var(--rp-space-4);
+  transform: translateY(calc(-100% - var(--rp-space-7)));
+  border-radius: var(--rp-radius-sm);
+  background: var(--rp-color-text);
+  color: var(--rp-color-surface);
+  font-weight: 700;
+  transition: transform var(--rp-motion-fast) var(--rp-ease-standard);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.page-container {
+  width: min(100% - (2 * var(--rp-space-page)), var(--rp-container-wide));
+  margin-inline: auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rp-space-5);
+}
+
+.text-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--rp-space-3);
+  border-radius: var(--rp-radius-sm);
+  color: var(--rp-color-action);
+  font-weight: 700;
+  text-decoration-thickness: 0.1em;
+  text-underline-offset: 0.2em;
+  transition:
+    color var(--rp-motion-fast) var(--rp-ease-standard),
+    background-color var(--rp-motion-fast) var(--rp-ease-standard);
+}
+
+.text-link:hover {
+  background: var(--rp-color-surface-accent);
+  color: var(--rp-color-action-hover);
+}
+
+.site-header {
+  border-block-end: var(--rp-border-width) solid var(--rp-color-border);
+  background: var(--rp-color-surface);
+}
+
+.shell-header {
+  display: grid;
+  gap: var(--rp-space-4);
+  align-items: center;
+  padding-block: var(--rp-space-4);
+}
+
+.wordmark {
+  width: fit-content;
+  padding-inline: 0;
+  color: var(--rp-color-text);
+  font-size: var(--rp-font-size-lead);
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.primary-nav__list,
+.language-switcher__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rp-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.language-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rp-space-2) var(--rp-space-4);
+  align-items: center;
+}
+
+.language-switcher__current {
+  margin: 0;
+  color: var(--rp-color-text-subtle);
+  font-size: var(--rp-font-size-sm);
+}
+
+.language-switcher__link {
+  min-width: 2.75rem;
+}
+
+.language-switcher__link[aria-current="page"],
+.primary-nav .text-link[aria-current="page"] {
+  background: var(--rp-color-surface-accent);
+  color: var(--rp-color-text);
+  text-decoration: none;
+}
+
+.main-region {
+  min-height: calc(100vh - 12rem);
+  padding-block: clamp(var(--rp-space-6), 8vw, 6rem);
+}
+
+.foundation-panel {
+  max-width: var(--rp-container-reading);
+  padding: clamp(var(--rp-space-5), 6vw, var(--rp-space-7));
+  border: var(--rp-border-width) solid var(--rp-color-border);
+  border-radius: var(--rp-radius-lg);
+  background: var(--rp-color-surface);
+  box-shadow: var(--rp-elevation-surface);
+}
+
+.foundation-panel__eyebrow {
+  margin: 0;
+  color: var(--rp-color-action);
+  font-size: var(--rp-font-size-sm);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.foundation-panel h1 {
+  margin: var(--rp-space-3) 0 0;
+  font-size: var(--rp-font-size-heading);
+  letter-spacing: -0.035em;
+}
+
+.foundation-panel__description {
+  max-width: 42rem;
+  margin: var(--rp-space-5) 0 0;
+  color: var(--rp-color-text-subtle);
+  font-size: var(--rp-font-size-lead);
+}
+
+@media (min-width: 48rem) {
+  .shell-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .primary-nav {
+    justify-self: center;
+  }
+
+  .language-switcher {
+    justify-content: flex-end;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
