@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Public narrative and evidence contract accepted; no assessment or data collection  
-**Current turn:** RP-TURN-005 accepted
+**Current phase:** Assessment-domain fixtures and scoring contract complete pending review; no UI or data collection  
+**Current turn:** RP-TURN-006 complete pending Project Codex review
 
 ## Locked decisions
 
@@ -52,6 +52,11 @@
 - Exactly two source-backed evidence items from ILO–NASK and the World Economic Forum, each paired with localized interpretation, action, visible scope and limitations
 - Complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity explanation and an 8-core/+2-multiplier preview without scoring or assessment content
 - RP-TURN-005 public narrative, evidence contract and quality gates accepted by Project Codex
+- Exact versioned 8-core/+2-multiplier framework metadata with canonical core weights totaling 100%
+- Six synthetic bilingual scenario-choice items across the authorized 2/2/1/1 assessment slice
+- Pure deterministic integer-rubric scorer with separate core signals, multiplier observations, explicit unassessed core identities and no overall score
+- Separate synthetic raw-response, expected-score, expected-explanation and localized limitation contracts with traceable item keys
+- RP-TURN-006 implementation complete on bounded branch `agent/assessment-domain-fixtures`, pending Project Codex review
 
 ## Open decisions
 
@@ -84,11 +89,11 @@
 
 ## Next recommended action
 
-**RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract**
+**Project Codex review of RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract**
 
-Goal: define the next bounded assessment-domain contract and synthetic fixtures only after a separate Project Codex authorization, while preserving the open assessment methodology and validation decisions.
+Goal: inspect every scenario/option and limitation in both locales, framework/scoring invariants, rejection coverage and Draft PR before accepting or revising the provisional contract.
 
-RP-TURN-005 is Accepted. RP-TURN-006 is the next recommended turn but is not authorized. No onboarding, assessment, lesson, personalized recommendation, user data collection, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-006 is complete pending Project Codex review and is not Accepted or merged. RP-TURN-007 is not authorized. No assessment player, onboarding, personalized result, lesson, user data collection, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -100,3 +105,4 @@ RP-TURN-005 is Accepted. RP-TURN-006 is the next recommended turn but is not aut
 | 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |
 | 004 | Accepted | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification accepted by Project Codex |
 | 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
+| 006 | Complete pending review | Six bilingual synthetic scenario items, exact framework metadata, deterministic separate core/multiplier signals and explicit fixture-only limitations prepared on a bounded Draft PR |

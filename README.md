@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Public narrative and evidence contract accepted / no assessment or data collection  
+**Project status:** Assessment-domain fixtures and scoring contract complete pending review / no UI or data collection  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -76,6 +76,15 @@ The public narrative now provides:
 - a compact preview that keeps the eight core competencies distinct from the two behavioural multipliers
 - no assessment questions, scoring, personalized risk, waitlist form, pricing, account creation or external runtime fetch
 
+The repository also contains an RP-TURN-006 assessment-domain review fixture. It is not connected to the public routes and provides:
+
+- exactly six synthetic bilingual scenario-choice items: two Critical Thinking & Fact-Checking, two Systematic Thinking, one Ownership Thinking and one Sense of Urgency
+- all eight canonical core identities and exact weights, with both behavioural multipliers structurally separate and unweighted
+- pure deterministic integer-rubric scoring with earned/available points, evidence counts and traceable item keys
+- two synthetic raw-response fixtures kept separate from expected scores and expected explanations
+- explicit provisional limitations, six unassessed core competencies and no overall score, proficiency stage, priority recommendation or employment implication
+- no React/Next.js route, browser API, profile, session, personal data, persistence or dependency addition
+
 Verified prerequisites for this branch:
 
 - Node.js `24.18.1` LTS x64
@@ -118,4 +127,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-The RP-TURN-005 public narrative and evidence contract has passed Project Codex review and is accepted. No onboarding, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is the next recommended turn, but it has not been authorized or started.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is complete on `agent/assessment-domain-fixtures` pending Project Codex review; it is not Accepted or merged. The repository contains synthetic assessment definitions and deterministic domain tests only—no assessment player, onboarding, personalized result, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-007 has not been authorized or started.

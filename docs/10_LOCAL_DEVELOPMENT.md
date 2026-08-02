@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-005  
-**Status:** Public narrative and evidence contract accepted; no assessment, data collection or deployment exists  
+**Turn:** RP-TURN-006  
+**Status:** Assessment-domain fixtures and scoring contract complete pending Project Codex review; no UI, data collection or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract only; it creates no assessment, data collection, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 adds only a pure TypeScript assessment-domain contract and synthetic local fixtures; it creates no assessment UI, personal data, persistence, service or deployment.
 
 ## Environment commands actually executed
 
@@ -273,6 +273,23 @@ Both records use review date `2027-02-02`, six months after verification. The si
 
 Production build evidence shows `/th` and `/en` as SSG. `src` contains no `use client` directive; the locale client-reference manifest and `.next/static/chunks` contain no narrative/evidence module. The narrative therefore adds no client hydration boundary or narrative client bundle. Browser tests also observe no unexpected third-party request during either locale's initial load.
 
+## Verified assessment-domain fixture behavior
+
+RP-TURN-006 adds no dependency, route, Client Component, browser API or runtime integration. `src/modules/assessment/` contains a pure TypeScript contract with:
+
+- framework version `framework-rise-pals-8-plus-2-v2`, including the exact canonical eight core weights totaling 10,000 basis points and two structurally separate unweighted multipliers
+- assessment version `assessment-workplace-scenarios-fixture-v1`, containing exactly six required bilingual scenario-choice items and no free text or personal field
+- scoring version `scoring-integer-rubric-fixture-v1`, using the reviewed integer `0..2` option scale
+- two synthetic raw-response fixtures, stored separately from expected scoring and explanation fixtures
+- score outputs marked provisional/fixture-only, with core signals, separate multiplier observations, earned/available points, evidence counts, supporting item keys and all six unassessed core identities
+- separate explanation-code records and Thai/English explanation/limitation copy
+
+For each assessed target, the scorer sums selected option rubric points independently and sums the matching item maxima as available points. It does not apply core weights to a partial aggregate. Ownership and urgency rubric contributions never multiply or alter core signals, and one scenario is explicitly insufficient to establish a behavioral pattern.
+
+Validation runs before scoring and rejects incompatible assessment/framework/scoring versions, missing required responses, duplicate item responses, unknown items/options, changed canonical weights, multiplier weights, invalid point scales, mismatched rubric maxima and non-integer/out-of-range contributions. The function does not sort or mutate caller responses; canonical output order makes the result independent of response order.
+
+The contract emits no overall score, validated confidence, Aware–Leading stage, priority gap, lesson recommendation or employment/hiring field. Bilingual limitations state that the local slice is not a validated assessment and cannot predict job loss, job performance, employability or hiring eligibility.
+
 ## Verified day-to-day commands
 
 The scaffold defines and verifies:
@@ -360,6 +377,26 @@ Final RP-TURN-005 verification on 2026-08-02:
 | client/network review | PASS — no `use client` directive, narrative/evidence module in the client-reference manifest or narrative/evidence module in static client chunks; no unexpected third-party initial request in either locale |
 | visual and accessibility review | PASS — Thai and English at 320px and desktop preserve reading order and wrapping with no horizontal overflow; visible 44px source links and focus treatment; automated reduced-motion and axe checks passed |
 
+Final RP-TURN-006 verification on 2026-08-02:
+
+| Command or review | Exact result |
+|---|---|
+| `node --version` / `npm --version` | PASS — `v24.18.1` / `11.16.0` |
+| `npm ci` | PASS — 462 packages installed, 463 audited, 0 vulnerabilities; no install-script warning |
+| pending scripts / strict policy | PASS — no packages with unreviewed install scripts; `strict-allow-scripts=true` |
+| `npm run format:check` | PASS — all matched files use Prettier style |
+| `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`) |
+| `npm run typecheck` | PASS — `next typegen` succeeded and strict `tsc --noEmit` exited 0 |
+| `npm run test` | PASS — 9 files and 61 tests, including 4 assessment-domain files covering framework, fixtures, scoring, explanations and every required rejection case |
+| `npm run build` | PASS — optimized Next.js `16.2.12` build; `/th` and `/en` remained statically generated and the assessment module added no route |
+| `npm run check` | PASS — aggregate format, lint, generated-route strict typecheck, 9 files/61 unit tests and production build |
+| `npm run test:e2e` | PASS — all 14 accepted Chromium public-shell tests passed; no visible application behavior changed |
+| `npm audit --omit=dev` / `npm audit` | PASS — 0 production and 0 full-graph vulnerabilities |
+| fixture inventory | PASS — 6 bilingual items/18 options in the exact 2/2/1/1 target distribution; 2 synthetic raw-response fixtures; expected score and explanation fixtures stored separately |
+| scoring invariants | PASS — exact eight-core weights total 10,000 basis points; order-independent/non-mutating integer sums; separate +2 observations; six unassessed cores; no overall/confidence/stage/recommendation/hiring output |
+| rejected inputs | PASS — incompatible assessment/framework/scoring versions, missing/duplicate responses, unknown items/options, changed core weights, multiplier weights, invalid rubric maxima, impossible option points and invalid scoring scale |
+| explanation/limitation review | PASS — exact supporting-item traces and codes; complete Thai/English copy; explicit not-validated, job-loss, job-performance, employability, hiring and single-scenario limitations |
+
 ## Environment-variable policy
 
 ### Files
@@ -424,11 +461,11 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-005
+## Current boundary after RP-TURN-006
 
-- RP-TURN-005 has passed Project Codex review and is accepted.
-- The repository now contains a static public narrative and evidence contract, but no onboarding, assessment flow, personalized advice, scoring, lesson experience, learner profile, account system or data collection exists.
+- RP-TURN-006 is complete on `agent/assessment-domain-fixtures` pending Project Codex review; it is not yet accepted or merged.
+- The repository contains a static public narrative plus synthetic assessment-domain definitions and scoring tests, but no onboarding, assessment player, personalized result, lesson experience, learner profile, account system or data collection exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
-- Exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is the next recommended turn, but it has not been started or authorized.
+- Assessment methodology/validation, confidence semantics, proficiency mapping, priority logic, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
+- RP-TURN-007 has not been started or authorized.
