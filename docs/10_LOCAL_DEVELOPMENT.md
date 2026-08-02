@@ -248,17 +248,19 @@ npm run check
 
 Use `npm ci` for clean/CI installs and commit `package-lock.json`. Developers may use `npm install` only when deliberately changing dependencies and must review the lockfile diff.
 
-RP-TURN-003 verification on 2026-08-02:
+Final RP-TURN-003-R1 verification on 2026-08-02:
 
 | Command | Exact result |
 |---|---|
 | `node --version` | PASS — `v24.18.1` |
 | `npm --version` | PASS — `11.16.0` |
-| `npm ci` | PASS — 458 packages installed, 459 audited, 0 vulnerabilities |
+| `npm ci` | PASS — 458 packages installed, 459 audited, 0 vulnerabilities; completed without install-script warnings |
+| `npm approve-scripts --allow-scripts-pending --json` | PASS — no packages with unreviewed install scripts |
+| `npm config get strict-allow-scripts` | PASS — `true` |
 | `npm run format:check` | PASS — all matched files use Prettier style |
 | `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`) |
 | `npm run typecheck` | PASS — strict `tsc --noEmit`, exit 0 |
-| `npm run test` | PASS — 2 files and 3 tests passed |
+| `npm run test` | PASS — 2 files and 12 tests passed |
 | `npm run build` | PASS — optimized Next.js 16.2.12 build; `/` and `/_not-found` statically generated |
 | `npm run check` | PASS — aggregate format, lint, typecheck, test and build gates |
 | `npm audit --omit=dev` | PASS — 0 production vulnerabilities |
