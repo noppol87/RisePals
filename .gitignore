@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+dist/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Tests and coverage
+coverage/
+playwright-report/
+test-results/
+.nyc_output/
+
+# Local environment files; commit the documented template only
+.env*
+!.env.example
+
+# Secrets and certificate material
+*.pem
+*.key
+*.pfx
+*.p12
+
+# Local or exported data and private artifacts
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+proof-artifacts/
+storage-state/
+playwright/.auth/
+
+# Hosting and task-runner state
+.vercel/
+.turbo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor and operating-system artifacts
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+Desktop.ini
