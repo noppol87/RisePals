@@ -290,6 +290,63 @@ This entity makes explanation independently testable and translatable. It must n
 
 This is guidance, not eligibility. A newer scoring run supersedes recommendations without mutating history.
 
+## RP-TURN-006 provisional local assessment contract
+
+RP-TURN-006 implements a repository-only precursor to the logical entities above. It creates no database row, session, user, migration or persistence adapter. All definitions and fixtures are synthetic, immutable-by-convention TypeScript values under `src/modules/assessment/`.
+
+### Version identities and separation
+
+| Contract | Stable ID | Purpose |
+|---|---|---|
+| Framework version | `framework-rise-pals-8-plus-2-v2` | Exact eight canonical core weights plus two unweighted multipliers |
+| Assessment version | `assessment-workplace-scenarios-fixture-v1` | Six reviewed bilingual scenario-choice items |
+| Scoring version | `scoring-integer-rubric-fixture-v1` | Pure deterministic integer-rubric derivation |
+
+The implementation keeps five source boundaries separate:
+
+1. framework, assessment, item and option definitions
+2. synthetic raw-response fixtures containing only item/option IDs
+3. expected and calculated scoring outputs
+4. expected and calculated explanation/limitation records
+5. localized Thai/English explanation and limitation copy
+
+The two valid raw-response fixtures use synthetic IDs only. They contain no name, email, employer, profile, free text, career history or other personal field.
+
+### Authorized partial slice
+
+| Framework target | Kind | Item count | Available fixture points |
+|---|---|---:|---:|
+| Critical Thinking & Fact-Checking | Core | 2 | 4 |
+| Systematic Thinking | Core | 2 | 4 |
+| Ownership Thinking | Multiplier observation | 1 | 2 |
+| Sense of Urgency | Multiplier observation | 1 | 2 |
+
+The other six core competencies are emitted explicitly as unassessed. Their canonical weights remain present in framework metadata, but weights are not applied to create a partial aggregate.
+
+### Deterministic formula and output boundary
+
+Each option carries an integer rubric contribution on the reviewed `0..2` scale. For each assessed target independently:
+
+```text
+earned points = sum(selected option rubric points for that target)
+available points = sum(item available points for that target)
+evidence count = number of answered items supporting that target
+```
+
+The executable scorer returns earned/available points, evidence count and stable supporting item keys. It does not mutate inputs and output order follows canonical framework order rather than response order.
+
+Core signals and multiplier observations are different output arrays. Ownership and urgency points are retained only for deterministic fixture testing; they never multiply, alter or aggregate into core signals and expose no multiplicative factor.
+
+The scorer emits no overall score, confidence claim, proficiency stage, priority gap, lesson recommendation or employment/hiring field. Output is marked `provisional: true` and `fixtureOnly: true`.
+
+### Explanation and validation boundary
+
+Calculated score records contain no explanation copy. Separate explanation records contain stable codes, target identity, supporting item keys and limitation codes; Thai/English copy resolves separately.
+
+Run-level limitations state that the slice is not a validated or calibrated assessment and cannot predict job loss, job performance, employability or hiring eligibility. Each multiplier record also states that one scenario cannot establish a behavioral pattern.
+
+Before scoring, validation rejects incompatible assessment/framework/scoring versions, missing required responses, duplicate responses, unknown item/option IDs, non-canonical framework weights, multiplier weights, malformed rubric scales, non-integer/out-of-range contributions and the wrong item distribution. This local contract is review material for later assessment methodology work, not evidence of scientific validity.
+
 ## Learning content and practice
 
 ### `lesson_version`

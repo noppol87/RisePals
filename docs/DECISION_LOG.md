@@ -90,3 +90,12 @@
 - **Never commit:** `.env` นอกจาก safe `.env.example`, credentials/tokens/private keys, secret-bearing production config, database dumps, uploads/proof artifacts, assessment answers/personal data, private logs/production telemetry, certificate private keys, generated production data หรือ backups
 - **Open:** Git/GitHub และ VPS deployment authentication, local initialization/remote/first commit/push, branch rules, CI provider/plan, artifact retention, deployment transport และ software license; ห้ามเพิ่ม `LICENSE` จนกว่า Jeff จะตัดสินใจ
 - **Note:** local Git ยังไม่มีและยังไม่เชื่อมกับ repository; RP-TURN-001-R2 ไม่ติดตั้ง, initialize, authenticate, commit, push, configure workflow หรือเปลี่ยน external state
+
+## D-013 — Partial assessment scoring and multiplier separation
+
+- **Date:** 2026-08-02
+- **Status:** Accepted by Jeff in RP-TURN-006 authorization
+- **Decision:** RP-TURN-006 ใช้ deterministic integer rubric เพื่อสร้างเฉพาะคะแนนสัญญาณ `earned / available` ราย core competency ที่มีข้อคำถาม และ observation แยกสำหรับ Ownership Thinking กับ Sense of Urgency โดยไม่สร้าง overall score, proficiency stage, priority gap หรือ recommendation จาก assessment slice ที่ยังไม่ validate
+- **Reason:** ชุดคำถามจำลองหกข้อครอบคลุม core เพียง 2 จาก 8 ด้านและ multiplier ด้านละหนึ่งสถานการณ์ จึงไม่มีหลักฐานเพียงพอสำหรับคะแนนรวม pattern พฤติกรรม ความมั่นใจ หรือการพยากรณ์บุคคล
+- **Consequence:** canonical core weights ยังคงเป็น metadata รวม 100% แต่ไม่ถูกใช้สร้าง partial aggregate; +2 ไม่คูณหรือเปลี่ยน core signals; output และ explanation ต้องระบุว่า provisional/fixture-only, แสดงหก core ที่ยังไม่ถูกประเมิน และห้ามใช้ทำนาย job loss, job performance, employability หรือ hiring eligibility
+- **Open:** assessment methodology, psychometric/content validation, calibration, confidence semantics, proficiency mapping, priority logic และการใช้ผลกับ UX จริงต้องผ่าน review และ turn แยกก่อน
