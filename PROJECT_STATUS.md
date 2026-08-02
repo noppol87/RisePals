@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Application scaffold and quality gates implemented; pending Project Codex review  
-**Current turn:** RP-TURN-003 complete pending Project Codex review
+**Current phase:** Application scaffold and quality gates accepted; no product features implemented  
+**Current turn:** RP-TURN-003 Accepted
 
 ## Locked decisions
 
@@ -42,7 +42,7 @@
 - Official Node.js `24.18.1` LTS x64 and bundled npm `11.16.0` installed per-user with matching official SHA-256 and a valid OpenJS Foundation executable signature
 - Minimal Next.js `16.2.12` App Router scaffold on bounded branch `agent/application-scaffold`, with React `19.2.4`, strict TypeScript, Tailwind CSS tokens and Server Components by default
 - Reproducible npm lockfile, typed server-only environment boundary, semantic scaffold render tests and format/lint/typecheck/test/build gates
-- RP-TURN-003 approved scope and verification record
+- RP-TURN-003 application scaffold and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -75,11 +75,11 @@
 
 ## Next recommended turn
 
-**Project Codex review of RP-TURN-003**
+**RP-TURN-004 — Design Foundation, App Shell and Localization**
 
-Goal: Project Codex verifies the bounded scaffold branch and draft pull request, exact runtime/dependency pins, strict configuration, semantic tests, production build, audits, public-repository security scans and credential cleanup, then returns Accepted, Revision required or Decision required.
+Goal: establish the approved design foundation, application shell and Thai-first localization boundary under a separately approved implementation brief.
 
-No next implementation turn is authorized by this status file. RP-TURN-004, branch protection/CI and VPS infrastructure work each require their own approved brief.
+RP-TURN-004 is not yet authorized. No product feature, CI, database, production service or deployment exists; RP-TURN-004, branch protection/CI and VPS infrastructure work each require their own approved brief.
 
 ## Turn history
 
@@ -88,4 +88,4 @@ No next implementation turn is authorized by this status file. RP-TURN-004, bran
 | 000 | Complete | Initialized the Rise Pals project folder and operating documents |
 | 001 | Accepted | Architecture/data/plan/local baseline, Public `noppol87/RisePals` decision, first-push security gates and canonical workflow/status/decision/template updates verified |
 | 002 | Accepted | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
-| 003 | Complete pending review | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates, security review and draft-PR publication |
+| 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |

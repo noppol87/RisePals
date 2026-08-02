@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 adds one minimal Next.js App Router application at the repository root. It uses React, strict TypeScript, Tailwind CSS design tokens, Server Components by default, typed server-only environment parsing, Vitest and Testing Library. The page is a neutral scaffold used to prove the toolchain; it is not the Rise Pals landing page or a product experience.
+RP-TURN-003 adds one minimal Next.js App Router application at the repository root. It uses React, strict TypeScript, Tailwind CSS design tokens, Server Components by default, typed server-only environment parsing, Vitest and Testing Library. The scaffold and quality gates have passed Project Codex review. The page is a neutral scaffold used to prove the toolchain; it is not the Rise Pals landing page or a product experience.
 
 Verified prerequisites for this branch:
 
@@ -98,4 +98,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-No assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-003 remains pending Project Codex review; later implementation requires a separately approved turn.
+No assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. The RP-TURN-003 scaffold has passed Project Codex review. RP-TURN-004 is the next recommended implementation turn but is not yet authorized.
