@@ -187,6 +187,36 @@ describe("deterministic assessment scoring", () => {
     );
   });
 
+  it("rejects an unknown item target kind even when the target is a known multiplier", () => {
+    const context = mutableContext();
+    const assessment = context.assessment as MutableObject;
+    const items = assessment.items as MutableObject[];
+    const rubric = items[4]!.rubric as MutableObject;
+    rubric.targetKind = "unknown-kind";
+
+    expect(() =>
+      scoreAssessmentFixture(
+        syntheticRawResponseFixtures[0],
+        context as unknown as AssessmentScoringContext,
+      ),
+    ).toThrow("assessment.item.own-shared-outcome.rubric.targetKind must be core or multiplier.");
+  });
+
+  it("retains wrong-kind target rejection for a known multiplier ID labeled as core", () => {
+    const context = mutableContext();
+    const assessment = context.assessment as MutableObject;
+    const items = assessment.items as MutableObject[];
+    const rubric = items[4]!.rubric as MutableObject;
+    rubric.targetKind = "core";
+
+    expect(() =>
+      scoreAssessmentFixture(
+        syntheticRawResponseFixtures[0],
+        context as unknown as AssessmentScoringContext,
+      ),
+    ).toThrow("assessment.item.own-shared-outcome.rubric target is unknown or has the wrong kind.");
+  });
+
   it("rejects impossible option point values", () => {
     const context = mutableContext();
     const assessment = context.assessment as MutableObject;

@@ -63,12 +63,30 @@ describe("assessment framework contract", () => {
     );
   });
 
+  it("rejects a core definition carrying the wrong runtime kind", () => {
+    const framework = mutableFramework();
+    arrayField(framework, "coreCompetencies")[0]!.kind = "multiplier";
+
+    expect(() => validateFrameworkDefinition(framework as unknown as FrameworkDefinition)).toThrow(
+      "framework.core.critical-thinking-fact-checking.kind must be core.",
+    );
+  });
+
   it("rejects a core weight on a multiplier", () => {
     const framework = mutableFramework();
     arrayField(framework, "multipliers")[0]!.weightBasisPoints = 1_000;
 
     expect(() => validateFrameworkDefinition(framework as unknown as FrameworkDefinition)).toThrow(
       "framework.multiplier.ownership-thinking must not define a core weight.",
+    );
+  });
+
+  it("rejects a multiplier definition carrying the wrong runtime kind", () => {
+    const framework = mutableFramework();
+    arrayField(framework, "multipliers")[0]!.kind = "core";
+
+    expect(() => validateFrameworkDefinition(framework as unknown as FrameworkDefinition)).toThrow(
+      "framework.multiplier.ownership-thinking.kind must be multiplier.",
     );
   });
 

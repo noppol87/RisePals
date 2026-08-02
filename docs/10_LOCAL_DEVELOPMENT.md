@@ -288,7 +288,11 @@ For each assessed target, the scorer sums selected option rubric points independ
 
 Validation runs before scoring and rejects incompatible assessment/framework/scoring versions, missing required responses, duplicate item responses, unknown items/options, changed canonical weights, multiplier weights, invalid point scales, mismatched rubric maxima and non-integer/out-of-range contributions. The function does not sort or mutate caller responses; canonical output order makes the result independent of response order.
 
+RP-TURN-006-R1 also validates runtime discriminator values before target lookup: every core definition must declare `kind: "core"`, every multiplier definition must declare `kind: "multiplier"` and every item rubric target kind must be exactly `core` or `multiplier`. An unknown kind can no longer be treated as a multiplier or be silently omitted by the scorer. Regression tests preserve the existing unknown/wrong-target and 2/2/1/1 distribution checks.
+
 The contract emits no overall score, validated confidence, Aware–Leading stage, priority gap, lesson recommendation or employment/hiring field. Bilingual limitations state that the local slice is not a validated assessment and cannot predict job loss, job performance, employability or hiring eligibility.
+
+R1 replaces internal English implementation terms in Thai scenario, explanation and limitation copy with natural Thai equivalents for the system contract, scoring criteria, competency, behavioral pattern, risk guardrails and workflow. Targeted tests scan Thai values only and allow established proper names such as AI, Ownership Thinking and Sense of Urgency.
 
 ## Verified day-to-day commands
 
@@ -377,7 +381,7 @@ Final RP-TURN-005 verification on 2026-08-02:
 | client/network review | PASS — no `use client` directive, narrative/evidence module in the client-reference manifest or narrative/evidence module in static client chunks; no unexpected third-party initial request in either locale |
 | visual and accessibility review | PASS — Thai and English at 320px and desktop preserve reading order and wrapping with no horizontal overflow; visible 44px source links and focus treatment; automated reduced-motion and axe checks passed |
 
-Final RP-TURN-006 verification on 2026-08-02:
+Final RP-TURN-006-R1 verification on 2026-08-02:
 
 | Command or review | Exact result |
 |---|---|
@@ -387,15 +391,15 @@ Final RP-TURN-006 verification on 2026-08-02:
 | `npm run format:check` | PASS — all matched files use Prettier style |
 | `npm run lint` | PASS — exit 0 with zero warnings (`--max-warnings=0`) |
 | `npm run typecheck` | PASS — `next typegen` succeeded and strict `tsc --noEmit` exited 0 |
-| `npm run test` | PASS — 9 files and 61 tests, including 4 assessment-domain files covering framework, fixtures, scoring, explanations and every required rejection case |
+| `npm run test` | PASS — 9 files and 66 tests, including 4 assessment-domain files covering framework, fixtures, scoring, explanations, runtime kind discriminators, Thai terminology and every required rejection case |
 | `npm run build` | PASS — optimized Next.js `16.2.12` build; `/th` and `/en` remained statically generated and the assessment module added no route |
-| `npm run check` | PASS — aggregate format, lint, generated-route strict typecheck, 9 files/61 unit tests and production build |
+| `npm run check` | PASS — aggregate format, lint, generated-route strict typecheck, 9 files/66 unit tests and production build |
 | `npm run test:e2e` | PASS — all 14 accepted Chromium public-shell tests passed; no visible application behavior changed |
 | `npm audit --omit=dev` / `npm audit` | PASS — 0 production and 0 full-graph vulnerabilities |
 | fixture inventory | PASS — 6 bilingual items/18 options in the exact 2/2/1/1 target distribution; 2 synthetic raw-response fixtures; expected score and explanation fixtures stored separately |
 | scoring invariants | PASS — exact eight-core weights total 10,000 basis points; order-independent/non-mutating integer sums; separate +2 observations; six unassessed cores; no overall/confidence/stage/recommendation/hiring output |
-| rejected inputs | PASS — incompatible assessment/framework/scoring versions, missing/duplicate responses, unknown items/options, changed core weights, multiplier weights, invalid rubric maxima, impossible option points and invalid scoring scale |
-| explanation/limitation review | PASS — exact supporting-item traces and codes; complete Thai/English copy; explicit not-validated, job-loss, job-performance, employability, hiring and single-scenario limitations |
+| rejected inputs | PASS — incompatible assessment/framework/scoring versions, missing/duplicate responses, unknown items/options, unknown or wrong item target kind, wrong core/multiplier definition kind, changed core weights, multiplier weights, invalid rubric maxima, impossible option points and invalid scoring scale |
+| explanation/limitation review | PASS — exact supporting-item traces and codes; complete Thai/English copy; Thai internal-implementation-term guard; explicit not-validated, job-loss, job-performance, employability, hiring and single-scenario limitations |
 
 ## Environment-variable policy
 

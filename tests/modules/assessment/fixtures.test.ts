@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { assessmentDefinition } from "@/modules/assessment/assessment";
+import { explanationCopy, limitationCopy } from "@/modules/assessment/explanations";
 import { expectedExplanationFixtures } from "@/modules/assessment/fixtures/expected-explanations";
 import { expectedScoringFixtures } from "@/modules/assessment/fixtures/expected-scores";
 import { syntheticRawResponseFixtures } from "@/modules/assessment/fixtures/raw-responses";
 import { assessmentLocales } from "@/modules/assessment/types";
 
 const stableIdentifierPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const internalEnglishTermPattern =
+  /\b(?:contract|rubric|competenc(?:y|ies)|pattern|guardrail|workflow|fixture)\b/i;
 
 describe("assessment fixture inventory", () => {
   it("contains exactly six stable bilingual scenario-choice items in the authorized distribution", () => {
@@ -56,6 +59,22 @@ describe("assessment fixture inventory", () => {
     expect(syntheticRawResponseFixtures.map((fixture) => fixture.fixtureId)).toEqual(
       expectedExplanationFixtures.map((fixture) => fixture.fixtureId),
     );
+  });
+
+  it("keeps internal English implementation terms out of Thai assessment and explanation copy", () => {
+    const thaiAssessmentCopy = assessmentDefinition.items.flatMap((item) => [
+      item.prompt.th,
+      ...item.options.map((option) => option.label.th),
+    ]);
+    const thaiExplanationCopy = Object.values(explanationCopy).flatMap((copy) => [
+      copy.heading.th,
+      copy.body.th,
+    ]);
+    const thaiLimitationCopy = Object.values(limitationCopy).map((copy) => copy.body.th);
+
+    for (const text of [...thaiAssessmentCopy, ...thaiExplanationCopy, ...thaiLimitationCopy]) {
+      expect(text).not.toMatch(internalEnglishTermPattern);
+    }
   });
 
   it("uses unique synthetic identifiers and only item/option references in raw responses", () => {

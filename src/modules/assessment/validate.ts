@@ -74,6 +74,9 @@ export function validateFrameworkDefinition(framework: FrameworkDefinition): voi
   let totalWeight = 0;
   for (const competency of framework.coreCompetencies) {
     requireStableIdentifier(competency.id, `framework.core.${competency.id}.id`);
+    if (competency.kind !== "core") {
+      throw new Error(`framework.core.${competency.id}.kind must be core.`);
+    }
     validateLocalizedText(competency.name, `framework.core.${competency.id}.name`);
 
     if (!Number.isInteger(competency.weightBasisPoints) || competency.weightBasisPoints <= 0) {
@@ -97,6 +100,9 @@ export function validateFrameworkDefinition(framework: FrameworkDefinition): voi
 
   for (const multiplier of framework.multipliers) {
     requireStableIdentifier(multiplier.id, `framework.multiplier.${multiplier.id}.id`);
+    if (multiplier.kind !== "multiplier") {
+      throw new Error(`framework.multiplier.${multiplier.id}.kind must be multiplier.`);
+    }
     validateLocalizedText(multiplier.name, `framework.multiplier.${multiplier.id}.name`);
 
     if (Reflect.has(multiplier, "weightBasisPoints")) {
@@ -195,6 +201,10 @@ export function validateAssessmentDefinition(
       throw new Error(
         `assessment.item.${item.key}.rubric.availablePoints must equal the scoring scale maximum.`,
       );
+    }
+
+    if (item.rubric.targetKind !== "core" && item.rubric.targetKind !== "multiplier") {
+      throw new Error(`assessment.item.${item.key}.rubric.targetKind must be core or multiplier.`);
     }
 
     const targetExists =

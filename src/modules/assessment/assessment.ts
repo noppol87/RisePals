@@ -153,7 +153,7 @@ export const assessmentItems = [
       {
         id: "trace-recurring-bottleneck-trace-flow",
         label: {
-          th: "ติดตามข้อมูล การตัดสินใจ และความรับผิดชอบตลอด workflow เพื่อหาข้อจำกัดที่สร้างความล่าช้าจริง",
+          th: "ติดตามข้อมูล การตัดสินใจ และความรับผิดชอบตลอดกระบวนการทำงาน เพื่อหาข้อจำกัดที่สร้างความล่าช้าจริง",
           en: "Trace information, decisions, and ownership across the workflow to locate the constraint creating the delay.",
         },
         rubricPoints: 2,
@@ -235,7 +235,7 @@ export const assessmentItems = [
       {
         id: "move-with-safe-urgency-small-step",
         label: {
-          th: "เลือกการทดลองเล็กที่ย้อนกลับได้ กำหนด guardrail และเวลาตรวจผล เพื่อเดินหน้าโดยยังรักษาคุณภาพ",
+          th: "เลือกการทดลองเล็กที่ย้อนกลับได้ กำหนดเงื่อนไขควบคุมความเสี่ยงและเวลาตรวจผล เพื่อเดินหน้าโดยยังรักษาคุณภาพ",
           en: "Choose a small reversible experiment, set guardrails and a review point, and move while protecting quality.",
         },
         rubricPoints: 2,
