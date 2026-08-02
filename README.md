@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-007 assessment player prototype complete pending review / no validated assessment, result, server response collection or durable persistence  
+**Project status:** RP-TURN-007 assessment player prototype accepted / no validated assessment, result, server response collection or durable persistence  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -132,4 +132,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is Accepted. RP-TURN-007 — Assessment Player Prototype is complete pending Project Codex review, not Accepted. The player is a Thai/English usability prototype for six synthetic scenarios and produces no score, proficiency, priority gap, result or recommendation. Selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but no response is sent to a server and no durable assessment session, onboarding, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-008 has not been started or authorized.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract and RP-TURN-007 — Assessment Player Prototype are Accepted. The player is a Thai/English usability prototype for six synthetic scenarios and produces no score, proficiency, priority gap, result or recommendation. Selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but no response is sent to a server and no durable assessment session, onboarding, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-008 — Skill Map and Priority Result Prototype is recommended but has not been started or authorized.

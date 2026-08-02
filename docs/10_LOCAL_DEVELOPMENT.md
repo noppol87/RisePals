@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-007  
-**Status:** RP-TURN-007 assessment player prototype complete pending Project Codex review; no validated assessment, result, server response collection, durable persistence or deployment exists  
+**Status:** RP-TURN-007 assessment player prototype accepted by Project Codex; no validated assessment, result, server response collection, durable persistence or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -501,10 +501,10 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 
 ## Current boundary after RP-TURN-007
 
-- RP-TURN-006 is Accepted. RP-TURN-007 is complete pending Project Codex review, not Accepted.
+- RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests and a Thai/English six-scenario usability player. It is not a validated real assessment and creates no score, personalized result, recommendation, onboarding, lesson experience, learner profile or account system.
 - Selected item/option IDs may exist temporarily in same-tab `sessionStorage`; no response is sent to a server and no durable assessment session or response persistence exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, priority logic, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-008 has not been started or authorized.
+- RP-TURN-008 — Skill Map and Priority Result Prototype is recommended but has not been started or authorized.
