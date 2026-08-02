@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Design foundation, localized app shell and quality gates accepted / no product features  
+**Project status:** Public narrative and evidence contract complete pending review / no assessment or data collection  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. The current page remains structural verification content; it is not the Rise Pals landing page or a product experience.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaces the structural verification panel with a bounded public narrative prototype; it is not onboarding, assessment or a production launch.
 
 Locale routes:
 
@@ -66,6 +66,15 @@ Locale routes:
 - `/th` renders the Thai shell and catalog
 - `/en` renders the prepared English shell and catalog
 - unsupported locale segments return not found
+
+The public narrative now provides:
+
+- Thai-first optimistic-realism hero copy with an honest internal CTA and no data collection
+- exactly two localized evidence items from the ILO–NASK occupational-exposure study and the World Economic Forum Future of Jobs Report 2025
+- visible source, date, geography, method/context, limitation and review metadata for every evidence item
+- the complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity loop
+- a compact preview that keeps the eight core competencies distinct from the two behavioural multipliers
+- no assessment questions, scoring, personalized risk, waitlist form, pricing, account creation or external runtime fetch
 
 Verified prerequisites for this branch:
 
@@ -92,7 +101,7 @@ npm run test:e2e:install
 npm run test:e2e
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, language switching, skip-link focus, 320px reflow, desktop layout, reduced motion and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, language switching, evidence attribution/limitations/source destinations, the honest CTA, keyboard and skip-link behavior, 320px reflow, desktop layout, reduced motion, absence of unexpected third-party requests and serious/critical axe findings.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
 
@@ -109,4 +118,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-No landing narrative, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists yet. RP-TURN-004 has passed Project Codex review and is accepted. RP-TURN-005 — Public Narrative and Evidence Contract is the next recommended turn, but it has not been authorized.
+The RP-TURN-005 public narrative and evidence contract is complete on `agent/public-narrative-evidence` pending Project Codex review; it is not Accepted or merged. No onboarding, assessment, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-006 has not been authorized or started.

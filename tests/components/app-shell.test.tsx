@@ -7,7 +7,7 @@ describe("localized application shell", () => {
   it("renders semantic Thai navigation, a skip target, and real locale links", () => {
     render(
       <AppShell locale="th" messages={catalogs.th.shell}>
-        <h1>{catalogs.th.foundation.heading}</h1>
+        <h1>{catalogs.th.landing.hero.heading}</h1>
       </AppShell>,
     );
 
@@ -19,7 +19,7 @@ describe("localized application shell", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
     expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      catalogs.th.foundation.heading,
+      catalogs.th.landing.hero.heading,
     );
 
     const primaryNavigation = screen.getByRole("navigation", {
@@ -47,12 +47,12 @@ describe("localized application shell", () => {
   it("renders the same shell contract with intentional English labels", () => {
     render(
       <AppShell locale="en" messages={catalogs.en.shell}>
-        <h1>{catalogs.en.foundation.heading}</h1>
+        <h1>{catalogs.en.landing.hero.heading}</h1>
       </AppShell>,
     );
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Choose language" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Rise Pals experience foundation" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /Work is changing/ })).toBeVisible();
   });
 });

@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-02  
-**Current phase:** Design foundation, localized app shell and quality gates accepted; no product features implemented  
-**Current turn:** RP-TURN-004 accepted
+**Current phase:** Public narrative and evidence contract complete pending review; no assessment or data collection  
+**Current turn:** RP-TURN-005 complete pending Project Codex review
 
 ## Locked decisions
 
@@ -47,6 +47,11 @@
 - Matching typed Thai/English shell catalogs resolved server-side, semantic app shell, real-link language switcher, accessible layout primitives and provisional semantic design tokens
 - Pinned Chromium-only Playwright and axe browser-test foundation covering locale routing, keyboard/focus, 320px reflow, desktop layout, reduced motion and serious/critical accessibility findings
 - RP-TURN-004 design foundation, localized app shell and quality gates accepted by Project Codex
+- Thai-first and intentional English public narrative prototype with an honest internal CTA, no collection and no claim of employment guarantees
+- Typed static evidence contract with deterministic provenance, locale, URL, ISO-date, review-expiry, raw-HTML and duplicate-ID validation
+- Exactly two source-backed evidence items from ILO–NASK and the World Economic Forum, each paired with localized interpretation, action, visible scope and limitations
+- Complete Diagnose → Prioritize → Learn → Practice → Prove → Opportunity explanation and an 8-core/+2-multiplier preview without scoring or assessment content
+- RP-TURN-005 implementation complete on bounded branch `agent/public-narrative-evidence`, pending Project Codex review
 
 ## Open decisions
 
@@ -77,13 +82,13 @@
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
-## Next recommended turn
+## Next recommended action
 
-**RP-TURN-005 — Public Narrative and Evidence Contract**
+**Project Codex review of RP-TURN-005 — Public Narrative and Evidence Contract**
 
-Goal: establish the landing narrative structure with a source-backed evidence-block contract and an honest CTA placeholder after a separate approved turn brief.
+Goal: inspect the bounded implementation, rendered evidence against both original sources, exact validation/security evidence and Draft PR before accepting, revising or authorizing later work.
 
-RP-TURN-004 is accepted. RP-TURN-005 is the next recommended turn but is not authorized. No landing narrative, assessment, lesson, product feature, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-005 is complete pending Project Codex review and is not Accepted or merged. RP-TURN-006 is not authorized. No onboarding, assessment, lesson, personalized recommendation, user data collection, CI, database, production service or deployment exists; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -94,3 +99,4 @@ RP-TURN-004 is accepted. RP-TURN-005 is the next recommended turn but is not aut
 | 002 | Accepted | Git/Public-GitHub tooling, security review, local `main`, single `origin`, intentional initial commit/push and credential cleanup verified |
 | 003 | Accepted | Minimal application scaffold, pinned Node/npm/dependencies, deterministic quality gates and security review accepted by Project Codex |
 | 004 | Accepted | Thai-first localized route boundary, semantic responsive app shell, provisional design tokens, accessible primitives and Chromium/axe verification accepted by Project Codex |
+| 005 | Complete pending review | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview prepared on a bounded Draft PR |
