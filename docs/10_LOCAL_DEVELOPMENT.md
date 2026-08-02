@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-006  
-**Status:** Assessment-domain fixtures and scoring contract complete pending Project Codex review; no UI, data collection or deployment exists  
+**Status:** RP-TURN-006 versioned synthetic assessment-domain contract accepted; no assessment player, real assessment, data collection, persistence or deployment exists  
 **Checked:** 2026-08-02
 
 ## Confirmed host role and separation rule
@@ -44,7 +44,7 @@ C:\Codex PC SG2\Jeff\risepals
 | Windows Package Manager (`winget`) | Not found in `PATH` |
 | Repository `.git` | Present at repository root with `main`, one `origin` and repository-local noreply identity |
 
-RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 adds only a pure TypeScript assessment-domain contract and synthetic local fixtures; it creates no assessment UI, personal data, persistence, service or deployment.
+RP-TURN-001 through R2 made no Git mutation. RP-TURN-002 separately verified the local ancestry and empty Public destination, installed source-control tooling, initialized this exact workspace, created the reviewed initial baseline and published it without force. RP-TURN-003 installed Node.js/npm and established the accepted minimal application/tooling baseline. RP-TURN-004 established the accepted localized structural shell. RP-TURN-005 established the accepted public narrative and static evidence contract. RP-TURN-006 established the accepted versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation; it creates no assessment UI, real assessment, personal data, persistence, service or deployment.
 
 ## Environment commands actually executed
 
@@ -467,9 +467,9 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 
 ## Current boundary after RP-TURN-006
 
-- RP-TURN-006 is complete on `agent/assessment-domain-fixtures` pending Project Codex review; it is not yet accepted or merged.
-- The repository contains a static public narrative plus synthetic assessment-domain definitions and scoring tests, but no onboarding, assessment player, personalized result, lesson experience, learner profile, account system or data collection exists.
+- RP-TURN-006 is Accepted as a versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation.
+- The repository contains a static public narrative plus synthetic assessment-domain definitions and scoring tests, but no real assessment, onboarding, assessment player, personalized result, lesson experience, learner profile, account system, user data collection or persistence exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, priority logic, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-007 has not been started or authorized.
+- RP-TURN-007 — Assessment Player Prototype is the next recommended turn but has not been started or authorized.

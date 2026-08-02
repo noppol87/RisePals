@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** Assessment-domain fixtures and scoring contract complete pending review / no UI or data collection  
+**Project status:** RP-TURN-006 synthetic assessment-domain contract accepted / no assessment player, real assessment, data collection or persistence  
 **Last updated:** 2026-08-02
 
 ## Product thesis
@@ -76,7 +76,7 @@ The public narrative now provides:
 - a compact preview that keeps the eight core competencies distinct from the two behavioural multipliers
 - no assessment questions, scoring, personalized risk, waitlist form, pricing, account creation or external runtime fetch
 
-The repository also contains an RP-TURN-006 assessment-domain review fixture. It is not connected to the public routes and provides:
+The repository also contains the accepted RP-TURN-006 versioned synthetic assessment-domain contract. It is not connected to the public routes and provides:
 
 - exactly six synthetic bilingual scenario-choice items: two Critical Thinking & Fact-Checking, two Systematic Thinking, one Ownership Thinking and one Sense of Urgency
 - all eight canonical core identities and exact weights, with both behavioural multipliers structurally separate and unweighted
@@ -127,4 +127,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is complete on `agent/assessment-domain-fixtures` pending Project Codex review; it is not Accepted or merged. The repository contains synthetic assessment definitions and deterministic domain tests only—no assessment player, onboarding, personalized result, lesson, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-007 has not been authorized or started.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract is Accepted. Its outcome is a versioned synthetic contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation. No assessment player, real assessment, onboarding, personalized result, lesson, profile, user data collection, persistence, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-007 — Assessment Player Prototype is the next recommended turn but is not authorized or started.
