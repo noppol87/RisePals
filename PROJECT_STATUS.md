@@ -18,7 +18,7 @@
 - Delivery process: Project Codex reviews and directs; VS Code Codex implements one approved turn at a time
 - Cross-context messages identify source, destination and purpose; only marked TURN HANDOFF messages are completed-turn submissions
 - Accepted technical direction: Next.js App Router, React with strict TypeScript, Node.js 24 LTS/npm, PostgreSQL/Drizzle, Git-versioned trusted MDX/metadata for pilot lessons and a modular monolith
-- Production application deployment target: this Windows Server 2022 VPS using native Node.js after a separately approved infrastructure-readiness turn; no application/service/deployment exists yet
+- Production application deployment target: this Windows Server 2022 VPS using native Node.js after a separately approved infrastructure-readiness turn; the repository contains an application scaffold, but no production application/service/deployment exists yet
 - Canonical source/history: Jeff's personal Public repository [`noppol87/RisePals`](https://github.com/noppol87/RisePals), connected locally as the single `origin`
 
 ## Completed artifacts
