@@ -82,9 +82,10 @@ Git and GitHub CLI were installed for the authorized RP-TURN-002 source-control 
 
 Why Node 24: the official Node distribution index listed v24.18.1 as the current Krypton LTS release on 2026-08-02. Avoid v26 Current until it becomes an accepted LTS baseline and project dependencies support it.
 
-### Not required yet
+### Optional or task-specific
 
-- Docker/Podman or a local PostgreSQL server: defer until the database turn decides disposable integration-test infrastructure
+- Docker/Podman: not required; the RP-TURN-010 integration harness uses a supported portable PostgreSQL distribution and creates no service
+- PostgreSQL server binaries: required only for `npm run db:test:disposable`; keep them outside the repository and point `RISE_PALS_POSTGRES_BIN` at their `bin` directory
 - WSL: Next.js supports Windows directly; use WSL only if the team deliberately standardizes it
 - Python: the proposed web stack does not require it
 - GitHub CLI: installed for repository authentication and remote verification; Jeff has approved retaining the current development login for convenience
@@ -549,7 +550,7 @@ The `.gitignore` rule ignores `.env*` and re-allows `.env.example`.
 - Validate and type all required server variables once at startup. Fail with the variable name and remediation, never its value.
 - Keep provider names behind configuration/adapters so domain code does not read vendor variables directly.
 
-### Planned names
+### Active and planned names
 
 Names are a provider-agnostic contract; provider-specific additions wait for a vendor decision:
 
@@ -557,7 +558,7 @@ Names are a provider-agnostic contract; provider-specific additions wait for a v
 |---|---|---|
 | `APP_BASE_URL` | Server | Canonical origin for secure redirects/links |
 | `DATABASE_URL` | Server secret | PostgreSQL application connection |
-| `DATABASE_MIGRATION_URL` | Server/CI secret | Optional higher-privilege migration connection |
+| `DATABASE_MIGRATION_URL` | Server/CI secret | Separate migration/table-owner connection; never use as the application connection |
 | `AUTH_SECRET` | Server secret | Session/auth integration secret when required |
 | `OBJECT_STORAGE_BUCKET` | Server | Private proof bucket identifier |
 | `OBJECT_STORAGE_ENDPOINT` | Server | Provider adapter endpoint when required |
@@ -566,15 +567,51 @@ Names are a provider-agnostic contract; provider-specific additions wait for a v
 
 Do not create analytics, monitoring, email or payment variable names until those vendors and purposes are approved. `NODE_ENV` is framework-controlled and must not be repurposed.
 
-## Development and production database strategy
+## RP-TURN-010 database baseline
 
-The application does not need PostgreSQL before the approved database turn. For development/integration tests, choose one of:
+### Dependency rationale and typechecking
 
-1. disposable local/container PostgreSQL for reproducible integration tests
-2. provider development branch plus a separate disposable test database
-3. both, if runtime-specific integration behavior justifies it
+The exact lockfile adds only `drizzle-orm 0.45.2` and `pg 8.22.0` at runtime plus `drizzle-kit 0.31.10` and `@types/pg 8.20.3` for migration generation and TypeScript. `pg` is the server-side PostgreSQL driver; Drizzle supplies typed schema metadata and a reviewable SQL migration workflow. The reviewed `esbuild 0.25.12` override removes the vulnerable transitive version used by Drizzle Kit. `npm approve-scripts --allow-scripts-pending --json` reports no pending packages, and only `esbuild` is allowed to run an install script.
 
-Production placement remains open. Managed PostgreSQL is preferred for operational isolation, while a database on the same VPS would require explicit capacity, patching, private binding, least-privilege roles, monitoring and encrypted off-host backup evidence. The decision must verify supported PostgreSQL major version, separate application/migration privileges, RLS behavior, pooling mode, TLS, backup/deletion and data-region needs. Never use production data in local/preview environments; seed only synthetic Thai/English fixtures.
+Application and Next.js typechecking retain strict mode with `skipLibCheck: false`. Drizzle's published declarations import optional Gel/MySQL/SingleStore/SQLite dialect declarations that fail the repository's TypeScript settings even when only PostgreSQL subpaths are imported. `tsconfig.database.json` therefore performs a second strict check over only `drizzle.config.ts` and the Rise Pals Drizzle schema while skipping third-party declaration bodies. This does not skip checking any Rise Pals source file.
+
+### Typed connection boundary
+
+`DATABASE_URL` and `DATABASE_MIGRATION_URL` are both required whenever database code is used. They must be distinct PostgreSQL URLs with distinct role names, a single explicit database and exactly one approved `sslmode`. Loopback test URLs require `sslmode=disable`; non-loopback URLs reject disabled encryption. The application username also rejects owner/migration/admin/postgres-like names. Errors contain remediation but never echo connection values.
+
+The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. Browser input must never control this context directly; real authentication remains unimplemented.
+
+### Disposable PostgreSQL verification
+
+`scripts/db/run-disposable-postgres.ps1` requires the `bin` directory of a supported PostgreSQL distribution through `RISE_PALS_POSTGRES_BIN`, or discovers the turn's test-only EDB binary directory under the current user's temporary folder. It creates a fresh cluster and random credentials outside the repository, binds PostgreSQL only to `127.0.0.1` on an ephemeral port, disables SSL only on that loopback listener, creates separate `rise_pals_owner` and `rise_pals_app` roles, applies the single migration and runs synthetic constraint/RLS checks. It never registers a Windows service, changes the firewall or machine PATH, or creates a production account.
+
+Run the complete safe harness:
+
+```powershell
+$env:RISE_PALS_POSTGRES_BIN = "C:\path\to\supported-postgresql\bin"
+npm run db:test:disposable
+Remove-Item Env:RISE_PALS_POSTGRES_BIN
+```
+
+The script always requests a fast server stop and verifies the resolved cleanup path remains under `%TEMP%\risepals-postgres-tests` before recursively removing the cluster, log and credential files. After a successful run, no PostgreSQL process, service, database directory or temporary credential remains. `npm run db:test` is the inner test only; run it directly only against a newly created disposable empty database with separately scoped test roles.
+
+The migration creates exactly nine baseline tables and no durable learner activity: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`. The integration harness proves the exact canonical 8+2 registry/weights, null multiplier weights, validated JSON, business/provider uniqueness, append-only consent, restrictive deletion, published-definition immutability and forced RLS with two synthetic users. The normal application role owns no table and is neither superuser nor `BYPASSRLS`.
+
+Production placement remains open. Managed PostgreSQL is preferred for operational isolation, while a database on the same VPS would require explicit capacity, patching, private binding, least-privilege roles, monitoring and encrypted off-host backup evidence. A later decision must verify supported PostgreSQL major version, TLS, pooling mode, backups/deletion, data region, credential rotation and operational access. Never use production data in local or preview environments.
+
+### RP-TURN-010 implementation verification
+
+| Check | Result |
+|---|---|
+| `npm ci` | PASS — 488 packages installed, 489 audited, 0 vulnerabilities; only the existing deprecated `@esbuild-kit` notices were emitted |
+| install-script policy | PASS — no packages with unreviewed scripts; `esbuild` allowed, `fsevents` and `unrs-resolver` denied |
+| `npm run format:check` / `npm run lint` / `npm run typecheck` | PASS — formatting, zero-warning ESLint, Next route generation and both strict Rise Pals TypeScript projects completed |
+| `npm run test` / `npm run check` | PASS — 19 files / 157 tests; aggregate gate also completed the 11-page static production build |
+| `npm run test:e2e` | PASS — Chromium 46/46 with unchanged locale, privacy, accessibility, reflow and reduced-motion behavior |
+| `npm run db:test:disposable` | PASS — PostgreSQL 18.4, 85 migration statements, 9 tables, database constraint/immutability checks and two-user forced RLS |
+| production/full npm audits | PASS — 0 vulnerabilities in both graphs; all `esbuild` paths resolve to reviewed override `0.25.12` |
+| client boundary | PASS — expected result/lesson client references only; 12 production client chunk files contain 0 database URL, PostgreSQL, Drizzle, `pg`, private-schema or trusted-context markers |
+| disposable cleanup | PASS — 0 PostgreSQL processes, services and disposable test roots after the run; temporary database files and credentials removed |
 
 ## UTF-8 and Thai-content notes
 
@@ -592,14 +629,15 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-009
+## Current boundary after RP-TURN-010 implementation
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
+- RP-TURN-010 is implemented pending Project Codex review and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, typed server connection boundary and disposable database verification.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result and one repository-local lesson prototype. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, published/externally validated learning content, learner profile or account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
-- No cloud or paid provider, database, production service or deployment was created.
+- No cloud or paid provider, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-010 is recommended but has not been started or authorized.
+- No authentication, profile, assessment session/response/result persistence, lesson progress, saved XP or proof storage exists. RP-TURN-011 is not authorized or started.

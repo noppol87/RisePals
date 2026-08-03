@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype; none of these turns creates onboarding, a validated or personalized assessment result, published or externally validated learning content, or a production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds a bounded database schema and migration baseline for review; none of these turns creates onboarding, a validated or personalized assessment result, a production database, published or externally validated learning content, or a production launch.
 
 Locale routes:
 
@@ -100,6 +100,14 @@ RP-TURN-009 implements that one lesson through a typed, schema-validated, Git-ve
 
 Practice selections and feedback exist only in React memory and reset on refresh. The route uses no browser storage, cookie, answer-bearing URL, API, server action, analytics, log or network transmission. The future source-verification note is a placeholder only: there is no free-text field, upload, file generation, proof storage or collected reflection. The production MDX compilation/publication pipeline remains deferred to RP-TURN-014.
 
+## Database baseline
+
+RP-TURN-010 defines nine PostgreSQL tables through Drizzle schema metadata and one reviewed forward SQL migration: user accounts, external identities, append-only consent records, framework versions, competency versions, scoring-model versions used for referential integrity, assessment versions, assessment-item versions and item-to-competency mappings.
+
+The migration uses internal UUIDs, unique provider/subject and versioned business keys, validated versioned JSON objects, restrictive foreign keys, exact published 8+2 framework metadata and 10,000 core basis points, null multiplier weights, immutable published definitions and `timestamptz` timestamps. Forced RLS protects all three user-owned tables. The normal `rise_pals_app` role owns no table, has no `BYPASSRLS` and sees an owner only through a validated server-set transaction-local UUID.
+
+This is a schema/test baseline, not a production database. There is no authentication integration, profile, assessment session, raw response, persisted result/score, lesson progress, saved XP or proof storage. Provider, placement, TLS termination, credentials, backups and production operations remain open.
+
 Verified prerequisites for this branch:
 
 - Node.js `24.18.1` LTS x64
@@ -123,11 +131,12 @@ npm run build
 npm run check
 npm run test:e2e:install
 npm run test:e2e
+npm run db:test:disposable
 ```
 
 `npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
 
-Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
+Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Database runtime use requires separate application and migration URLs; the application identity must be a non-owner role without `BYPASSRLS`. The committed values are inert examples only. Never commit a real `.env` file or secret.
 
 The exact install, verification results and Windows notes are recorded in [Local Development](docs/10_LOCAL_DEVELOPMENT.md).
 
@@ -142,4 +151,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype, RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype and RP-TURN-009 — One End-to-End Lesson and Practice Prototype are Accepted. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype now exists, but no published or externally validated lesson, durable assessment/lesson session, saved XP, onboarding, profile, authentication, database, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-010 is recommended but has not been started or authorized.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype, RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype and RP-TURN-009 — One End-to-End Lesson and Practice Prototype are Accepted. RP-TURN-010 is implemented pending Project Codex review. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype and one database schema baseline now exist, but no published or externally validated lesson, production database, durable assessment/lesson session, saved XP, onboarding, profile, authentication, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-011 is not authorized or started.

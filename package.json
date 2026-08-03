@@ -14,7 +14,10 @@
     "format": "prettier --write . --ignore-unknown",
     "format:check": "prettier --check . --ignore-unknown",
     "lint": "eslint . --max-warnings=0",
-    "typecheck": "next typegen && tsc --noEmit --project tsconfig.typecheck.json",
+    "typecheck": "next typegen && tsc --noEmit --project tsconfig.typecheck.json && tsc --noEmit --project tsconfig.database.json",
+    "db:generate": "drizzle-kit generate",
+    "db:test": "node scripts/db/integration.mjs",
+    "db:test:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium",
@@ -22,7 +25,9 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
+    "drizzle-orm": "0.45.2",
     "next": "16.2.12",
+    "pg": "8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "0.0.1"
@@ -35,8 +40,10 @@
     "@testing-library/jest-dom": "7.0.0",
     "@testing-library/react": "16.3.2",
     "@types/node": "24.13.3",
+    "@types/pg": "8.20.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.12",
     "jsdom": "30.0.1",
@@ -47,10 +54,12 @@
     "vitest": "4.1.10"
   },
   "overrides": {
+    "esbuild": "0.25.12",
     "postcss": "8.5.25",
     "sharp": "0.35.3"
   },
   "allowScripts": {
+    "esbuild": true,
     "fsevents": false,
     "unrs-resolver": false
   }

@@ -28,6 +28,7 @@ test-results/
 # Local or exported data and private artifacts
 *.dump
 *.sql
+!drizzle/*.sql
 *.sqlite
 *.sqlite3
 *.db

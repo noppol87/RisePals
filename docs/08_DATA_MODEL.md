@@ -1,7 +1,7 @@
 # Initial Data Model
 
 **Turn:** RP-TURN-001  
-**Status:** Logical MVP model; no database or migration created  
+**Status:** Logical MVP model plus bounded RP-TURN-010 physical baseline pending review  
 **Reviewed:** 2026-08-01
 
 ## Purpose
@@ -12,7 +12,7 @@
 
 และรักษาทางไปสู่ Prove → Opportunity โดยไม่ทำให้คะแนน diagnostic ที่ยังไม่ validate กลายเป็น automated hiring gate
 
-เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle ก่อนเลือก managed PostgreSQL หรือ auth vendor ชื่อ table/field อาจปรับเมื่อสร้าง migration แต่ separation และ invariants หลักต้องคงอยู่
+เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle ก่อนเลือก managed PostgreSQL หรือ auth vendor โดย RP-TURN-010 นำเฉพาะเก้าตารางฐานที่ได้รับอนุญาตไปสร้างเป็น Drizzle schema และ forward migration; entity อื่นในเอกสารยังเป็นแบบจำลองอนาคตเท่านั้น
 
 ## Modeling principles
 
@@ -516,6 +516,16 @@ Prohibited fields include raw answers, item text, scores, free-text goals/reflec
 Staff/security audit records contain actor ID, action, target type/opaque ID, occurred time, result, reason code and correlation ID. They must not duplicate target content. Access is restricted and independently retained according to an approved policy.
 
 ## Authorization and database policy
+
+### Implemented RP-TURN-010 baseline
+
+The physical baseline contains exactly these nine tables: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`.
+
+One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact published 8-core/+2-multiplier registry totaling 10,000 core basis points. Published framework, scoring-model and assessment rows and their owned definition children are immutable. Consent rows are append-only.
+
+`user_accounts`, `external_identities` and `consent_records` have forced RLS. Both the table-owning migration role and normal application role resolve rows through a transaction-local `app.current_user_id`; the normal role owns no table and has neither superuser nor `BYPASSRLS`. The trusted Next.js server validates the UUID before setting it inside a transaction. This context is not an authentication mechanism and must never be set from untrusted browser input.
+
+The baseline intentionally excludes profiles, authentication/session state, assessment sessions, raw responses, scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage and production accounts. The disposable PostgreSQL harness uses only synthetic users and temporary credentials outside the repository.
 
 - Browser code never receives a privileged database credential.
 - Server Data Access Layer checks active account, required role, owner/relationship and requested fields.

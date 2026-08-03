@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["drizzle.config.ts", "src/lib/db/schema.ts"],
+  "exclude": ["node_modules"]
+}
