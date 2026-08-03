@@ -596,10 +596,10 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
-- RP-TURN-009 is complete pending Project Codex review and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary.
+- RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result and one repository-local lesson prototype. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, published/externally validated learning content, learner profile or account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
 - No cloud or paid provider, database, production service or deployment was created.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- RP-TURN-010 has not been started or authorized.
+- RP-TURN-010 is recommended but has not been started or authorized.

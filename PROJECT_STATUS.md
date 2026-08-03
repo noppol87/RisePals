@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-03  
-**Current phase:** One repository-local lesson/practice prototype complete pending Project Codex review; no published or externally validated lesson, personalized result or durable learning state  
-**Current turn:** RP-TURN-009 Complete — Pending Project Codex review
+**Current phase:** Repository-local lesson/practice prototype accepted; no published or externally validated lesson, personalized result or durable learning state  
+**Current turn:** RP-TURN-009 Accepted
 
 ## Locked decisions
 
@@ -73,7 +73,7 @@
 - Static `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` routes with synthetic AI-summary/source-verification content, transparent three-criterion rubric and exact framework/stage/R.O.I. identity
 - Pure deterministic practice evaluation and memory-only state: incomplete or below threshold previews 0 XP, all three criteria preview 20 XP, retry replaces rather than accumulates and refresh resets
 - Proof-artifact placeholder and non-collecting reflection with no free text, upload, artifact generation, storage, response transmission or assessment-player data access
-- RP-TURN-009 brief and D-016 repository-local lesson/practice prototype boundary complete pending Project Codex review
+- RP-TURN-009 brief, D-016 repository-local lesson/practice prototype boundary, runtime copy-leaf validation and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -108,11 +108,11 @@
 
 ## Next recommended action
 
-**Project Codex review of RP-TURN-009**
+**RP-TURN-010 — PostgreSQL Schema and Migration Baseline**
 
-Recommended action: review the bounded RP-TURN-009 implementation and its Draft PR. RP-TURN-010 remains an engineering-plan candidate only and is not authorized.
+Recommended goal after separate authorization: establish the bounded PostgreSQL/Drizzle schema and migration baseline defined in the engineering plan. RP-TURN-010 is recommended but is not authorized.
 
-RP-TURN-007 and RP-TURN-008 are Accepted. RP-TURN-009 now adds one local prototype lesson linked from the fixed synthetic result without reading or scoring the user's temporary `sessionStorage` selections. It creates no published/externally validated learning content, real personalized recommendation, durable lesson progress, saved XP, proof, profile, authentication, database, CI, production service or deployment. RP-TURN-010 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-009 adds one local prototype lesson linked from the fixed synthetic result without reading or scoring the user's temporary `sessionStorage` selections. It creates no published/externally validated learning content, real personalized recommendation, durable lesson progress, saved XP, proof, profile, authentication, database, CI, production service or deployment. RP-TURN-010 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -127,4 +127,4 @@ RP-TURN-007 and RP-TURN-008 are Accepted. RP-TURN-009 now adds one local prototy
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
-| 009 | Complete — Pending review | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence |
+| 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
