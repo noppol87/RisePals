@@ -92,4 +92,19 @@ describe("localized application shell", () => {
     );
     expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
   });
+
+  it("preserves the source-verification lesson route while switching locale", () => {
+    navigation.pathname = "/th/lessons/source-verification-practice";
+    render(
+      <AppShell locale="th" messages={catalogs.th.shell}>
+        <h1>ต้นแบบบทเรียนตรวจสอบแหล่งข้อมูล</h1>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
+      "href",
+      "/en/lessons/source-verification-practice",
+    );
+    expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
+  });
 });

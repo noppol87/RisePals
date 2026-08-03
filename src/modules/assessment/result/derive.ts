@@ -8,6 +8,11 @@ import type {
   SyntheticFixtureInput,
 } from "@/modules/assessment/result/types";
 import { scoreAssessmentFixture } from "@/modules/assessment/scoring";
+import {
+  SOURCE_VERIFICATION_LESSON_KEY,
+  SOURCE_VERIFICATION_LESSON_VERSION,
+  SOURCE_VERIFICATION_LESSON_VERSION_ID,
+} from "@/modules/lesson/source-verification/types";
 
 export const SYNTHETIC_EXAMPLE_RESULT_CONTRACT_VERSION_ID = "synthetic-example-result-contract-v1";
 export const VISIBLE_SYNTHETIC_EXAMPLE_FIXTURE_ID = "synthetic-mixed-review";
@@ -83,7 +88,7 @@ export function deriveSyntheticExampleResult(
       scoringModelVersionId: nextPractice.scoringModelVersionId,
       scoringModelVersion: nextPractice.scoringModelVersion,
       supportingItemKeys: [...nextPractice.supportingItemKeys],
-      plannedLesson: { ...nextPractice.plannedLesson },
+      prototypeLesson: { ...nextPractice.prototypeLesson },
     },
   };
 }
@@ -217,8 +222,14 @@ function validateExampleNextPractice(
     throw new Error("next-practice scoring-model compatibility failed.");
   }
 
-  if (nextPractice.plannedLesson.availability !== "planned-unavailable") {
-    throw new Error("next-practice lesson reference must remain planned and unavailable.");
+  if (
+    nextPractice.prototypeLesson.lessonKey !== SOURCE_VERIFICATION_LESSON_KEY ||
+    nextPractice.prototypeLesson.lessonVersionId !== SOURCE_VERIFICATION_LESSON_VERSION_ID ||
+    nextPractice.prototypeLesson.version !== SOURCE_VERIFICATION_LESSON_VERSION ||
+    nextPractice.prototypeLesson.status !== "prototype" ||
+    nextPractice.prototypeLesson.availability !== "prototype-available"
+  ) {
+    throw new Error("next-practice lesson reference must match the exact available prototype.");
   }
 
   const targetSignal = score.coreSkillSignals.find(

@@ -8,6 +8,7 @@ import {
   assessmentExampleResultPath,
   assessmentPath,
   localePath,
+  sourceVerificationLessonPath,
   type Locale,
 } from "@/lib/i18n/config";
 
@@ -21,6 +22,7 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
   const homePath = localePath(currentLocale);
   const onAssessmentRoute = pathname === assessmentPath(currentLocale);
   const onExampleResultRoute = pathname === assessmentExampleResultPath(currentLocale);
+  const onSourceVerificationLessonRoute = pathname === sourceVerificationLessonPath(currentLocale);
 
   return (
     <>
@@ -39,11 +41,13 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
         currentLanguageLabel={messages.currentLanguageLabel}
         languageNames={messages.languageNames}
         routeSuffix={
-          onExampleResultRoute
-            ? "/assessment/example-result"
-            : onAssessmentRoute
-              ? "/assessment"
-              : ""
+          onSourceVerificationLessonRoute
+            ? "/lessons/source-verification-practice"
+            : onExampleResultRoute
+              ? "/assessment/example-result"
+              : onAssessmentRoute
+                ? "/assessment"
+                : ""
         }
       />
     </>

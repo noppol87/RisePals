@@ -162,7 +162,9 @@ export type ExampleResultCatalog = Readonly<{
   traceScoringModelLabel: string;
   traceItemsLabel: string;
   traceLessonLabel: string;
-  lessonUnavailableLabel: string;
+  lessonPrototypeLabel: string;
+  lessonLinkBoundary: string;
+  lessonLinkLabel: string;
   limitationsHeading: string;
   limitationsIntroduction: string;
   backToAssessmentLabel: string;
@@ -407,14 +409,18 @@ export const catalogs = {
         "เลือกสรุปจาก AI หนึ่งชิ้น เทียบข้ออ้างสำคัญกับแหล่งต้นฉบับ บันทึกจุดที่ตรงและไม่ตรง แล้วแก้เฉพาะส่วนที่ตรวจสอบหลักฐานได้",
       traceHeading: "ที่มาของตัวอย่างการฝึก",
       traceIntroduction:
-        "ข้อมูลอ้างอิงนี้ทำให้ทีมตรวจได้ว่าตัวอย่างเชื่อมกับรุ่นการให้คะแนน สถานการณ์ และทักษะใด โดยไม่ได้หมายความว่าบทเรียนพร้อมใช้งานแล้ว",
+        "ข้อมูลอ้างอิงนี้ทำให้ทีมตรวจได้ว่าตัวอย่างเชื่อมกับรุ่นการให้คะแนน สถานการณ์ ทักษะ และบทเรียนต้นแบบใด",
       traceDefinitionLabel: "รุ่นตัวอย่างการฝึก",
       traceFixtureLabel: "ชุดคำตอบจำลอง",
       traceTargetLabel: "ทักษะเป้าหมายของตัวอย่าง",
       traceScoringModelLabel: "รุ่นวิธีให้คะแนนจำลอง",
       traceItemsLabel: "รหัสสถานการณ์ที่รองรับ",
-      traceLessonLabel: "รหัสรุ่นบทเรียนที่วางแผนไว้",
-      lessonUnavailableLabel: "วางแผนไว้และยังไม่พร้อมใช้งาน — ยังไม่มีบทเรียนในระบบ",
+      traceLessonLabel: "รหัสรุ่นบทเรียนต้นแบบ",
+      lessonPrototypeLabel:
+        "ต้นแบบพร้อมให้ทดลอง — ยังไม่ใช่เนื้อหาที่เผยแพร่หรือผ่านการตรวจสอบผลการเรียนรู้",
+      lessonLinkBoundary:
+        "ผลลัพธ์ด้านบนยังเป็นตัวอย่างคงที่จากข้อมูลจำลอง บทเรียนนี้เป็นต้นแบบ และลิงก์ไม่ได้เกิดจากคำแนะนำเฉพาะบุคคล",
+      lessonLinkLabel: "เปิดบทเรียนต้นแบบการตรวจสอบแหล่งข้อมูล",
       limitationsHeading: "ข้อจำกัดของหลักฐานและการใช้งาน",
       limitationsIntroduction:
         "อ่านข้อจำกัดทั้งหมดก่อนตีความภาพตัวอย่างนี้ ไม่มีข้อมูลส่วนใดใช้ตัดสินบุคคล การจ้างงาน หรือความพร้อมในการทำงาน",
@@ -661,14 +667,18 @@ export const catalogs = {
         "Choose one AI-generated summary, compare its important claims with the original source, record matches and discrepancies, then correct only what the evidence supports.",
       traceHeading: "Why this example practice is traceable",
       traceIntroduction:
-        "These references let reviewers verify the scoring-model version, scenarios, and target competency without implying that the planned lesson is available.",
+        "These references let reviewers verify the scoring-model version, scenarios, target competency, and exact prototype lesson.",
       traceDefinitionLabel: "Example-practice definition",
       traceFixtureLabel: "Synthetic fixture",
       traceTargetLabel: "Example target competency",
       traceScoringModelLabel: "Synthetic scoring-model version",
       traceItemsLabel: "Supporting scenario keys",
-      traceLessonLabel: "Planned lesson-version reference",
-      lessonUnavailableLabel: "Planned and unavailable — no lesson currently exists",
+      traceLessonLabel: "Prototype lesson-version reference",
+      lessonPrototypeLabel:
+        "Prototype available — not published or externally validated learning content",
+      lessonLinkBoundary:
+        "The result above remains a fixed synthetic example. This lesson is a prototype, and the link is not a personalized recommendation.",
+      lessonLinkLabel: "Open the source-verification lesson prototype",
       limitationsHeading: "Evidence and use limitations",
       limitationsIntroduction:
         "Read every limitation before interpreting this example. Nothing here may be used to judge a person, hiring, or work readiness.",

@@ -11,6 +11,7 @@ function renderExample(locale: "th" | "en") {
     <SyntheticExampleResult
       assessmentHref={`/${locale}/assessment`}
       homeHref={`/${locale}`}
+      lessonHref={`/${locale}/lessons/source-verification-practice`}
       messages={messages}
       view={view}
     />,
@@ -74,7 +75,7 @@ describe("synthetic example result", () => {
     expect(within(multiplierSection).getByText("Sense of Urgency")).toBeVisible();
   });
 
-  it("renders one example practice with the exact planned and unavailable trace", () => {
+  it("renders one example practice with the exact available prototype trace", () => {
     const { messages, view } = renderExample("en");
     const practice = screen
       .getByRole("heading", { name: messages.practiceHeading })
@@ -93,9 +94,14 @@ describe("synthetic example result", () => {
       ),
     ).toBeVisible();
     expect(
-      within(practice).getByText(view.exampleNextPractice.plannedLesson.lessonVersionId),
+      within(practice).getByText(view.exampleNextPractice.prototypeLesson.lessonVersionId),
     ).toBeVisible();
-    expect(within(practice).getByText(messages.lessonUnavailableLabel)).toBeVisible();
+    expect(within(practice).getByText(messages.lessonPrototypeLabel)).toBeVisible();
+    expect(within(practice).getByText(messages.lessonLinkBoundary)).toBeVisible();
+    expect(within(practice).getByRole("link", { name: messages.lessonLinkLabel })).toHaveAttribute(
+      "href",
+      "/en/lessons/source-verification-practice",
+    );
   });
 
   it.each(["th", "en"] as const)("shows the complete accepted limitation set in %s", (locale) => {

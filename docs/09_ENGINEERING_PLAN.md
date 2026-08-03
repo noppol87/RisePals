@@ -130,7 +130,7 @@ Gate:
 
 ### RP-TURN-009 — One End-to-End Lesson and Practice Prototype
 
-Outcome: one validated micro-lesson with active decision, rubric feedback, XP rule and proof placeholder using versioned local content.
+Outcome: one schema-validated local micro-lesson prototype with active decision, rubric feedback, XP rule and proof placeholder using versioned local content; this is not externally validated learning content.
 
 Gate:
 

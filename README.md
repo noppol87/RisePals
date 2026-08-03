@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result; none of these turns creates onboarding, a validated or personalized assessment result, an available lesson or a production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype; none of these turns creates onboarding, a validated or personalized assessment result, published or externally validated learning content, or a production launch.
 
 Locale routes:
 
@@ -67,6 +67,7 @@ Locale routes:
 - `/en` renders the prepared English shell and catalog
 - `/th/assessment` and `/en/assessment` render the matching six-scenario player prototype
 - `/th/assessment/example-result` and `/en/assessment/example-result` render the matching static synthetic example result
+- `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` render the matching local lesson/practice prototype
 - unsupported locale segments return not found
 
 The public narrative now provides:
@@ -93,7 +94,11 @@ For same-tab refresh recovery only, the player may store a versioned allowlisted
 
 The RP-TURN-008 result route is a separate server-rendered example using reviewed fixture `synthetic-mixed-review`; it never reads or scores that temporary player payload. It displays only raw `1/4` and `3/4` evidence signals for the two covered core competencies, lists all six unassessed cores, and keeps Ownership Thinking and Sense of Urgency as separate one-scenario observations. It has no overall or weighted score, percentage proficiency, stage, confidence percentage, employment inference, readiness/risk/personality inference or personalized priority recommendation.
 
-The page includes one fixed example practice for Critical Thinking & Fact-Checking. Its trace records scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, item keys `verify-ai-summary-source` and `test-process-assumption`, and planned lesson version `lesson-source-verification-practice-planned-v1`. The reference is visibly unavailable and does not create or imply an existing lesson player.
+The page includes one fixed example practice for Critical Thinking & Fact-Checking. Its trace records scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, item keys `verify-ai-summary-source` and `test-process-assumption`, and exact prototype lesson version `lesson-source-verification-practice-v1@1.0.0`. Its locale-matched link says the result remains fixed and synthetic, the lesson is a prototype and the link is not a personalized recommendation.
+
+RP-TURN-009 implements that one lesson through a typed, schema-validated, Git-versioned local content contract. The Thai/English routes share exact lesson, framework, competency, `Practicing` stage, `Intelligent Risk & Governance`, practice, rubric and proof identities. The entirely synthetic Bright River Operations case moves from source-verification concepts to a three-part structured decision and visible binary rubric. All three criteria are required for a demonstrated in-memory outcome and a 20 XP preview; incomplete or below-threshold work previews 0 XP, and retry replaces rather than accumulates. No XP is saved.
+
+Practice selections and feedback exist only in React memory and reset on refresh. The route uses no browser storage, cookie, answer-bearing URL, API, server action, analytics, log or network transmission. The future source-verification note is a placeholder only: there is no free-text field, upload, file generation, proof storage or collected reflection. The production MDX compilation/publication pipeline remains deferred to RP-TURN-014.
 
 Verified prerequisites for this branch:
 
@@ -120,7 +125,7 @@ npm run test:e2e:install
 npm run test:e2e
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, 320px reflow, desktop layout, reduced motion, absence of answer data in storage reads/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Never commit a real `.env` file or secret.
 
@@ -137,4 +142,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype and RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype are Accepted. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate result route never reads them. That route is a fixed synthetic example, not a validated result or personalized recommendation. No available lesson, durable assessment session, onboarding, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-009 is recommended next but has not been started or authorized.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype and RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype are Accepted. RP-TURN-009 is complete pending Project Codex review. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype now exists, but no published or externally validated lesson, durable assessment/lesson session, saved XP, onboarding, profile, authentication, database, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-010 has not been started or authorized.

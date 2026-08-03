@@ -8,6 +8,7 @@ import {
   isLocale,
   locales,
   localePath,
+  sourceVerificationLessonPath,
 } from "@/lib/i18n/config";
 
 function messageKeys(value: unknown, prefix = ""): string[] {
@@ -46,6 +47,7 @@ describe("locale configuration", () => {
     expect(localePath("th")).toBe("/th");
     expect(assessmentPath("th")).toBe("/th/assessment");
     expect(assessmentExampleResultPath("th")).toBe("/th/assessment/example-result");
+    expect(sourceVerificationLessonPath("th")).toBe("/th/lessons/source-verification-practice");
   });
 
   it("uses canonical BCP 47-compatible identifiers prepared for Intl", () => {
@@ -61,6 +63,7 @@ describe("typed sample catalogs", () => {
     expect(messageKeys(catalogs.th)).toContain("landing.hero.heading");
     expect(messageKeys(catalogs.th)).toContain("assessment.storageBody");
     expect(messageKeys(catalogs.th)).toContain("exampleResult.userChoicesBoundary");
+    expect(messageKeys(catalogs.th)).toContain("exampleResult.lessonLinkBoundary");
     expect(messageKeys(catalogs.th)).toContain(
       "landing.framework.multiplierItems.senseOfUrgency.name",
     );

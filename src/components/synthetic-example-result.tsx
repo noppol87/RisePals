@@ -5,6 +5,7 @@ import type { SyntheticExampleResultView } from "@/modules/assessment/result/vie
 type SyntheticExampleResultProps = Readonly<{
   assessmentHref: string;
   homeHref: string;
+  lessonHref: string;
   messages: ExampleResultCatalog;
   view: SyntheticExampleResultView;
 }>;
@@ -12,6 +13,7 @@ type SyntheticExampleResultProps = Readonly<{
 export function SyntheticExampleResult({
   assessmentHref,
   homeHref,
+  lessonHref,
   messages,
   view,
 }: SyntheticExampleResultProps) {
@@ -204,12 +206,19 @@ export function SyntheticExampleResult({
             <div>
               <dt>{messages.traceLessonLabel}</dt>
               <dd>
-                <code>{view.exampleNextPractice.plannedLesson.lessonVersionId}</code>
-                <strong>{messages.lessonUnavailableLabel}</strong>
+                <code>{view.exampleNextPractice.prototypeLesson.lessonVersionId}</code>
+                <span>
+                  <code>{view.exampleNextPractice.prototypeLesson.version}</code>
+                </span>
+                <strong>{messages.lessonPrototypeLabel}</strong>
               </dd>
             </div>
           </dl>
         </section>
+        <div className="example-practice__lesson-link">
+          <p>{messages.lessonLinkBoundary}</p>
+          <TextLink href={lessonHref}>{messages.lessonLinkLabel}</TextLink>
+        </div>
       </section>
 
       <section className="example-limitations" aria-labelledby="example-limitations-heading">

@@ -64,14 +64,22 @@ for (const locale of ["th", "en"] as const) {
         exact: true,
       }),
     ).toBeVisible();
-    await expect(page.getByText("lesson-source-verification-practice-planned-v1")).toBeVisible();
+    await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
     await expect(
       page.getByText(
         locale === "th"
-          ? "วางแผนไว้และยังไม่พร้อมใช้งาน — ยังไม่มีบทเรียนในระบบ"
-          : "Planned and unavailable — no lesson currently exists",
+          ? "ต้นแบบพร้อมให้ทดลอง — ยังไม่ใช่เนื้อหาที่เผยแพร่หรือผ่านการตรวจสอบผลการเรียนรู้"
+          : "Prototype available — not published or externally validated learning content",
       ),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", {
+        name:
+          locale === "th"
+            ? "เปิดบทเรียนต้นแบบการตรวจสอบแหล่งข้อมูล"
+            : "Open the source-verification lesson prototype",
+      }),
+    ).toHaveAttribute("href", `/${locale}/lessons/source-verification-practice`);
     await expect(page.locator("output, [data-score], [data-result]")).toHaveCount(0);
   });
 }
@@ -101,7 +109,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     await expectNoHorizontalOverflow(page);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    await expect(page.getByText("lesson-source-verification-practice-planned-v1")).toBeVisible();
+    await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
     for (const link of await page.locator("main").getByRole("link").all()) {
       const box = await link.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
