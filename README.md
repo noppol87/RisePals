@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-008 synthetic example-result prototype complete pending review / no validated or personalized result, server response collection or durable persistence  
-**Last updated:** 2026-08-02
+**Project status:** RP-TURN-008 synthetic example-result prototype accepted / no validated or personalized result, server response collection or durable persistence  
+**Last updated:** 2026-08-03
 
 ## Product thesis
 
@@ -137,4 +137,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract and RP-TURN-007 — Assessment Player Prototype are Accepted. RP-TURN-008 is complete pending Project Codex review. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate result route never reads them. That route is a fixed synthetic example, not a validated result or personalized recommendation. No available lesson, durable assessment session, onboarding, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-009 is recommended next but has not been started or authorized.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype and RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype are Accepted. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate result route never reads them. That route is a fixed synthetic example, not a validated result or personalized recommendation. No available lesson, durable assessment session, onboarding, profile, authentication, database, proof, payment, analytics, CI, VPS service or deployment exists. RP-TURN-009 is recommended next but has not been started or authorized.

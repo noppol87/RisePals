@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-02  
-**Current phase:** Synthetic example-result prototype complete pending Project Codex review; no validated or personalized assessment result, server-side response collection or durable persistence  
-**Current turn:** RP-TURN-008-R1 Complete — pending Project Codex review
+**Status date:** 2026-08-03  
+**Current phase:** Synthetic example-result prototype accepted; no validated or personalized assessment result, server-side response collection or durable persistence  
+**Current turn:** RP-TURN-008 Accepted
 
 ## Locked decisions
 
@@ -68,7 +68,7 @@
 - Exact reviewed-fixture provenance guard that rejects unknown IDs, changed compatibility metadata, changed response pairs and duplicate or ambiguous canonical registry identities before scoring
 - Code-native segmented evidence visualization with complete text equivalents, 320px reflow, reduced-motion compatibility and no overall/proficiency/confidence/employment inference
 - One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and planned/unavailable lesson reference `lesson-source-verification-practice-planned-v1`
-- RP-TURN-008 brief and D-015 synthetic-example-only boundary; implementation complete on the bounded feature branch pending Project Codex review
+- RP-TURN-008 brief, D-015 synthetic-example-only boundary, exact reviewed-fixture provenance guard and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -105,9 +105,9 @@
 
 **RP-TURN-009 — One End-to-End Lesson and Practice Prototype**
 
-Recommended goal after separate authorization: create one bounded lesson/practice prototype only after Project Codex reviews RP-TURN-008 and explicitly authorizes the next turn.
+Recommended goal after separate authorization: create one bounded lesson/practice prototype only after Project Codex explicitly authorizes the next turn.
 
-RP-TURN-007 is Accepted. RP-TURN-008 is complete pending Project Codex review and adds only a fixed result example derived from `synthetic-mixed-review`; it does not read or score the user's temporary `sessionStorage` selections and creates no validated or personalized result, real recommendation, available lesson, durable session, profile, authentication, database, CI, production service or deployment. RP-TURN-009 has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007 and RP-TURN-008 are Accepted. RP-TURN-008 adds only a fixed result example derived from exact reviewed fixture `synthetic-mixed-review`; it does not read or score the user's temporary `sessionStorage` selections and creates no validated or personalized result, real recommendation, available lesson, durable session, profile, authentication, database, CI, production service or deployment. RP-TURN-009 has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -121,4 +121,4 @@ RP-TURN-007 is Accepted. RP-TURN-008 is complete pending Project Codex review an
 | 005 | Accepted | Thai-first public narrative, two validated source-backed evidence items, honest non-collecting CTA, full product loop and 8+2 preview accepted by Project Codex |
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
-| 008 | R1 Complete — pending review | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
+| 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
