@@ -29,6 +29,16 @@ function structuralKeys(value: unknown, prefix = ""): string[] {
   );
 }
 
+type MutableLocalizedContent = {
+  metadata: { title: unknown };
+  practice: { criteria: Array<{ options: Array<{ label: unknown }> }> };
+  proof: { fields: Array<{ label: unknown }> };
+};
+
+type MutableLocalizedDefinition = {
+  content: { en: MutableLocalizedContent; th: MutableLocalizedContent };
+};
+
 describe("source-verification lesson content contract", () => {
   it("validates the exact lesson, framework, practice, rubric, proof, stage and R.O.I. identities", () => {
     expect(() =>
@@ -98,6 +108,43 @@ describe("source-verification lesson content contract", () => {
     );
     expect(() => validateSourceVerificationLessonDefinition(rawHtml)).toThrow(
       "en content contains empty or raw-HTML copy.",
+    );
+  });
+
+  it.each([
+    {
+      field: "metadata.title",
+      value: 42,
+      mutate: (content: MutableLocalizedContent, value: unknown) => {
+        content.metadata.title = value;
+      },
+    },
+    {
+      field: "practice.criteria[0].options[0].label",
+      value: true,
+      mutate: (content: MutableLocalizedContent, value: unknown) => {
+        content.practice.criteria[0]!.options[0]!.label = value;
+      },
+    },
+    {
+      field: "proof.fields[0].label",
+      value: null,
+      mutate: (content: MutableLocalizedContent, value: unknown) => {
+        content.proof.fields[0]!.label = value;
+      },
+    },
+  ])("rejects the same non-string $field leaf in both locales", ({ value, mutate }) => {
+    const malformed = structuredClone(
+      sourceVerificationLessonDefinition,
+    ) as unknown as MutableLocalizedDefinition;
+    mutate(malformed.content.th, value);
+    mutate(malformed.content.en, value);
+
+    expect(structuralKeys(malformed.content.th).sort()).toEqual(
+      structuralKeys(malformed.content.en).sort(),
+    );
+    expect(() => validateSourceVerificationLessonDefinition(malformed)).toThrow(
+      "th content contains non-string copy.",
     );
   });
 

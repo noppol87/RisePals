@@ -411,7 +411,9 @@ function validateStringTree(value: unknown, label: string): void {
   }
   if (value !== null && typeof value === "object") {
     Object.values(value).forEach((child) => validateStringTree(child, label));
+    return;
   }
+  throw new Error(`${label} contains non-string copy.`);
 }
 
 function structureSignature(value: unknown): string {

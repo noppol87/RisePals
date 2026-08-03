@@ -513,6 +513,21 @@ Final RP-TURN-009 verification on 2026-08-03:
 
 The first exact `npm run test` attempt immediately after the slow clean install passed every started assertion (15 files / 99 tests) but correctly exited nonzero because three Vitest fork workers timed out before startup. No test assertion failed. The unchanged exact command was rerun after the filesystem warmed and passed all 18 files / 140 tests; `npm run check` independently repeated the same 18/140 result before build.
 
+Final RP-TURN-009-R1 verification on 2026-08-03:
+
+| Command or review | Exact result |
+|---|---|
+| focused lesson-contract tests | PASS — 1 file / 13 tests; matched Thai/English `metadata.title` number, nested practice-option label boolean and proof-field label `null` all fail through the localized content-type validator rather than the structural-parity check |
+| `npm run format:check` / `npm run lint` / `npm run typecheck` | PASS — formatting matched, ESLint completed with zero warnings, `next typegen` succeeded and strict `tsc` completed without errors |
+| `npm run test` | PASS — 18 files / 143 unit-component tests |
+| `npm run build` | PASS — all 11 pages generated, including both statically generated source-verification lesson routes |
+| `npm run check` | PASS — Prettier, ESLint, strict typecheck, 18 files / 143 tests and the 11-page production build all passed in the aggregate gate |
+| `npm run test:e2e` | PASS — all 46 Chromium tests passed with unchanged lesson behavior, privacy, focus, reflow, reduced-motion and accessibility boundaries |
+| `npm audit --omit=dev --audit-level=low` / `npm audit --audit-level=low` | PASS — 0 production and 0 full-graph vulnerabilities |
+| result/lesson client manifests and chunks | PASS — result still has only `shell-navigation.tsx`; lesson still has only `shell-navigation.tsx` and `source-verification-lesson.tsx`; both route chunks contain 0/7 assessment fixture, scoring and player-storage markers |
+
+R1 changes only runtime copy-leaf validation and its regression coverage. Canonical lesson content, IDs, locale structure, rubric, XP behavior, routes, privacy boundaries, dependencies and configuration are unchanged.
+
 ## Environment-variable policy
 
 ### Files
