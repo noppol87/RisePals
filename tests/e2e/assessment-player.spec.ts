@@ -61,6 +61,11 @@ test("keyboard flow completes six steps without producing a result", async ({ pa
   await expect(page.getByText(/calculates and displays no score/)).toBeVisible();
   await expect(page.locator("output, [data-score], [data-result]")).toHaveCount(0);
   await expect(page.getByText(/your score|your proficiency|recommended next step/i)).toHaveCount(0);
+  const exampleLink = page.getByRole("link", {
+    name: "View a synthetic example result (your choices are not used)",
+  });
+  await expect(exampleLink).toHaveAttribute("href", "/en/assessment/example-result");
+  await expect(page.getByText(/does not read, score, or use the choices/)).toBeVisible();
 });
 
 test("Back preserves answers and refresh resumes the same session step", async ({ page }) => {

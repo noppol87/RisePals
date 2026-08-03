@@ -114,6 +114,9 @@ export type AssessmentPlayerCatalog = Readonly<{
   completionHeading: string;
   completionSummary: string;
   completionBoundary: string;
+  exampleResultHeading: string;
+  exampleResultBody: string;
+  exampleResultLinkLabel: string;
   reviewLabel: string;
   restartLabel: string;
   homeLabel: string;
@@ -121,10 +124,56 @@ export type AssessmentPlayerCatalog = Readonly<{
   completionAnnouncement: string;
 }>;
 
+export type ExampleResultCatalog = Readonly<{
+  metadata: Readonly<{
+    title: string;
+    description: string;
+  }>;
+  eyebrow: string;
+  heading: string;
+  introduction: string;
+  exampleOnlyLabel: string;
+  userChoicesBoundary: string;
+  fixtureHeading: string;
+  fixtureLabel: string;
+  contractLabel: string;
+  coverageHeading: string;
+  coverageIntroduction: string;
+  assessedHeading: string;
+  assessedIntroduction: string;
+  rawEvidenceTemplate: string;
+  evidenceCountTemplate: string;
+  supportingItemsLabel: string;
+  unassessedHeading: string;
+  unassessedIntroduction: string;
+  multipliersHeading: string;
+  multipliersIntroduction: string;
+  singleScenarioLabel: string;
+  practiceEyebrow: string;
+  practiceHeading: string;
+  practiceBody: string;
+  practiceActionHeading: string;
+  practiceAction: string;
+  traceHeading: string;
+  traceIntroduction: string;
+  traceDefinitionLabel: string;
+  traceFixtureLabel: string;
+  traceTargetLabel: string;
+  traceScoringModelLabel: string;
+  traceItemsLabel: string;
+  traceLessonLabel: string;
+  lessonUnavailableLabel: string;
+  limitationsHeading: string;
+  limitationsIntroduction: string;
+  backToAssessmentLabel: string;
+  homeLabel: string;
+}>;
+
 export type AppCatalog = Readonly<{
   shell: ShellCatalog;
   landing: LandingCatalog;
   assessment: AssessmentPlayerCatalog;
+  exampleResult: ExampleResultCatalog;
 }>;
 
 export const catalogs = {
@@ -307,11 +356,70 @@ export const catalogs = {
         "ขอบคุณที่ทดลองขั้นตอนทั้งหมด คำตอบยังคงเป็นข้อมูลชั่วคราวในแท็บนี้จนกว่าคุณจะล้างหรือปิดแท็บ",
       completionBoundary:
         "RP-TURN-007 ไม่คำนวณหรือแสดงคะแนน ระดับความสามารถ ความมั่นใจ รูปแบบพฤติกรรม ช่องว่างที่ควรพัฒนา หรือคำแนะนำใด ๆ",
+      exampleResultHeading: "ดูตัวอย่างผลลัพธ์ที่แยกจากคำตอบของคุณ",
+      exampleResultBody:
+        "ตัวอย่างถัดไปใช้ชุดคำตอบจำลองที่ทีมกำหนดไว้ล่วงหน้า ระบบไม่อ่าน ไม่ให้คะแนน และไม่นำตัวเลือกที่คุณตอบในแท็บนี้ไปใช้",
+      exampleResultLinkLabel: "ดูตัวอย่างผลลัพธ์จำลอง (ไม่ใช้คำตอบของคุณ)",
       reviewLabel: "ทบทวนคำตอบ",
       restartLabel: "ล้างและเริ่มใหม่",
       homeLabel: "กลับหน้าหลัก",
       stepAnnouncementTemplate: "เปิดสถานการณ์ {current} จาก {total}",
       completionAnnouncement: "ตอบสถานการณ์จำลองครบทั้งหกแล้ว ไม่มีผลลัพธ์ในต้นแบบนี้",
+    },
+    exampleResult: {
+      metadata: {
+        title: "ตัวอย่างแผนที่สัญญาณทักษะ | Rise Pals",
+        description:
+          "ตัวอย่างผลลัพธ์สองทักษะจากชุดคำตอบจำลองที่กำหนดไว้ โดยไม่ใช้คำตอบของผู้เข้าชม",
+      },
+      eyebrow: "ตัวอย่างผลลัพธ์จากข้อมูลจำลอง",
+      heading: "ดูแผนที่สัญญาณทักษะจากกรณีตัวอย่างหนึ่งชุด",
+      introduction:
+        "หน้านี้สาธิตวิธีอธิบายหลักฐานที่ครอบคลุม ข้อจำกัด และตัวอย่างการฝึกขั้นถัดไป โดยใช้ชุดคำตอบจำลองที่ทีมตรวจทานแล้วหนึ่งชุด",
+      exampleOnlyLabel: "ตัวอย่างเท่านั้น — ไม่ใช่ผลของคุณ",
+      userChoicesBoundary:
+        "ระบบไม่อ่าน ไม่ให้คะแนน และไม่นำตัวเลือกชั่วคราวจากการตอบ 6 สถานการณ์ของคุณมาใช้ ผลด้านล่างจะเหมือนเดิมไม่ว่าคุณเลือกคำตอบใด",
+      fixtureHeading: "ที่มาของตัวอย่าง",
+      fixtureLabel: "รหัสชุดคำตอบจำลอง",
+      contractLabel: "รุ่นโครงสร้างผลลัพธ์",
+      coverageHeading: "หลักฐานในตัวอย่างครอบคลุมอะไร",
+      coverageIntroduction:
+        "สถานการณ์จำลองหกข้อให้สัญญาณดิบต่อทักษะหลักเพียง 2 จาก 8 ด้าน และข้อสังเกตแยกสำหรับทักษะเสริมด้านละหนึ่งสถานการณ์",
+      assessedHeading: "สัญญาณดิบของ 2 ทักษะที่มีหลักฐาน",
+      assessedIntroduction:
+        "ช่องสีแสดงแต้มหลักฐานดิบจากตัวเลือกที่กำหนดไว้ในชุดจำลอง ไม่ใช่ร้อยละความสามารถ ระดับทักษะ หรือคะแนนรวม",
+      rawEvidenceTemplate: "แต้มหลักฐานดิบ {earned} จาก {available} แต้มที่เป็นไปได้ในชุดจำลองนี้",
+      evidenceCountTemplate: "อ้างอิง {count} สถานการณ์จำลอง",
+      supportingItemsLabel: "รหัสสถานการณ์ที่รองรับ",
+      unassessedHeading: "ทักษะหลักอีก 6 ด้านที่ยังไม่มีหลักฐาน",
+      unassessedIntroduction:
+        "ชุดจำลองนี้ไม่มีสถานการณ์ที่ผูกกับทักษะเหล่านี้ จึงไม่แสดงคะแนนและไม่อนุมานความสามารถ",
+      multipliersHeading: "ข้อสังเกต +2 แยกจากทักษะหลัก",
+      multipliersIntroduction:
+        "Ownership Thinking และ Sense of Urgency ไม่ถูกนำไปคูณหรือรวมกับสัญญาณหลัก แต่ละด้านมีหลักฐานเพียงหนึ่งสถานการณ์ จึงยังไม่ใช่รูปแบบพฤติกรรม",
+      singleScenarioLabel: "ข้อสังเกตจาก 1 สถานการณ์จำลองเท่านั้น",
+      practiceEyebrow: "ตัวอย่างการฝึกขั้นถัดไป",
+      practiceHeading: "ฝึกตรวจข้ออ้างของสรุปจาก AI เทียบกับแหล่งต้นฉบับ",
+      practiceBody:
+        "นี่คือตัวอย่างคงที่เพื่อสาธิตเส้นทางอ้างอิง ไม่ใช่การเลือกทักษะเร่งด่วนหรือคำแนะนำเฉพาะบุคคลจากคำตอบของคุณ",
+      practiceActionHeading: "วิธีทดลองฝึก",
+      practiceAction:
+        "เลือกสรุปจาก AI หนึ่งชิ้น เทียบข้ออ้างสำคัญกับแหล่งต้นฉบับ บันทึกจุดที่ตรงและไม่ตรง แล้วแก้เฉพาะส่วนที่ตรวจสอบหลักฐานได้",
+      traceHeading: "ที่มาของตัวอย่างการฝึก",
+      traceIntroduction:
+        "ข้อมูลอ้างอิงนี้ทำให้ทีมตรวจได้ว่าตัวอย่างเชื่อมกับรุ่นการให้คะแนน สถานการณ์ และทักษะใด โดยไม่ได้หมายความว่าบทเรียนพร้อมใช้งานแล้ว",
+      traceDefinitionLabel: "รุ่นตัวอย่างการฝึก",
+      traceFixtureLabel: "ชุดคำตอบจำลอง",
+      traceTargetLabel: "ทักษะเป้าหมายของตัวอย่าง",
+      traceScoringModelLabel: "รุ่นวิธีให้คะแนนจำลอง",
+      traceItemsLabel: "รหัสสถานการณ์ที่รองรับ",
+      traceLessonLabel: "รหัสรุ่นบทเรียนที่วางแผนไว้",
+      lessonUnavailableLabel: "วางแผนไว้และยังไม่พร้อมใช้งาน — ยังไม่มีบทเรียนในระบบ",
+      limitationsHeading: "ข้อจำกัดของหลักฐานและการใช้งาน",
+      limitationsIntroduction:
+        "อ่านข้อจำกัดทั้งหมดก่อนตีความภาพตัวอย่างนี้ ไม่มีข้อมูลส่วนใดใช้ตัดสินบุคคล การจ้างงาน หรือความพร้อมในการทำงาน",
+      backToAssessmentLabel: "กลับไปต้นแบบ 6 สถานการณ์",
+      homeLabel: "กลับหน้าหลัก",
     },
   },
   en: {
@@ -500,12 +608,72 @@ export const catalogs = {
         "Thank you for reviewing the full flow. Your choices remain temporary in this tab until you clear them or close the tab.",
       completionBoundary:
         "RP-TURN-007 calculates and displays no score, proficiency, confidence, behavioural pattern, priority gap, result, or recommendation.",
+      exampleResultHeading: "View an example result that is separate from your choices",
+      exampleResultBody:
+        "The next page uses a predefined synthetic response fixture. It does not read, score, or use the choices you made in this tab.",
+      exampleResultLinkLabel: "View a synthetic example result (your choices are not used)",
       reviewLabel: "Review responses",
       restartLabel: "Clear and start again",
       homeLabel: "Return home",
       stepAnnouncementTemplate: "Opened scenario {current} of {total}",
       completionAnnouncement:
         "All six synthetic scenarios are answered. This prototype has no result.",
+    },
+    exampleResult: {
+      metadata: {
+        title: "Synthetic skill-signal map example | Rise Pals",
+        description:
+          "A two-competency result example derived from a predefined synthetic fixture, never from the visitor's choices.",
+      },
+      eyebrow: "Synthetic result example",
+      heading: "Explore a skill-signal map from one example fixture",
+      introduction:
+        "This page demonstrates how evidence coverage, limitations, and an example next practice could be explained using one reviewed synthetic response fixture.",
+      exampleOnlyLabel: "Example only — this is not your result",
+      userChoicesBoundary:
+        "The page does not read, score, or use your temporary choices from the six-scenario player. The example below stays the same whatever you selected.",
+      fixtureHeading: "Example provenance",
+      fixtureLabel: "Synthetic response fixture ID",
+      contractLabel: "Result contract version",
+      coverageHeading: "What evidence this example covers",
+      coverageIntroduction:
+        "The six synthetic scenarios provide raw signals for only 2 of 8 core competencies and one separate single-scenario observation for each multiplier.",
+      assessedHeading: "Raw signals for the 2 covered competencies",
+      assessedIntroduction:
+        "Filled segments represent raw fixture evidence points. They are not percentage proficiency, a skill stage, or an overall score.",
+      rawEvidenceTemplate:
+        "{earned} of {available} possible raw evidence points in this synthetic fixture",
+      evidenceCountTemplate: "Supported by {count} synthetic scenarios",
+      supportingItemsLabel: "Supporting scenario keys",
+      unassessedHeading: "6 core competencies with no evidence in this fixture",
+      unassessedIntroduction:
+        "No fixture scenario maps to these competencies, so the example gives them no score and makes no capability inference.",
+      multipliersHeading: "+2 observations kept separate from core signals",
+      multipliersIntroduction:
+        "Ownership Thinking and Sense of Urgency are not multiplied into or aggregated with the core signals. Each has evidence from only one scenario, which cannot establish a behavioural pattern.",
+      singleScenarioLabel: "Observation from 1 synthetic scenario only",
+      practiceEyebrow: "Example next practice",
+      practiceHeading: "Practise checking claims in an AI summary against the original source",
+      practiceBody:
+        "This fixed example demonstrates a trace. It is not a selected priority gap or a personalized recommendation based on your choices.",
+      practiceActionHeading: "Try the practice",
+      practiceAction:
+        "Choose one AI-generated summary, compare its important claims with the original source, record matches and discrepancies, then correct only what the evidence supports.",
+      traceHeading: "Why this example practice is traceable",
+      traceIntroduction:
+        "These references let reviewers verify the scoring-model version, scenarios, and target competency without implying that the planned lesson is available.",
+      traceDefinitionLabel: "Example-practice definition",
+      traceFixtureLabel: "Synthetic fixture",
+      traceTargetLabel: "Example target competency",
+      traceScoringModelLabel: "Synthetic scoring-model version",
+      traceItemsLabel: "Supporting scenario keys",
+      traceLessonLabel: "Planned lesson-version reference",
+      lessonUnavailableLabel: "Planned and unavailable — no lesson currently exists",
+      limitationsHeading: "Evidence and use limitations",
+      limitationsIntroduction:
+        "Read every limitation before interpreting this example. Nothing here may be used to judge a person, hiring, or work readiness.",
+      backToAssessmentLabel: "Return to the six-scenario prototype",
+      homeLabel: "Return home",
     },
   },
 } as const satisfies Record<Locale, AppCatalog>;

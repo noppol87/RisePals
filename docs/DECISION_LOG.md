@@ -108,3 +108,12 @@
 - **Reason:** ทดสอบ usability ของ multi-step flow และ refresh recovery ได้โดยไม่สร้าง account, cookie, API, server persistence, consent receipt, analytics หรือ dependency เพิ่ม
 - **Consequence:** payload ต้องใช้ exact allowlist, validate กับ assessment definition ปัจจุบัน, ล้าง record ที่ malformed/unknown/incomplete/version-incompatible, ทำงานต่อได้เมื่อ storage ถูก block และมี clear action โดยผู้ใช้; ห้ามเก็บ copy, rubric, target, weight, score, timestamp, profile หรือ free text และห้ามส่งคำตอบใน URL/log/network
 - **Open:** durable/cross-device resume, authentication, consent, retention, export/deletion, server-side assessment sessions/responses และ production storage ต้องผ่าน privacy/product review และ turn แยก; decision นี้ห้ามใช้เป็น production persistence design
+
+## D-015 — Synthetic example-result boundary
+
+- **Date:** 2026-08-02
+- **Status:** Accepted by Jeff in RP-TURN-008 authorization
+- **Decision:** RP-TURN-008 แสดง skill-map และ next-practice UX prototype จาก reviewed synthetic fixture ที่ระบุชัดเจนเท่านั้น โดยไม่อ่าน ไม่ให้คะแนน และไม่ตีความ item/option IDs ใน `sessionStorage` ของผู้ใช้ ผลที่เห็นจึงเป็นตัวอย่างคงที่ ไม่ใช่ผลประเมินหรือคำแนะนำเฉพาะบุคคล
+- **Reason:** ทีมต้องทดสอบการสื่อสาร raw evidence coverage, ข้อจำกัด, +2 observations และ recommendation trace ก่อนที่ assessment methodology, priority logic, lesson content หรือ production privacy/consent system จะพร้อม โดยไม่ทำให้ตัวเลือกจาก usability player ดูเหมือนผลที่ผ่านการตรวจสอบแล้ว
+- **Consequence:** route ต้อง server-render จาก fixture/version ที่กำหนด, แสดงเฉพาะสอง provisional core signals ที่ fixture ครอบคลุม, หก unassessed cores และ multiplier ด้านละหนึ่งสถานการณ์แยกกัน; next practice ต้องติดป้ายว่าเป็นตัวอย่างและอ้างถึง planned/unavailable lesson version ห้ามสร้าง overall/weighted score, proficiency/confidence/stage, readiness/risk/personality หรือ employment/hiring inference และห้ามส่งคำตอบผ่าน URL, log, analytics หรือ network
+- **Open:** validated assessment result UX, personalized priority algorithm, proficiency/confidence semantics, lesson availability, real learner recommendations, durable result storage, consent, export/deletion และ production use ต้องมี evidence review และ turn authorization แยกต่างหาก

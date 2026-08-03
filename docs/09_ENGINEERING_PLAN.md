@@ -117,13 +117,16 @@ Gate:
 
 ### RP-TURN-008 — Skill Map and Priority Result Prototype
 
-Outcome: explainable competency profile, confidence/limitation copy and one clear recommended next step.
+Outcome: Thai/English server-rendered example result from one reviewed synthetic fixture, with transparent raw evidence coverage, complete limitations and one fixed example next practice that never uses the current user's selections.
 
 Gate:
 
+- Pure versioned derivation is deterministic for both reviewed fixtures and the visible example maps back to its framework, assessment, scoring model and evidence item keys
+- Visible output contains only two provisional raw core signals, six explicit unassessed cores and two separate one-scenario multiplier observations
 - Text alternative communicates everything shown by the skill visualization
-- Recommendation trace reaches scoring rule and lesson version
-- No red fear gauge, fabricated risk score or hiring implication
+- Example-practice trace reaches the scoring-model version, supporting item keys, target competency and a planned/unavailable lesson-version reference
+- Player selections are not read or scored; no answer data enters URLs, cookies, logs, analytics or network requests
+- No overall/weighted score, percentage proficiency, stage, confidence percentage, personalized priority, red fear gauge, fabricated risk score, readiness/personality or employment/hiring implication
 
 ### RP-TURN-009 — One End-to-End Lesson and Practice Prototype
 

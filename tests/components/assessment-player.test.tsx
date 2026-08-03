@@ -11,7 +11,12 @@ import { createAssessmentPlayerView } from "@/modules/assessment/player/view";
 function renderPlayer(locale: "th" | "en") {
   const view = createAssessmentPlayerView(locale);
   render(
-    <AssessmentPlayer homeHref={`/${locale}`} messages={catalogs[locale].assessment} view={view} />,
+    <AssessmentPlayer
+      exampleResultHref={`/${locale}/assessment/example-result`}
+      homeHref={`/${locale}`}
+      messages={catalogs[locale].assessment}
+      view={view}
+    />,
   );
   return view;
 }
@@ -124,6 +129,12 @@ describe("assessment player", () => {
     expect(screen.getByRole("button", { name: "Review responses" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Clear and start again" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute("href", "/en");
+    expect(
+      screen.getByRole("link", {
+        name: "View a synthetic example result (your choices are not used)",
+      }),
+    ).toHaveAttribute("href", "/en/assessment/example-result");
+    expect(screen.getByText(catalogs.en.assessment.exampleResultBody)).toBeVisible();
     expect(screen.queryByText(/your score|your proficiency|recommended next step/i)).toBeNull();
     expect(document.querySelector("output, [data-score], [data-result]")).toBeNull();
   });

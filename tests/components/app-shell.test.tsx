@@ -77,4 +77,19 @@ describe("localized application shell", () => {
     expect(screen.getByRole("link", { name: "English" })).toHaveAttribute("href", "/en/assessment");
     expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
   });
+
+  it("preserves the synthetic example-result route while switching locale", () => {
+    navigation.pathname = "/th/assessment/example-result";
+    render(
+      <AppShell locale="th" messages={catalogs.th.shell}>
+        <h1>{catalogs.th.exampleResult.heading}</h1>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
+      "href",
+      "/en/assessment/example-result",
+    );
+    expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
+  });
 });
