@@ -26,3 +26,9 @@ export function assessmentExampleResultPath(
 ): `/${Locale}/assessment/example-result` {
   return `/${locale}/assessment/example-result`;
 }
+
+export function sourceVerificationLessonPath(
+  locale: Locale,
+): `/${Locale}/lessons/source-verification-practice` {
+  return `/${locale}/lessons/source-verification-practice`;
+}

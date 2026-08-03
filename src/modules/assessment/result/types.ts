@@ -18,9 +18,12 @@ export type ExampleMultiplierObservation = Readonly<{
   supportingItemKeys: readonly [string];
 }>;
 
-export type PlannedLessonVersionReference = Readonly<{
+export type PrototypeLessonVersionReference = Readonly<{
+  lessonKey: string;
   lessonVersionId: string;
-  availability: "planned-unavailable";
+  version: string;
+  status: "prototype";
+  availability: "prototype-available";
 }>;
 
 export type ExampleNextPracticeDefinition = Readonly<{
@@ -31,7 +34,7 @@ export type ExampleNextPracticeDefinition = Readonly<{
   scoringModelVersionId: string;
   scoringModelVersion: string;
   supportingItemKeys: readonly string[];
-  plannedLesson: PlannedLessonVersionReference;
+  prototypeLesson: PrototypeLessonVersionReference;
 }>;
 
 export type ExampleNextPracticeTrace = Readonly<{
@@ -43,7 +46,7 @@ export type ExampleNextPracticeTrace = Readonly<{
   scoringModelVersionId: string;
   scoringModelVersion: string;
   supportingItemKeys: readonly string[];
-  plannedLesson: PlannedLessonVersionReference;
+  prototypeLesson: PrototypeLessonVersionReference;
 }>;
 
 export type SyntheticExampleResult = Readonly<{

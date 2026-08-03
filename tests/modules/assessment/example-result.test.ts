@@ -148,7 +148,7 @@ describe("synthetic example-result contract", () => {
     }
   });
 
-  it("emits the exact example-practice trace and a planned unavailable lesson reference", () => {
+  it("emits the exact example-practice trace and available prototype lesson reference", () => {
     const result = deriveSyntheticExampleResult(getVisibleSyntheticExampleFixture());
 
     expect(result.exampleNextPractice).toEqual({
@@ -160,9 +160,12 @@ describe("synthetic example-result contract", () => {
       scoringModelVersionId: "scoring-integer-rubric-fixture-v1",
       scoringModelVersion: "1.0.0",
       supportingItemKeys: ["verify-ai-summary-source", "test-process-assumption"],
-      plannedLesson: {
-        lessonVersionId: "lesson-source-verification-practice-planned-v1",
-        availability: "planned-unavailable",
+      prototypeLesson: {
+        lessonKey: "source-verification-practice",
+        lessonVersionId: "lesson-source-verification-practice-v1",
+        version: "1.0.0",
+        status: "prototype",
+        availability: "prototype-available",
       },
     });
   });
@@ -211,16 +214,16 @@ describe("synthetic example-result contract", () => {
     }
   });
 
-  it("rejects incompatible practice traces and available-lesson claims", () => {
+  it("rejects incompatible practice traces and non-canonical lesson references", () => {
     const incompatibleModel = {
       ...exampleNextPracticeDefinition,
       scoringModelVersionId: "unknown-scoring-model-v1",
     } as unknown as ExampleNextPracticeDefinition;
-    const availableLesson = {
+    const incompatibleLesson = {
       ...exampleNextPracticeDefinition,
-      plannedLesson: {
-        ...exampleNextPracticeDefinition.plannedLesson,
-        availability: "available",
+      prototypeLesson: {
+        ...exampleNextPracticeDefinition.prototypeLesson,
+        lessonVersionId: "lesson-source-verification-practice-v2",
       },
     } as unknown as ExampleNextPracticeDefinition;
     const unrelatedItem = {
@@ -232,8 +235,8 @@ describe("synthetic example-result contract", () => {
       deriveSyntheticExampleResult(getVisibleSyntheticExampleFixture(), incompatibleModel),
     ).toThrow("next-practice scoring-model compatibility failed.");
     expect(() =>
-      deriveSyntheticExampleResult(getVisibleSyntheticExampleFixture(), availableLesson),
-    ).toThrow("next-practice lesson reference must remain planned and unavailable.");
+      deriveSyntheticExampleResult(getVisibleSyntheticExampleFixture(), incompatibleLesson),
+    ).toThrow("next-practice lesson reference must match the exact available prototype.");
     expect(() =>
       deriveSyntheticExampleResult(getVisibleSyntheticExampleFixture(), unrelatedItem),
     ).toThrow("next-practice item trace must belong to the target core signal.");

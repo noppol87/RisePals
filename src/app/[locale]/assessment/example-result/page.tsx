@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SyntheticExampleResult } from "@/components/synthetic-example-result";
-import { assessmentExampleResultPath, assessmentPath, localePath } from "@/lib/i18n/config";
+import {
+  assessmentExampleResultPath,
+  assessmentPath,
+  localePath,
+  sourceVerificationLessonPath,
+} from "@/lib/i18n/config";
 import { getCatalogForSegment } from "@/lib/i18n/server";
 import { createSyntheticExampleResultView } from "@/modules/assessment/result/view";
 
@@ -42,6 +47,7 @@ export default async function ExampleResultPage({ params }: ExampleResultPagePro
     <SyntheticExampleResult
       assessmentHref={assessmentPath(resolved.locale)}
       homeHref={localePath(resolved.locale)}
+      lessonHref={sourceVerificationLessonPath(resolved.locale)}
       messages={resolved.catalog.exampleResult}
       view={createSyntheticExampleResultView(resolved.locale)}
     />

@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-03  
-**Current phase:** Synthetic example-result prototype accepted; no validated or personalized assessment result, server-side response collection or durable persistence  
-**Current turn:** RP-TURN-008 Accepted
+**Current phase:** Repository-local lesson/practice prototype accepted; no published or externally validated lesson, personalized result or durable learning state  
+**Current turn:** RP-TURN-009 Accepted
 
 ## Locked decisions
 
@@ -67,8 +67,13 @@
 - Pure versioned `synthetic-example-result` derivation using reviewed fixture `synthetic-mixed-review`, with exact raw core signals `1/4` and `3/4`, all six unassessed core identities and two separate one-scenario multiplier observations
 - Exact reviewed-fixture provenance guard that rejects unknown IDs, changed compatibility metadata, changed response pairs and duplicate or ambiguous canonical registry identities before scoring
 - Code-native segmented evidence visualization with complete text equivalents, 320px reflow, reduced-motion compatibility and no overall/proficiency/confidence/employment inference
-- One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and planned/unavailable lesson reference `lesson-source-verification-practice-planned-v1`
+- One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and exact prototype lesson reference `lesson-source-verification-practice-v1@1.0.0`
 - RP-TURN-008 brief, D-015 synthetic-example-only boundary, exact reviewed-fixture provenance guard and quality gates accepted by Project Codex
+- Schema-validated, Git-versioned Thai/English local lesson content contract for `source-verification-practice`, explicitly `prototype` and not published or externally validated learning content
+- Static `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` routes with synthetic AI-summary/source-verification content, transparent three-criterion rubric and exact framework/stage/R.O.I. identity
+- Pure deterministic practice evaluation and memory-only state: incomplete or below threshold previews 0 XP, all three criteria preview 20 XP, retry replaces rather than accumulates and refresh resets
+- Proof-artifact placeholder and non-collecting reflection with no free text, upload, artifact generation, storage, response transmission or assessment-player data access
+- RP-TURN-009 brief, D-016 repository-local lesson/practice prototype boundary, runtime copy-leaf validation and quality gates accepted by Project Codex
 
 ## Open decisions
 
@@ -82,7 +87,7 @@
 - Analytics/monitoring vendors, privacy consent implementation and retention periods
 - Assessment question methodology and validation process
 - Validated result UX, personalized priority logic, proficiency/confidence semantics and real learner recommendation rules
-- Lesson content and availability for the planned example reference
+- Lesson publication/validation, additional lesson availability, trusted MDX publication workflow, authorship/review and learning-efficacy evidence
 - Future content-operations workflow beyond the accepted pilot Git-versioned MDX/metadata baseline
 - Exact visual identity, color, typography and Pal character system
 - Localization library and translation operations beyond the native Thai-first typed route/catalog contract
@@ -103,11 +108,11 @@
 
 ## Next recommended action
 
-**RP-TURN-009 — One End-to-End Lesson and Practice Prototype**
+**RP-TURN-010 — PostgreSQL Schema and Migration Baseline**
 
-Recommended goal after separate authorization: create one bounded lesson/practice prototype only after Project Codex explicitly authorizes the next turn.
+Recommended goal after separate authorization: establish the bounded PostgreSQL/Drizzle schema and migration baseline defined in the engineering plan. RP-TURN-010 is recommended but is not authorized.
 
-RP-TURN-007 and RP-TURN-008 are Accepted. RP-TURN-008 adds only a fixed result example derived from exact reviewed fixture `synthetic-mixed-review`; it does not read or score the user's temporary `sessionStorage` selections and creates no validated or personalized result, real recommendation, available lesson, durable session, profile, authentication, database, CI, production service or deployment. RP-TURN-009 has not been started or authorized, and every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-009 adds one local prototype lesson linked from the fixed synthetic result without reading or scoring the user's temporary `sessionStorage` selections. It creates no published/externally validated learning content, real personalized recommendation, durable lesson progress, saved XP, proof, profile, authentication, database, CI, production service or deployment. RP-TURN-010 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -122,3 +127,4 @@ RP-TURN-007 and RP-TURN-008 are Accepted. RP-TURN-008 adds only a fixed result e
 | 006 | Accepted | Versioned synthetic assessment-domain contract with exact canonical 8+2 metadata, deterministic separate core/multiplier signals, explicit limitations and runtime validation accepted by Project Codex |
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
+| 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
