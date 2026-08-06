@@ -44,3 +44,7 @@ export function onboardingPath(locale: Locale): `/${Locale}/onboarding` {
 export function signInPath(locale: Locale): `/${Locale}/sign-in` {
   return `/${locale}/sign-in`;
 }
+
+export function signUpPath(locale: Locale): `/${Locale}/sign-up` {
+  return `/${locale}/sign-up`;
+}

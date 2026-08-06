@@ -8,13 +8,17 @@ const { Pool } = pg;
 const migrationDirectory = resolve("drizzle");
 const migrationUrl = process.env.DATABASE_MIGRATION_URL;
 const applicationUrl = process.env.DATABASE_URL;
+const disposableBootstrapUrl = process.env.RISE_PALS_DISPOSABLE_BOOTSTRAP_URL;
 
-if (!migrationUrl || !applicationUrl) {
-  throw new Error("Disposable database integration requires both database URLs.");
+if (!migrationUrl || !applicationUrl || !disposableBootstrapUrl) {
+  throw new Error(
+    "Disposable database integration requires application, migration and test-bootstrap URLs.",
+  );
 }
 
 const ownerPool = new Pool({ connectionString: migrationUrl, max: 6 });
 const applicationPool = new Pool({ connectionString: applicationUrl, max: 4 });
+const disposableBootstrapPool = new Pool({ connectionString: disposableBootstrapUrl, max: 1 });
 const digest = "a".repeat(64);
 const alternateDigest = "c".repeat(64);
 const proofDigest = "b".repeat(64);
@@ -106,6 +110,13 @@ async function applyMigration() {
   }
 
   return { migrationFiles, statementCount };
+}
+
+async function finalizeDisposableIdentityResolverBootstrap() {
+  await disposableBootstrapPool.query(`REVOKE rise_pals_identity_resolver FROM rise_pals_owner`);
+  await disposableBootstrapPool.query(
+    `ALTER ROLE rise_pals_identity_resolver NOLOGIN NOBYPASSRLS PASSWORD NULL`,
+  );
 }
 
 async function insertCanonicalFramework(client, version, publish = true) {
@@ -257,6 +268,42 @@ async function verifyRoleAndSchemaBaseline(client) {
     rolbypassrls: false,
   });
 
+  const resolverRole = await client.query(
+    `SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolinherit, rolbypassrls
+     FROM pg_roles
+     WHERE rolname = 'rise_pals_identity_resolver'`,
+  );
+  assert.deepEqual(resolverRole.rows, [
+    {
+      rolcanlogin: false,
+      rolsuper: false,
+      rolcreatedb: false,
+      rolcreaterole: false,
+      rolinherit: false,
+      rolbypassrls: false,
+    },
+  ]);
+
+  const resolverCredentialState = await disposableBootstrapPool.query(
+    `SELECT rolcanlogin, rolbypassrls, rolpassword IS NOT NULL AS has_password
+     FROM pg_authid
+     WHERE rolname = 'rise_pals_identity_resolver'`,
+  );
+  assert.deepEqual(resolverCredentialState.rows, [
+    { rolcanlogin: false, rolbypassrls: false, has_password: false },
+  ]);
+
+  const resolverMembership = await client.query(
+    `SELECT pg_has_role('rise_pals_app', 'rise_pals_identity_resolver', 'MEMBER')
+              AS app_member,
+            pg_has_role('rise_pals_owner', 'rise_pals_identity_resolver', 'MEMBER')
+              AS owner_member`,
+  );
+  assert.deepEqual(resolverMembership.rows[0], {
+    app_member: false,
+    owner_member: false,
+  });
+
   const ownedTables = await applicationPool.query(
     `SELECT count(*)::integer AS count
      FROM pg_class AS relation
@@ -327,6 +374,21 @@ async function verifyIdentityProvisioningBoundary() {
     },
   ]);
 
+  const [ownerWithoutContext, applicationWithoutContext] = await Promise.all([
+    ownerPool.query(`SELECT user_id FROM external_identities`),
+    applicationPool.query(`SELECT user_id FROM external_identities`),
+  ]);
+  assert.equal(
+    ownerWithoutContext.rowCount,
+    0,
+    "the forced-RLS table owner cannot enumerate provider identities without context",
+  );
+  assert.equal(
+    applicationWithoutContext.rowCount,
+    0,
+    "the application role cannot enumerate provider identities without context",
+  );
+
   await expectDatabaseRejection(
     () =>
       applicationPool.query(
@@ -347,20 +409,73 @@ async function verifyIdentityProvisioningBoundary() {
   );
 
   const functionAcl = await ownerPool.query(
-    `SELECT coalesce(bool_or(acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'), false)
+    `SELECT owner.rolname AS function_owner,
+            function.prosecdef AS security_definer,
+            function.proconfig AS function_configuration,
+            coalesce(bool_or(acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'), false)
               AS public_execute,
             has_function_privilege(
               'rise_pals_app', function.oid, 'EXECUTE'
             ) AS app_execute
      FROM pg_proc AS function
+     JOIN pg_roles AS owner ON owner.oid = function.proowner
      CROSS JOIN LATERAL aclexplode(
        coalesce(function.proacl, acldefault('f', function.proowner))
      ) AS acl
      WHERE function.oid =
        'rise_pals_private.resolve_or_provision_clerk_identity(text,text)'::regprocedure
-     GROUP BY function.oid`,
+     GROUP BY function.oid, owner.rolname`,
   );
-  assert.deepEqual(functionAcl.rows[0], { public_execute: false, app_execute: true });
+  assert.deepEqual(functionAcl.rows[0], {
+    function_owner: "rise_pals_identity_resolver",
+    security_definer: true,
+    function_configuration: ["search_path=pg_catalog"],
+    public_execute: false,
+    app_execute: true,
+  });
+
+  const applicationSecurityDefinerFunctions = await ownerPool.query(
+    `SELECT function.proname
+     FROM pg_proc AS function
+     JOIN pg_namespace AS namespace ON namespace.oid = function.pronamespace
+     WHERE namespace.nspname = 'rise_pals_private'
+       AND function.prosecdef
+       AND has_function_privilege('rise_pals_app', function.oid, 'EXECUTE')
+     ORDER BY function.proname`,
+  );
+  assert.deepEqual(applicationSecurityDefinerFunctions.rows, [
+    { proname: "resolve_or_provision_clerk_identity" },
+  ]);
+
+  const resolverPrivileges = await ownerPool.query(
+    `SELECT has_table_privilege(
+              'rise_pals_identity_resolver', 'public.user_accounts',
+              'SELECT,INSERT,UPDATE,DELETE'
+            ) AS account_privileges,
+            has_table_privilege(
+              'rise_pals_identity_resolver', 'public.external_identities',
+              'SELECT,INSERT,UPDATE'
+            ) AS identity_privileges,
+            has_table_privilege(
+              'rise_pals_identity_resolver', 'public.external_identities', 'DELETE'
+            ) AS identity_delete`,
+  );
+  assert.deepEqual(resolverPrivileges.rows[0], {
+    account_privileges: true,
+    identity_privileges: true,
+    identity_delete: false,
+  });
+
+  await expectDatabaseRejection(
+    () => applicationPool.query(`SET ROLE rise_pals_identity_resolver`),
+    "application role assumption of the credentialless resolver role",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () => ownerPool.query(`SET ROLE rise_pals_identity_resolver`),
+    "migration owner assumption of the credentialless resolver role after migration",
+    "42501",
+  );
 }
 
 async function verifyConstraintsAndLifecycle() {
@@ -1152,6 +1267,7 @@ let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
   migrationResult = await applyMigration();
+  await finalizeDisposableIdentityResolverBootstrap();
   await verifyIdentityProvisioningBoundary();
   await verifyConstraintsAndLifecycle();
   await verifyConcurrentPublicationGuards();
@@ -1161,5 +1277,5 @@ try {
     `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 10 tables, atomic Clerk provisioning, profile controls, lifecycle/reparent/concurrency enforcement and complete two-user forced-RLS matrix).`,
   );
 } finally {
-  await Promise.allSettled([ownerPool.end(), applicationPool.end()]);
+  await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);
 }

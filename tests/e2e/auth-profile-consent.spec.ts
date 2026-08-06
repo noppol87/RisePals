@@ -31,6 +31,30 @@ for (const locale of ["th", "en"] as const) {
     expect([...unexpectedOrigins]).toEqual([]);
   });
 
+  test(`${locale} sign-up route is localized, bounded and unavailable without keys`, async ({
+    page,
+  }) => {
+    const unexpectedOrigins = new Set<string>();
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.hostname !== "127.0.0.1") unexpectedOrigins.add(url.origin);
+    });
+
+    await page.goto(`/${locale}/sign-up?returnTo=/${locale}/onboarding`);
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      locale === "th" ? "สร้างบัญชีอัลฟา" : "Create an alpha account",
+    );
+    await expect(
+      page.getByText(locale === "th" ? /ข้อมูลบุคคลจริง/ : /Real personal data/),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2 })).toContainText(
+      locale === "th" ? "ยังไม่ได้เชื่อมต่อ" : "not connected",
+    );
+    await page.waitForLoadState("networkidle");
+    expect([...unexpectedOrigins]).toEqual([]);
+  });
+
   test(`${locale} protected profile fails closed before database access when Clerk is unavailable`, async ({
     page,
   }) => {
@@ -48,11 +72,23 @@ for (const locale of ["th", "en"] as const) {
     await page.goto(`/${locale}/sign-in`);
     await expectNoHorizontalOverflow(page);
 
-    const results = await new AxeBuilder({ page })
+    const signInResults = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
       .analyze();
     expect(
-      results.violations.filter(
+      signInResults.violations.filter(
+        (violation) => violation.impact === "serious" || violation.impact === "critical",
+      ),
+    ).toEqual([]);
+
+    await page.goto(`/${locale}/sign-up`);
+    await expectNoHorizontalOverflow(page);
+
+    const signUpResults = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
+      .analyze();
+    expect(
+      signUpResults.violations.filter(
         (violation) => violation.impact === "serious" || violation.impact === "critical",
       ),
     ).toEqual([]);
@@ -66,4 +102,13 @@ test("auth route language switching preserves the bounded route without copying 
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/sign-in$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
+});
+
+test("sign-up language switching preserves the dedicated route without copying return data", async ({
+  page,
+}) => {
+  await page.goto("/en/sign-up?returnTo=/en/onboarding");
+  await page.getByRole("link", { name: "ไทย" }).click();
+  await expect(page).toHaveURL(/\/th\/sign-up$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "th");
 });

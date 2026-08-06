@@ -7,6 +7,7 @@ import {
   enUS,
   SignIn,
   SignOutButton,
+  SignUp,
   thTH,
 } from "@/modules/identity/providers/clerk/client-runtime.mjs";
 
@@ -20,7 +21,7 @@ export function ClerkClientBoundary({
       publishableKey={publishableKey}
       localization={locale === "th" ? thTH : enUS}
       signInUrl={`/${locale}/sign-in`}
-      signUpUrl={`/${locale}/sign-in`}
+      signUpUrl={`/${locale}/sign-up`}
       afterSignOutUrl={`/${locale}`}
     >
       {children}
@@ -36,7 +37,21 @@ export function ClerkSignInPanel({
     <SignIn
       routing="path"
       path={`/${locale}/sign-in`}
-      signUpUrl={`/${locale}/sign-in`}
+      signUpUrl={`/${locale}/sign-up`}
+      fallbackRedirectUrl={returnPath}
+    />
+  );
+}
+
+export function ClerkSignUpPanel({
+  locale,
+  returnPath,
+}: Readonly<{ locale: Locale; returnPath: string }>) {
+  return (
+    <SignUp
+      routing="path"
+      path={`/${locale}/sign-up`}
+      signInUrl={`/${locale}/sign-in`}
       fallbackRedirectUrl={returnPath}
     />
   );

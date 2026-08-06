@@ -2,7 +2,7 @@
 
 **Status date:** 2026-08-06  
 **Current phase:** Synthetic-alpha authentication/profile/consent implementation pending review and real-provider smoke; no real users or production service  
-**Current turn:** RP-TURN-011 Partial pending Project Codex review
+**Current turn:** RP-TURN-011-R1 Partial pending Project Codex review
 
 ## Locked decisions
 
@@ -83,8 +83,8 @@
 - Deterministic verification on the Windows VPS: Vitest reuses one bounded `vmThreads` worker while isolating every file in a VM context, and Playwright serves the existing production build through `next start`
 - RP-TURN-011 internal `IdentityProvider` boundary and Clerk Development adapter, rejecting absent/incomplete/live key configuration and keeping vendor SDK imports inside the provider integration
 - Server-only authentication/authorization transaction that validates a Clerk session, maps only its subject to an internal UUID, resolves account state and establishes trusted PostgreSQL context before any protected operation
-- Second forward migration adding the controlled `profile-v1` `user_profiles` table with forced RLS plus a hardened, minimum-grant, concurrency-safe identity resolve-or-provision function
-- Thai-first/English-complete sign-in, onboarding and profile routes with safe locale return paths, fail-closed account states, controlled profile codes, Clerk-managed logout and no custom auth cookie/token storage
+- Second forward migration adding the controlled `profile-v1` `user_profiles` table with forced RLS plus a hardened, minimum-grant, concurrency-safe identity resolve-or-provision function owned by a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role that neither application nor migration owner may assume after bootstrap
+- Thai-first/English-complete sign-in, sign-up, onboarding and profile routes with same-locale safe return paths, fail-closed account states, controlled profile codes, Clerk-managed logout and no custom auth cookie/token storage
 - Versioned `alpha-privacy-v1` service-data notice, deterministic proof digest and serialized append-only grant/decline/withdrawal receipts; declining does not create or update a profile and withdrawal is not presented as deletion
 
 ## Open decisions
@@ -145,4 +145,4 @@ RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
-| 011 | Partial pending review | Clerk Development provider boundary, server-only account authorization, controlled profile/RLS migration and versioned append-only service-data consent implemented with synthetic deterministic verification; no Clerk keys/resource/identity was available, so real-provider smoke and synthetic identity cleanup were not applicable and acceptance readiness is not claimed |
+| 011 | Partial pending review | Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only account authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent implemented with synthetic deterministic verification; no Clerk keys/resource/identity was available, so real-provider smoke and synthetic identity cleanup were not applicable and acceptance readiness is not claimed |

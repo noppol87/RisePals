@@ -16,6 +16,13 @@ type SignInProps = Readonly<{
   fallbackRedirectUrl: string;
 }>;
 
+type SignUpProps = Readonly<{
+  routing: "path";
+  path: string;
+  signInUrl: string;
+  fallbackRedirectUrl: string;
+}>;
+
 type SignOutButtonProps = Readonly<{
   children: ReactNode;
   redirectUrl: string;
@@ -23,6 +30,7 @@ type SignOutButtonProps = Readonly<{
 
 export const ClerkProvider: ComponentType<ClerkProviderProps>;
 export const SignIn: ComponentType<SignInProps>;
+export const SignUp: ComponentType<SignUpProps>;
 export const SignOutButton: ComponentType<SignOutButtonProps>;
 export const enUS: unknown;
 export const thTH: unknown;

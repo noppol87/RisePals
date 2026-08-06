@@ -1,4 +1,4 @@
-import { isLocale, localePath, type Locale } from "@/lib/i18n/config";
+import { localePath, type Locale } from "@/lib/i18n/config";
 
 const SAFE_PATH_PATTERN = /^\/(th|en)(?:\/[a-z0-9-]+)*\/?$/;
 
@@ -7,6 +7,5 @@ export function safeLocaleReturnPath(value: unknown, fallbackLocale: Locale): st
     return localePath(fallbackLocale);
   }
 
-  const localeSegment = value.split("/")[1];
-  return localeSegment && isLocale(localeSegment) ? value : localePath(fallbackLocale);
+  return value.split("/")[1] === fallbackLocale ? value : localePath(fallbackLocale);
 }

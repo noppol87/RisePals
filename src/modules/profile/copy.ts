@@ -24,6 +24,8 @@ export type ProfileCopy = Readonly<{
   unavailableBody: string;
   signInHeading: string;
   signInIntroduction: string;
+  signUpHeading: string;
+  signUpIntroduction: string;
   syntheticBoundary: string;
   localizationFallback: string;
   accountStateHeading: string;
@@ -63,6 +65,9 @@ export const profileCopy = {
       "หน้านี้พร้อมสำหรับ Clerk Development แต่เครื่องนี้ยังไม่มีคู่กุญแจ Development ที่ Jeff จัดเตรียมไว้ จึงไม่สร้างบัญชีหรือข้อมูลใด ๆ",
     signInHeading: "เข้าสู่ระบบอัลฟาด้วยอีเมลโค้ด",
     signInIntroduction: "ใช้เฉพาะอีเมลทดสอบสังเคราะห์ใน Clerk Development ห้ามใช้ข้อมูลบุคคลจริง",
+    signUpHeading: "สร้างบัญชีอัลฟาด้วยอีเมลโค้ด",
+    signUpIntroduction:
+      "สร้างบัญชีด้วยอีเมลทดสอบสังเคราะห์ใน Clerk Development เท่านั้น ห้ามใช้ข้อมูลบุคคลจริง",
     syntheticBoundary:
       "Clerk เก็บข้อมูลตัวตนทดลองในสหรัฐอเมริกา และยังไม่ได้รับอนุมัติสำหรับระบบจริง",
     localizationFallback:
@@ -107,6 +112,9 @@ export const profileCopy = {
     signInHeading: "Sign in to the alpha with an email code",
     signInIntroduction:
       "Use synthetic test email identities in Clerk Development only. Real personal data is prohibited.",
+    signUpHeading: "Create an alpha account with an email code",
+    signUpIntroduction:
+      "Create an account with a synthetic test email in Clerk Development only. Real personal data is prohibited.",
     syntheticBoundary:
       "Clerk hosts synthetic identity data in the United States and is not approved for production.",
     localizationFallback:

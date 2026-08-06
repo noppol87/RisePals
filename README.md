@@ -68,7 +68,7 @@ Locale routes:
 - `/th/assessment` and `/en/assessment` render the matching six-scenario player prototype
 - `/th/assessment/example-result` and `/en/assessment/example-result` render the matching static synthetic example result
 - `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` render the matching local lesson/practice prototype
-- `/th/sign-in` and `/en/sign-in` expose the Clerk Development email-code boundary and an explicit unavailable state when ignored Development keys are absent
+- `/th/sign-in`, `/en/sign-in`, `/th/sign-up` and `/en/sign-up` expose dedicated Clerk Development email-code routes and an explicit unavailable state when ignored Development keys are absent
 - `/th/onboarding`, `/en/onboarding`, `/th/profile` and `/en/profile` are dynamic protected routes for controlled profile and service-data consent
 - unsupported locale segments return not found
 
@@ -110,7 +110,7 @@ The migration uses internal UUIDs, unique provider/subject and versioned busines
 
 RP-TURN-011 adds a second forward migration and a tenth table, `user_profiles`. Profile fields are controlled `profile-v1` codes only: locale, one of three timezones, broad role family, broad function, broad experience band and one to three goal codes. Goals are treated as sensitive career data. Employer name, exact title, salary, national identifier and free-text career concerns remain prohibited. Forced RLS now covers all four user-owned tables.
 
-Clerk is behind an internal `IdentityProvider` boundary and is selected only for a Jeff-controlled Development application on Free/Hobby with email verification code. Development keys must remain in ignored local configuration and live keys fail closed. The server validates the Clerk session, resolves its subject to an internal UUID through a hardened concurrency-safe PostgreSQL function, checks the internal account state and only then establishes `app.current_user_id`. Clerk metadata does not hold profile, consent, goals, application roles or assessment data, and provider subjects are not client DTO fields.
+Clerk is behind an internal `IdentityProvider` boundary and is selected only for a Jeff-controlled Development application on Free/Hobby with email verification code. Development keys must remain in ignored local configuration and live keys fail closed. Dedicated same-locale sign-in/sign-up routes cross-link through explicit Clerk props; mismatched-locale, encoded, external, query and fragment return targets fall back to the current locale root. The server validates the Clerk session, resolves its subject to an internal UUID through a hardened concurrency-safe PostgreSQL function, checks the internal account state and only then establishes `app.current_user_id`. The function is owned by a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role that the application and migration owner cannot assume after the bounded bootstrap step; neither normal role can enumerate provider identities without trusted user context. Clerk metadata does not hold profile, consent, goals, application roles or assessment data, and provider subjects are not client DTO fields.
 
 The bilingual `alpha-privacy-v1` notice covers only service profile and future learning-state processing, not marketing, analytics or research. Grant, decline and withdrawal append deterministic receipts; history is never overwritten. Declining cannot create/update a profile, and withdrawal is not account deletion.
 

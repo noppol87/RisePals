@@ -36,9 +36,42 @@ CREATE POLICY "user_profiles_owner_update_policy" ON "user_profiles"
 
 GRANT SELECT, INSERT, UPDATE ON TABLE "user_profiles" TO "rise_pals_app";--> statement-breakpoint
 
-CREATE POLICY "external_identities_resolution_owner_select_policy" ON "external_identities"
-  FOR SELECT TO "rise_pals_owner"
-  USING (true);--> statement-breakpoint
+GRANT USAGE, CREATE ON SCHEMA "rise_pals_private" TO "rise_pals_identity_resolver";--> statement-breakpoint
+GRANT USAGE ON SCHEMA "public" TO "rise_pals_identity_resolver";--> statement-breakpoint
+GRANT USAGE ON TYPE "public"."account_status" TO "rise_pals_identity_resolver";--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION "rise_pals_private"."current_app_user_id"() TO "rise_pals_identity_resolver";--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "public"."user_accounts" TO "rise_pals_identity_resolver";--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE ON TABLE "public"."external_identities" TO "rise_pals_identity_resolver";--> statement-breakpoint
+
+CREATE POLICY "user_accounts_identity_resolver_policy" ON "user_accounts"
+  FOR ALL TO "rise_pals_identity_resolver"
+  USING ("id" = "rise_pals_private"."current_app_user_id"())
+  WITH CHECK ("id" = "rise_pals_private"."current_app_user_id"());--> statement-breakpoint
+CREATE POLICY "external_identities_identity_resolver_select_policy" ON "external_identities"
+  FOR SELECT TO "rise_pals_identity_resolver"
+  USING (
+    "provider" = 'clerk'
+    AND "provider_subject" ~ '^user_[A-Za-z0-9]{8,128}$'
+  );--> statement-breakpoint
+CREATE POLICY "external_identities_identity_resolver_insert_policy" ON "external_identities"
+  FOR INSERT TO "rise_pals_identity_resolver"
+  WITH CHECK (
+    "provider" = 'clerk'
+    AND "provider_subject" ~ '^user_[A-Za-z0-9]{8,128}$'
+    AND "user_id" = "rise_pals_private"."current_app_user_id"()
+  );--> statement-breakpoint
+CREATE POLICY "external_identities_identity_resolver_update_policy" ON "external_identities"
+  FOR UPDATE TO "rise_pals_identity_resolver"
+  USING (
+    "provider" = 'clerk'
+    AND "provider_subject" ~ '^user_[A-Za-z0-9]{8,128}$'
+    AND "user_id" = "rise_pals_private"."current_app_user_id"()
+  )
+  WITH CHECK (
+    "provider" = 'clerk'
+    AND "provider_subject" ~ '^user_[A-Za-z0-9]{8,128}$'
+    AND "user_id" = "rise_pals_private"."current_app_user_id"()
+  );--> statement-breakpoint
 
 CREATE FUNCTION "rise_pals_private"."resolve_or_provision_clerk_identity"(
   validated_provider text,
@@ -128,4 +161,6 @@ BEGIN
 END;
 $$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION "rise_pals_private"."resolve_or_provision_clerk_identity"(text, text) FROM PUBLIC;--> statement-breakpoint
-GRANT EXECUTE ON FUNCTION "rise_pals_private"."resolve_or_provision_clerk_identity"(text, text) TO "rise_pals_app";
+GRANT EXECUTE ON FUNCTION "rise_pals_private"."resolve_or_provision_clerk_identity"(text, text) TO "rise_pals_app";--> statement-breakpoint
+ALTER FUNCTION "rise_pals_private"."resolve_or_provision_clerk_identity"(text, text) OWNER TO "rise_pals_identity_resolver";--> statement-breakpoint
+REVOKE CREATE ON SCHEMA "rise_pals_private" FROM "rise_pals_identity_resolver";

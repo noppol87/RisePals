@@ -13,7 +13,8 @@ type LanguageSwitcherProps = Readonly<{
     | "/lessons/source-verification-practice"
     | "/profile"
     | "/onboarding"
-    | "/sign-in";
+    | "/sign-in"
+    | "/sign-up";
 }>;
 
 export function LanguageSwitcher({

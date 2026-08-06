@@ -106,9 +106,16 @@ describe("profile-v1 and consent contract", () => {
   it.each([
     ["/th/profile", "th", "/th/profile"],
     ["/en/onboarding", "en", "/en/onboarding"],
+    ["/en/profile", "th", "/th"],
+    ["/th/profile", "en", "/en"],
     ["https://attacker.example", "th", "/th"],
     ["//attacker.example", "en", "/en"],
     ["/th/profile?leak=value", "th", "/th"],
+    ["/en/profile#fragment", "en", "/en"],
+    ["/%74h/profile", "th", "/th"],
+    ["/th/profile%3Fleak=value", "th", "/th"],
+    ["/th/%2e%2e/en/profile", "th", "/th"],
+    ["/en/%2F%2Fattacker.example", "en", "/en"],
     ["/fr/profile", "en", "/en"],
     [null, "th", "/th"],
   ] as const)("normalizes return path %s without open redirects", (input, locale, expected) => {
