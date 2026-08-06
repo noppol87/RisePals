@@ -1,7 +1,7 @@
 # Initial Data Model
 
 **Turn:** RP-TURN-001  
-**Status:** Logical MVP model plus bounded RP-TURN-010 physical baseline pending review  
+**Status:** Logical MVP model plus accepted RP-TURN-010 baseline and bounded RP-TURN-011 profile/identity extension pending review  
 **Reviewed:** 2026-08-01
 
 ## Purpose
@@ -12,7 +12,7 @@
 
 และรักษาทางไปสู่ Prove → Opportunity โดยไม่ทำให้คะแนน diagnostic ที่ยังไม่ validate กลายเป็น automated hiring gate
 
-เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle ก่อนเลือก managed PostgreSQL หรือ auth vendor โดย RP-TURN-010 นำเฉพาะเก้าตารางฐานที่ได้รับอนุญาตไปสร้างเป็น Drizzle schema และ forward migration; entity อื่นในเอกสารยังเป็นแบบจำลองอนาคตเท่านั้น
+เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle โดย RP-TURN-010 นำเก้าตารางฐานที่ได้รับอนุญาตไปสร้างเป็น Drizzle schema/migration และ RP-TURN-011 เพิ่มเฉพาะ `user_profiles` พร้อม Clerk Development mapping boundary สำหรับ synthetic alpha; entity อื่นในเอกสารยังเป็นแบบจำลองอนาคต และ managed PostgreSQL/production identity vendor ยังไม่ได้รับอนุมัติ
 
 ## Modeling principles
 
@@ -98,14 +98,14 @@ Unique: (`provider`, `provider_subject`). Classification: P2. Credentials and pa
 | Field | Type/constraint | Notes |
 |---|---|---|
 | `user_id` | UUID PK/FK | One profile per account |
-| `preferred_locale` | text | Initial value `th`; BCP 47 |
-| `timezone` | text | IANA timezone ID |
-| `role_family` | controlled code nullable | Broad role taxonomy, not free-form employer data |
-| `function` | controlled code nullable | Administration, finance, marketing, etc. |
-| `experience_band` | controlled code nullable | Broad band; avoid exact employment history |
-| `goals` | controlled code array | MVP preference inputs |
-| `onboarding_completed_at` | timestamptz nullable | Flow state |
-| `profile_schema_version` | integer | Supports future interpretation/migration |
+| `preferred_locale` | controlled code | `th` or `en` |
+| `timezone` | controlled code | Provisional `Asia/Bangkok`, `Europe/Berlin` or `UTC` |
+| `role_family` | controlled code | Broad versioned role taxonomy, including `other` without free text |
+| `function` | controlled code | Broad versioned function taxonomy, including `other` without free text |
+| `experience_band` | controlled code | Broad versioned band; avoids exact employment history |
+| `goals` | controlled code array | One to three unique `profile-v1` goal codes |
+| `onboarding_completed_at` | timestamptz | Present because a row is created only after successful consented onboarding save |
+| `profile_schema_version` | text | Exact `profile-v1` interpretation contract |
 | `updated_at` | timestamptz | Audit timestamp |
 
 Classification: P2; `goals` may be treated as P3 when it reveals career concerns. Do not collect employer name, exact title, salary or national identifier in the MVP.
@@ -517,15 +517,15 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 ## Authorization and database policy
 
-### Implemented RP-TURN-010 baseline
+### Implemented RP-TURN-010 baseline and RP-TURN-011 extension
 
-The physical baseline contains exactly these nine tables: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`.
+The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds only `user_profiles`, bringing the fresh two-migration schema to ten tables: `user_accounts`, `external_identities`, `consent_records`, `user_profiles`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`.
 
 One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
-`user_accounts`, `external_identities` and `consent_records` have forced RLS. Both the table-owning migration role and normal application role resolve rows through a transaction-local `app.current_user_id`; the normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. The trusted Next.js server validates the UUID before setting it inside a transaction. Normal runtime reads only the application URL; only migration/test tooling receives both separately decoded role credentials. This context is not an authentication mechanism and must never be set from untrusted browser input.
+`user_accounts`, `external_identities`, `consent_records` and `user_profiles` have forced RLS. Both the table-owning migration role and normal application role resolve owned rows through a transaction-local `app.current_user_id`; the normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. A hardened `SECURITY DEFINER` function exposes only Clerk resolve-or-provision to the application role: it fixes `search_path`, rejects other provider/subject shapes, serializes on the mapping key, relies on provider/subject uniqueness, provisions account and mapping atomically, revokes `PUBLIC` and grants only runtime execution. The server may call it only after a validated Clerk session and then establishes the internal UUID context. Browser input never controls the provider subject or context.
 
-The baseline intentionally excludes profiles, authentication/session state, assessment sessions, raw responses, scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage and production accounts. The disposable PostgreSQL harness uses only synthetic users and temporary credentials outside the repository.
+The RP-TURN-011 extension persists only a controlled profile and append-only service-data consent receipts. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Assessment sessions, raw responses, scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage, real identities and production accounts remain excluded. The disposable PostgreSQL harness uses only synthetic users and temporary credentials outside the repository.
 
 - Browser code never receives a privileged database credential.
 - Server Data Access Layer checks active account, required role, owner/relationship and requested fields.
@@ -533,7 +533,7 @@ The baseline intentionally excludes profiles, authentication/session state, asse
 - PostgreSQL RLS is enabled on user-owned P2/P3 tables when provider context supports it; owner policies compare the trusted application user context to `user_id`.
 - Service/maintenance roles are separate, short-lived where possible and audited. The normal application path does not use a table-owner or `BYPASSRLS` role.
 - Staff support access is not implied by `admin`; define explicit purposes and audited break-glass behavior before pilot.
-- Integration tests create two users and prove own behavior plus cross-user select/insert/update/delete, missing context and malformed context fail closed as applicable for every user-owned table.
+- Integration tests create synthetic users and prove own behavior plus cross-user select/insert/update/delete, missing context and malformed context fail closed as applicable across all four user-owned tables. They also race concurrent first sign-ins and serialize consent receipt writes.
 
 ## Key invariants and indexes
 

@@ -158,17 +158,21 @@ Gate:
 
 Outcome: selected identity provider behind the application boundary, minimal profile and versioned consent receipts.
 
+Implementation status: Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, protected routes, internal-account authorization, controlled profile, second migration and append-only service-data consent are implemented pending Project Codex review. Because Jeff-supplied ignored Development keys were unavailable, no Clerk resource/identity or real-provider smoke exists and the turn must remain Partial until that bounded smoke and synthetic-user deletion can be reviewed.
+
 Gate:
 
 - Server-side authorization, secure cookie/session behavior, logout and account-state cases pass
 - Cross-user profile access is denied
 - Privacy notice explains collected fields and purposes
 
-Vendor decision required before the turn: auth provider, data region, plan/cost and identity deletion behavior.
+Locked alpha vendor boundary: Clerk Development, Free/Hobby, US-hosted identity data accepted for synthetic testing only, email verification code only and synthetic identity deletion before handoff when a smoke identity exists. Production vendor suitability, region/privacy/legal review and deletion orchestration remain open.
 
 ### RP-TURN-012 — Persisted Assessment Sessions and Raw Responses
 
 Outcome: owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions.
+
+Status: recommended after RP-TURN-011 review but not authorized or started.
 
 Gate:
 

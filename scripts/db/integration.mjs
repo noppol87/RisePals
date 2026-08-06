@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import pg from "pg";
 
 const { Pool } = pg;
-const migrationPath = resolve("drizzle/0000_slimy_dorian_gray.sql");
+const migrationDirectory = resolve("drizzle");
 const migrationUrl = process.env.DATABASE_MIGRATION_URL;
 const applicationUrl = process.env.DATABASE_URL;
 
@@ -70,20 +70,31 @@ const withApplicationUser = (userId, operation) =>
 const withOwnerUser = (userId, operation) => withDatabaseUser(ownerPool, userId, operation);
 
 async function applyMigration() {
-  const sql = await readFile(migrationPath, "utf8");
-  const statements = sql
-    .split("--> statement-breakpoint")
-    .map((statement) => statement.trim())
-    .filter(Boolean);
+  const migrationFiles = (await readdir(migrationDirectory))
+    .filter((fileName) => /^\d{4}_.+\.sql$/.test(fileName))
+    .sort();
+  const migrations = await Promise.all(
+    migrationFiles.map(async (fileName) => ({
+      fileName,
+      statements: (await readFile(resolve(migrationDirectory, fileName), "utf8"))
+        .split("--> statement-breakpoint")
+        .map((statement) => statement.trim())
+        .filter(Boolean),
+    })),
+  );
   const client = await ownerPool.connect();
+  let statementCount = 0;
 
   try {
     await client.query("BEGIN");
-    for (const [index, statement] of statements.entries()) {
-      try {
-        await client.query(statement);
-      } catch (error) {
-        throw new Error(`Migration statement ${index + 1} failed.`, { cause: error });
+    for (const migration of migrations) {
+      for (const [index, statement] of migration.statements.entries()) {
+        try {
+          await client.query(statement);
+          statementCount += 1;
+        } catch (error) {
+          throw new Error(`${migration.fileName} statement ${index + 1} failed.`, { cause: error });
+        }
       }
     }
     await client.query("COMMIT");
@@ -94,7 +105,7 @@ async function applyMigration() {
     client.release();
   }
 
-  return statements.length;
+  return { migrationFiles, statementCount };
 }
 
 async function insertCanonicalFramework(client, version, publish = true) {
@@ -220,7 +231,7 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
-  assert.equal(tables.rows[0].count, 9, "the fresh migration creates exactly nine tables");
+  assert.equal(tables.rows[0].count, 10, "the two fresh migrations create exactly ten tables");
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -261,10 +272,95 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM pg_class
      WHERE relname = ANY($1::text[])
      ORDER BY relname`,
-    [["consent_records", "external_identities", "user_accounts"]],
+    [["consent_records", "external_identities", "user_accounts", "user_profiles"]],
   );
-  assert.equal(forcedRls.rowCount, 3);
+  assert.equal(forcedRls.rowCount, 4);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
+}
+
+async function resolveClerkIdentity(subject) {
+  const client = await applicationPool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended('clerk:' || $1, 0))`, [
+      subject,
+    ]);
+    const result = await client.query(
+      `SELECT user_id, status
+       FROM rise_pals_private.resolve_or_provision_clerk_identity('clerk', $1)`,
+      [subject],
+    );
+    await client.query("COMMIT");
+    assert.equal(result.rowCount, 1);
+    return result.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function verifyIdentityProvisioningBoundary() {
+  const subject = "user_syntheticconcurrent0001";
+  const resolutions = await Promise.all(
+    Array.from({ length: 8 }, () => resolveClerkIdentity(subject)),
+  );
+  const resolvedUserIds = new Set(resolutions.map((resolution) => resolution.user_id));
+
+  assert.equal(resolvedUserIds.size, 1, "concurrent first sign-ins resolve to one internal user");
+  assert.ok(resolutions.every((resolution) => resolution.status === "active"));
+
+  const internalUserId = resolutions[0].user_id;
+  const mapping = await withApplicationUser(internalUserId, (client) =>
+    client.query(
+      `SELECT user_id, provider, provider_subject, email_normalized
+       FROM external_identities`,
+    ),
+  );
+  assert.deepEqual(mapping.rows, [
+    {
+      user_id: internalUserId,
+      provider: "clerk",
+      provider_subject: subject,
+      email_normalized: null,
+    },
+  ]);
+
+  await expectDatabaseRejection(
+    () =>
+      applicationPool.query(
+        `SELECT * FROM rise_pals_private.resolve_or_provision_clerk_identity('other', $1)`,
+        [subject],
+      ),
+    "an unsupported identity provider",
+    "22023",
+  );
+  await expectDatabaseRejection(
+    () =>
+      applicationPool.query(
+        `SELECT * FROM rise_pals_private.resolve_or_provision_clerk_identity('clerk', $1)`,
+        ["browser-supplied-subject"],
+      ),
+    "a malformed provider subject",
+    "22023",
+  );
+
+  const functionAcl = await ownerPool.query(
+    `SELECT coalesce(bool_or(acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'), false)
+              AS public_execute,
+            has_function_privilege(
+              'rise_pals_app', function.oid, 'EXECUTE'
+            ) AS app_execute
+     FROM pg_proc AS function
+     CROSS JOIN LATERAL aclexplode(
+       coalesce(function.proacl, acldefault('f', function.proowner))
+     ) AS acl
+     WHERE function.oid =
+       'rise_pals_private.resolve_or_provision_clerk_identity(text,text)'::regprocedure
+     GROUP BY function.oid`,
+  );
+  assert.deepEqual(functionAcl.rows[0], { public_execute: false, app_execute: true });
 }
 
 async function verifyConstraintsAndLifecycle() {
@@ -774,6 +870,14 @@ async function verifyRowLevelSecurity() {
          VALUES ($1, 'required-service', '1.0', $2, $3, 'synthetic-test', $4)`,
         [userId, decision, locale, proofDigest],
       );
+      await client.query(
+        `INSERT INTO user_profiles
+          (user_id, preferred_locale, timezone, role_family, function, experience_band,
+           goals, onboarding_completed_at, profile_schema_version)
+         VALUES ($1, $2, 'Asia/Bangkok', 'individual-contributor', 'operations', 'mid',
+                 ARRAY['adapt-to-change'], now(), 'profile-v1')`,
+        [userId, locale],
+      );
     });
   }
 
@@ -783,9 +887,11 @@ async function verifyRowLevelSecurity() {
       `SELECT user_id FROM external_identities ORDER BY user_id`,
     );
     const consents = await client.query(`SELECT user_id FROM consent_records ORDER BY user_id`);
+    const profiles = await client.query(`SELECT user_id FROM user_profiles ORDER BY user_id`);
     assert.deepEqual(accounts.rows, [{ id: userA }]);
     assert.deepEqual(identities.rows, [{ user_id: userA }]);
     assert.deepEqual(consents.rows, [{ user_id: userA }]);
+    assert.deepEqual(profiles.rows, [{ user_id: userA }]);
 
     const accountUpdate = await client.query(
       `UPDATE user_accounts SET last_seen_at = now() WHERE id = $1`,
@@ -795,9 +901,25 @@ async function verifyRowLevelSecurity() {
       `UPDATE external_identities SET last_authenticated_at = now() WHERE user_id = $1`,
       [userA],
     );
+    const profileUpdate = await client.query(
+      `UPDATE user_profiles SET experience_band = 'senior' WHERE user_id = $1`,
+      [userA],
+    );
     assert.equal(accountUpdate.rowCount, 1, "own account UPDATE succeeds");
     assert.equal(identityUpdate.rowCount, 1, "own identity UPDATE succeeds");
+    assert.equal(profileUpdate.rowCount, 1, "own profile UPDATE succeeds");
   });
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(userA, (client) =>
+        client.query(`UPDATE user_profiles SET role_family = 'not-controlled' WHERE user_id = $1`, [
+          userA,
+        ]),
+      ),
+    "an uncontrolled profile code",
+    "23514",
+  );
 
   await expectDatabaseRejection(
     () =>
@@ -832,10 +954,15 @@ async function verifyRowLevelSecurity() {
       `DELETE FROM external_identities WHERE user_id = $1`,
       [userB],
     );
+    const profileUpdate = await client.query(
+      `UPDATE user_profiles SET experience_band = 'early' WHERE user_id = $1`,
+      [userB],
+    );
     assert.equal(accountUpdate.rowCount, 0, "cross-user account UPDATE changes no row");
     assert.equal(accountDelete.rowCount, 0, "cross-user account DELETE changes no row");
     assert.equal(identityUpdate.rowCount, 0, "cross-user identity UPDATE changes no row");
     assert.equal(identityDelete.rowCount, 0, "cross-user identity DELETE changes no row");
+    assert.equal(profileUpdate.rowCount, 0, "cross-user profile UPDATE changes no row");
   });
 
   for (const [label, query, parameters] of [
@@ -852,6 +979,15 @@ async function verifyRowLevelSecurity() {
         (user_id, purpose_code, notice_version, decision, locale, source_surface, proof_digest)
        VALUES ($1, 'cross-user', '1.0', 'granted', 'en', 'synthetic-test', $2)`,
       [userB, proofDigest],
+    ],
+    [
+      "profile",
+      `INSERT INTO user_profiles
+        (user_id, preferred_locale, timezone, role_family, function, experience_band,
+         goals, onboarding_completed_at, profile_schema_version)
+       VALUES ($1, 'th', 'Asia/Bangkok', 'other', 'other', 'other',
+               ARRAY['other'], now(), 'profile-v1')`,
+      [userB],
     ],
   ]) {
     await expectDatabaseRejection(
@@ -898,7 +1034,12 @@ async function verifyRowLevelSecurity() {
     assert.equal(accountDelete.rowCount, 1, "an unreferenced own account DELETE succeeds");
   });
 
-  for (const table of ["user_accounts", "external_identities", "consent_records"]) {
+  for (const table of [
+    "user_accounts",
+    "external_identities",
+    "consent_records",
+    "user_profiles",
+  ]) {
     const noContext = await applicationPool.query(`SELECT * FROM ${table}`);
     assert.equal(noContext.rowCount, 0, `missing context hides ${table}`);
     await expectDatabaseRejection(
@@ -923,6 +1064,15 @@ async function verifyRowLevelSecurity() {
        VALUES ($1, 'missing-context', '1.0', 'granted', 'en', 'synthetic-test', $2)`,
       [userA, proofDigest],
     ],
+    [
+      "profile",
+      `INSERT INTO user_profiles
+        (user_id, preferred_locale, timezone, role_family, function, experience_band,
+         goals, onboarding_completed_at, profile_schema_version)
+       VALUES ($1, 'en', 'UTC', 'other', 'other', 'other',
+               ARRAY['other'], now(), 'profile-v1')`,
+      [userA],
+    ],
   ]) {
     await expectDatabaseRejection(
       () => applicationPool.query(query, parameters),
@@ -937,15 +1087,78 @@ async function verifyRowLevelSecurity() {
   }
 }
 
-let migrationStatementCount = 0;
+async function verifySerializedConsentReceipts() {
+  const first = await applicationPool.connect();
+  const second = await applicationPool.connect();
+
+  try {
+    await first.query("BEGIN");
+    await second.query("BEGIN");
+    await first.query("SELECT set_config('app.current_user_id', $1, true)", [userA]);
+    await second.query("SELECT set_config('app.current_user_id', $1, true)", [userA]);
+    await first.query(`SELECT id FROM user_accounts WHERE id = $1 FOR UPDATE`, [userA]);
+
+    let secondLockAcquired = false;
+    const secondLock = second
+      .query(`SELECT id FROM user_accounts WHERE id = $1 FOR UPDATE`, [userA])
+      .then(() => {
+        secondLockAcquired = true;
+      });
+    await delay(150);
+    assert.equal(secondLockAcquired, false, "concurrent consent writes serialize on the user row");
+
+    await first.query(
+      `INSERT INTO consent_records
+        (user_id, purpose_code, notice_version, decision, occurred_at, locale,
+         source_surface, proof_digest)
+       VALUES ($1, 'service-profile-learning-state', 'alpha-privacy-v1', 'withdrawn',
+               clock_timestamp(), 'en', 'synthetic-test', $2)`,
+      [userA, proofDigest],
+    );
+    await first.query("COMMIT");
+
+    await secondLock;
+    await second.query(
+      `INSERT INTO consent_records
+        (user_id, purpose_code, notice_version, decision, occurred_at, locale,
+         source_surface, proof_digest)
+       VALUES ($1, 'service-profile-learning-state', 'alpha-privacy-v1', 'granted',
+               clock_timestamp(), 'en', 'synthetic-test', $2)`,
+      [userA, proofDigest],
+    );
+    await second.query("COMMIT");
+
+    const current = await withApplicationUser(userA, (client) =>
+      client.query(
+        `SELECT decision
+         FROM consent_records
+         WHERE purpose_code = 'service-profile-learning-state'
+         ORDER BY occurred_at DESC, id DESC`,
+      ),
+    );
+    assert.deepEqual(
+      current.rows.map((row) => row.decision),
+      ["granted", "withdrawn"],
+      "serialized append-only receipts derive a deterministic current state",
+    );
+  } finally {
+    await Promise.allSettled([first.query("ROLLBACK"), second.query("ROLLBACK")]);
+    first.release();
+    second.release();
+  }
+}
+
+let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
-  migrationStatementCount = await applyMigration();
+  migrationResult = await applyMigration();
+  await verifyIdentityProvisioningBoundary();
   await verifyConstraintsAndLifecycle();
   await verifyConcurrentPublicationGuards();
   await verifyRowLevelSecurity();
+  await verifySerializedConsentReceipts();
   console.log(
-    `PostgreSQL integration PASS (${migrationStatementCount} migration statements, 9 tables, lifecycle/reparent/concurrency enforcement and complete two-user forced-RLS matrix).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 10 tables, atomic Clerk provisioning, profile controls, lifecycle/reparent/concurrency enforcement and complete two-user forced-RLS matrix).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end()]);

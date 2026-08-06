@@ -558,14 +558,15 @@ The `.gitignore` rule ignores `.env*` and re-allows `.env.example`.
 
 ### Active and planned names
 
-Names are a provider-agnostic contract; provider-specific additions wait for a vendor decision:
+Names remain minimal; Clerk-specific additions are limited to the approved synthetic-alpha Development boundary:
 
 | Variable | Exposure | Purpose |
 |---|---|---|
 | `APP_BASE_URL` | Server | Canonical origin for secure redirects/links |
 | `DATABASE_URL` | Production application server secret | Normal non-owner PostgreSQL application connection; the runtime reads only this URL |
 | `DATABASE_MIGRATION_URL` | Migration/test tooling secret only | Separate migration/table-owner connection; never place it in the production application environment |
-| `AUTH_SECRET` | Server secret | Session/auth integration secret when required |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Browser-visible provider locator | Clerk Development publishable key; must start `pk_test_` and is not an application authorization value |
+| `CLERK_SECRET_KEY` | Server secret | Matching Clerk Development backend key; must start `sk_test_`, remain ignored and never enter output/client code |
 | `OBJECT_STORAGE_BUCKET` | Server | Private proof bucket identifier |
 | `OBJECT_STORAGE_ENDPOINT` | Server | Provider adapter endpoint when required |
 | `OBJECT_STORAGE_ACCESS_KEY` | Server secret | Object-store service credential |
@@ -585,7 +586,7 @@ Application and Next.js typechecking retain strict mode with `skipLibCheck: fals
 
 Normal application runtime requires and reads only `DATABASE_URL`; `createApplicationPool()` does not access `DATABASE_MIGRATION_URL`. Migration and disposable-test tooling intentionally receive both URLs and require distinct decoded role names. URL usernames/passwords/database components are percent-decoded with PostgreSQL-compatible URI interpretation before role checks; malformed encoding fails closed, privileged owner/migration/admin/postgres-like application roles are rejected after decoding, and differently encoded forms of the same role cannot satisfy separation. Both URLs require a single explicit database and exactly one approved `sslmode`. Loopback test URLs require `sslmode=disable`; non-loopback URLs reject disabled encryption. Errors contain remediation but never echo connection values.
 
-The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. Browser input must never control this context directly; real authentication remains unimplemented.
+The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. RP-TURN-011 adds the validated-session-to-internal-UUID authorization boundary above it; browser input still never controls this context directly. Real-provider smoke and production authentication approval remain incomplete.
 
 ### Disposable PostgreSQL verification
 
@@ -599,7 +600,7 @@ The normal pool is created only from a server-only module. `withUserDatabaseTran
 
 The preparation script fails before extraction on a length or checksum mismatch, refuses a destination inside the repository, verifies PostgreSQL reports exactly `18.4`, and changes no machine-wide PATH, service, firewall rule or elevation state. The default prepared location is `%TEMP%\risepals-postgresql-18.4\pgsql\bin`; `RISE_PALS_POSTGRES_BIN` remains an explicit override for an already prepared equivalent directory.
 
-`scripts/db/run-disposable-postgres.ps1` creates a fresh cluster and random credentials outside the repository, binds PostgreSQL only to `127.0.0.1` on an ephemeral port, disables SSL only on that loopback listener, creates separate `rise_pals_owner` and `rise_pals_app` roles, applies the single migration and runs synthetic constraint/RLS checks. It never registers a Windows service, changes the firewall or machine PATH, or creates a production account.
+`scripts/db/run-disposable-postgres.ps1` creates a fresh cluster and random credentials outside the repository, binds PostgreSQL only to `127.0.0.1` on an ephemeral port, disables SSL only on that loopback listener, creates separate `rise_pals_owner` and `rise_pals_app` roles, applies the ordered forward migrations and runs synthetic constraint/RLS checks. It never registers a Windows service, changes the firewall or machine PATH, or creates a production account.
 
 Run the complete safe harness:
 
@@ -610,9 +611,9 @@ npm run db:test:disposable
 
 The harness always restores process-local environment values and deletes bootstrap password/SQL files even if normal stop fails. It recursively removes a disposable cluster only after a clean stop or verified absence of the exact process; a live or unverified process leaves its bounded diagnostics directory in place and returns an error rather than deleting it. Cleanup paths must remain under `%TEMP%\risepals-postgres-tests`. After a successful run, no PostgreSQL process, service, database directory or temporary credential remains. `npm run db:test` is the inner test only; run it directly only against a newly created disposable empty database with separately scoped test roles.
 
-The migration creates exactly nine baseline tables and no durable learner activity: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`. Version rows must be inserted as drafts; publication runs database validation; publication-to-retirement must change status only; retired rows cannot update or delete. Exact canonical 8+2 and sealed-parent validation applies to published and retired history. Competency/item/mapping triggers lock every relevant OLD and NEW parent in deterministic order, blocking moves out of or into a sealed parent and closing concurrent publication/mutation races.
+The two migrations create exactly ten tables: the accepted nine-table baseline plus `user_profiles`. Version rows must be inserted as drafts; publication runs database validation; publication-to-retirement must change status only; retired rows cannot update or delete. Exact canonical 8+2 and sealed-parent validation applies to published and retired history. Competency/item/mapping triggers lock every relevant OLD and NEW parent in deterministic order, blocking moves out of or into a sealed parent and closing concurrent publication/mutation races. The second migration adds controlled `profile-v1` checks, forced profile RLS and the narrow Clerk identity resolution function without changing the accepted definition protections.
 
-The integration harness proves those lifecycle/reparent/concurrency paths plus validated JSON, business/provider uniqueness, append-only consent and restrictive deletion. Through the normal role it verifies `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS` and zero application-table ownership. Its two-user matrix covers own and cross-user SELECT/INSERT/UPDATE/DELETE as applicable, plus missing and malformed trusted context, across `user_accounts`, `external_identities` and `consent_records`; every prohibited result asserts its row count or SQLSTATE.
+The integration harness proves those lifecycle/reparent/concurrency paths plus validated JSON, business/provider uniqueness, atomic concurrent first-sign-in mapping, controlled profiles, serialized append-only consent and restrictive deletion. Through the normal role it verifies `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS` and zero application-table ownership. Its two-user matrix covers own and cross-user SELECT/INSERT/UPDATE/DELETE as applicable, plus missing and malformed trusted context, across `user_accounts`, `external_identities`, `consent_records` and `user_profiles`; every prohibited result asserts its row count or SQLSTATE.
 
 Production placement remains open. Managed PostgreSQL is preferred for operational isolation, while a database on the same VPS would require explicit capacity, patching, private binding, least-privilege roles, monitoring and encrypted off-host backup evidence. A later decision must verify supported PostgreSQL major version, TLS, pooling mode, backups/deletion, data region, credential rotation and operational access. Never use production data in local or preview environments.
 
@@ -631,6 +632,48 @@ Production placement remains open. Managed PostgreSQL is preferred for operation
 | client boundary | PASS — expected result/lesson client references only; 11 production client chunk files contain 0 database URL, PostgreSQL, Drizzle, `pg`, private-schema or trusted-context markers |
 | disposable cleanup | PASS — 0 PostgreSQL processes, services and disposable test roots after the run; temporary database files and credentials removed |
 
+## RP-TURN-011 synthetic-alpha authentication and profile
+
+### Clerk Development configuration
+
+The exact lockfile adds `@clerk/nextjs 7.7.0` and `@clerk/localizations 4.14.1` from the public npm registry. Both are pinned. The SDK supplies the official Next.js session/UI integration; the localization package supplies `thTH` and `enUS`. Clerk localization is experimental, so Rise Pals displays authoritative Thai-first/English-complete product/privacy/fallback copy outside the vendor widget and tests that coverage.
+
+Clerk SDK imports are limited to small `.mjs` runtime shims under `src/modules/identity/providers/clerk/`. Reviewed local `.d.mts` files type only the adapter surface because Clerk 7.7.0's published declaration graph conflicts with this repository's `exactOptionalPropertyTypes` and references optional wallet/password packages not installed for the email-code flow. Application strict mode and `skipLibCheck: false` remain unchanged; every Rise Pals TypeScript source and the local adapter declarations are checked.
+
+To run a separately authorized real smoke, Jeff must create/configure one Clerk Development application manually and choose email verification code as the only authentication method. Put its matching Development keys in ignored `.env.local`:
+
+```dotenv
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Never paste values into chat, commits, screenshots, logs or handoff text. Incomplete pairs and `pk_live_`/`sk_live_` fail closed. Do not create/activate Production, add payment details, social OAuth, SMS, passwords, Organizations or custom domains. Test only with Clerk's reserved synthetic email convention and remove every synthetic identity before handoff. Without keys, sign-in/profile routes render an explicit unavailable state, make no Clerk request and do not initialize the database pool.
+
+### Server authorization, profile and consent
+
+`IdentityProvider` returns only a validated server session state and provider subject. The server-only authorization transaction takes a provider-key advisory lock, calls the hardened resolve-or-provision function through the normal application role, checks the internal account state and only then establishes `app.current_user_id`. Active accounts proceed; absent, invalid, expired, unavailable, suspended, deletion-pending and deleted states fail closed. Provider subjects and tokens are never client DTO fields. Clerk manages logout/session cookies; Rise Pals creates no custom auth cookie or token store.
+
+The dynamic `/th|en/sign-in`, `/onboarding` and `/profile` routes preserve only allowlisted locale paths and reject absolute, protocol-relative, query-bearing or unsupported-locale return targets. `profile-v1` accepts controlled codes only, including `other` without free text. Goals are P3 sensitive career data. The UI and validator do not collect employer name, exact title, salary, national identifier or career-concern text.
+
+`alpha-privacy-v1` covers the `service-profile-learning-state` purpose only. Its proof digest is SHA-256 over one canonical versioned contract. Consent mutations lock the internal account row, use post-lock `clock_timestamp()` and append grant/decline/withdrawal receipts. Current state sorts by `occurred_at`, then receipt UUID. Decline never invokes profile persistence; profile upsert rechecks a current grant inside the same owner-scoped transaction. Withdrawal is described as access-state change, not deletion.
+
+No Clerk keys/resource or synthetic provider identity was available in the RP-TURN-011 implementation workspace, so no real-provider smoke or remote identity deletion was performed. This is a known acceptance blocker and the turn is `Partial`, not production-ready.
+
+### RP-TURN-011 implementation verification
+
+| Check | Result |
+|---|---|
+| `npm ci` | PASS — 499 packages installed, 500 audited, 0 vulnerabilities; only the existing deprecated `@esbuild-kit` notices were emitted |
+| pending scripts / strict policy | PASS — `npm approve-scripts --allow-scripts-pending --json` reported no unreviewed package; `npm config get strict-allow-scripts` returned `true` |
+| Clerk dependency pins | PASS — `@clerk/nextjs 7.7.0` and `@clerk/localizations 4.14.1` are exact direct dependencies |
+| `npm run format:check` / `npm run lint` / `npm run typecheck` | PASS — Prettier, zero-warning ESLint, Next route generation and both strict Rise Pals TypeScript projects completed |
+| `npm run test` / `npm run check` | PASS — 24 files / 198 tests; aggregate gate completed the 15-page production build with auth/onboarding/profile dynamic and the established public routes static |
+| `npm run test:e2e` | PASS — Chromium 53/53, including bilingual unavailable/auth boundary, zero unexpected third-party requests without keys, 320px reflow and axe checks. Next.js emitted four internal `NoFallbackError` diagnostic lines while Playwright exercised negative/dynamic-route cases; the command exited 0 with no failed or user-visible cases. |
+| `npm run db:test:disposable` | PASS — PostgreSQL 18.4, 97 statements across 2 migrations, 10 tables, atomic concurrent Clerk provisioning, profile controls, consent serialization, sealed lifecycle/concurrency rules and complete two-user forced-RLS matrix; cluster/data/logs/credentials removed |
+| production/full npm audits | PASS — 0 vulnerabilities in both graphs |
+| production client boundary | PASS with recorded upstream marker — 16 client chunks / 1,056,243 bytes contain 0 database URL, migration URL, provider-subject, Drizzle, PostgreSQL/private-schema, trusted-context or Clerk secret-value markers. The Clerk client SDK itself contains the literal environment-variable name `CLERK_SECRET_KEY`; no value/prefix is bundled, and all five result/lesson/auth/profile manifests contain 0 Rise Pals server/DAL markers. |
+| real Clerk Development smoke | NOT RUN — no Jeff-supplied ignored Development keys/resource existed; no synthetic remote identity was created, so there was nothing to delete. Turn status remains Partial. |
+
 ## UTF-8 and Thai-content notes
 
 Repository Markdown is intended to remain UTF-8. Windows PowerShell 5.1 may display UTF-8 output incorrectly through some automation pipelines even when file bytes are valid; `rg` in the same environment rendered the Thai content correctly. Do not “fix” a file based only on mojibake in one console.
@@ -647,15 +690,16 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-010 acceptance
+## Current boundary after RP-TURN-011 implementation
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
 - RP-TURN-010 is Accepted by Project Codex and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
-- The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result and one repository-local lesson prototype. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, published/externally validated learning content, learner profile or account system.
+- RP-TURN-011 adds a second migration, a controlled synthetic-alpha profile/account boundary, protected routes and append-only service-data consent. It remains Partial pending Project Codex review and a real Clerk Development smoke; no Clerk resource, remote identity or real user/data was created.
+- The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-local lesson prototype and the bounded account/profile/consent implementation. It is not a validated real assessment and creates no personalized result, real recommendation, published/externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
-- No cloud or paid provider, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.
+- No cloud or paid resource, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No authentication, profile, assessment session/response/result persistence, lesson progress, saved XP or proof storage exists. RP-TURN-011 is not authorized or started.
+- No real-provider smoke, real profile/data, assessment session/response/result persistence, lesson progress, saved XP or proof storage exists. RP-TURN-012 is recommended but is not authorized or started.

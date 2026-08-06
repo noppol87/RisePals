@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import "@/lib/env/server";
 import { locales } from "@/lib/i18n/config";
 import { getCatalogForSegment } from "@/lib/i18n/server";
+import { ClerkDevelopmentBoundary } from "@/modules/identity/providers/clerk/boundary";
 
 export const metadata: Metadata = {
   title: "Rise Pals",
@@ -34,9 +35,11 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   return (
     <html lang={resolved.locale} data-scroll-behavior="smooth">
       <body>
-        <AppShell locale={resolved.locale} messages={resolved.catalog.shell}>
-          {children}
-        </AppShell>
+        <ClerkDevelopmentBoundary locale={resolved.locale}>
+          <AppShell locale={resolved.locale} messages={resolved.catalog.shell}>
+            {children}
+          </AppShell>
+        </ClerkDevelopmentBoundary>
       </body>
     </html>
   );

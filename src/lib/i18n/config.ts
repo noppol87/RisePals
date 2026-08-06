@@ -32,3 +32,15 @@ export function sourceVerificationLessonPath(
 ): `/${Locale}/lessons/source-verification-practice` {
   return `/${locale}/lessons/source-verification-practice`;
 }
+
+export function profilePath(locale: Locale): `/${Locale}/profile` {
+  return `/${locale}/profile`;
+}
+
+export function onboardingPath(locale: Locale): `/${Locale}/onboarding` {
+  return `/${locale}/onboarding`;
+}
+
+export function signInPath(locale: Locale): `/${Locale}/sign-in` {
+  return `/${locale}/sign-in`;
+}

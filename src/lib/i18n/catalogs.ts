@@ -5,6 +5,7 @@ export type ShellCatalog = Readonly<{
   skipToContent: string;
   navigationLabel: string;
   homeLabel: string;
+  profileLabel: string;
   languageSwitcherLabel: string;
   currentLanguageLabel: string;
   languageNames: Readonly<Record<Locale, string>>;
@@ -185,6 +186,7 @@ export const catalogs = {
       skipToContent: "ข้ามไปยังเนื้อหาหลัก",
       navigationLabel: "การนำทางหลัก",
       homeLabel: "หน้าหลัก",
+      profileLabel: "โปรไฟล์อัลฟา",
       languageSwitcherLabel: "เลือกภาษา",
       currentLanguageLabel: "ภาษาปัจจุบัน",
       languageNames: {
@@ -434,6 +436,7 @@ export const catalogs = {
       skipToContent: "Skip to main content",
       navigationLabel: "Primary navigation",
       homeLabel: "Home",
+      profileLabel: "Alpha profile",
       languageSwitcherLabel: "Choose language",
       currentLanguageLabel: "Current language",
       languageNames: {

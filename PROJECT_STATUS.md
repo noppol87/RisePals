@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-06  
-**Current phase:** PostgreSQL schema and migration baseline accepted; no production database, authentication or durable learner state  
-**Current turn:** RP-TURN-010 Accepted
+**Current phase:** Synthetic-alpha authentication/profile/consent implementation pending review and real-provider smoke; no real users or production service  
+**Current turn:** RP-TURN-011 Partial pending Project Codex review
 
 ## Locked decisions
 
@@ -20,6 +20,7 @@
 - Accepted technical direction: Next.js App Router, React with strict TypeScript, Node.js 24 LTS/npm, PostgreSQL/Drizzle, Git-versioned trusted MDX/metadata for pilot lessons and a modular monolith
 - Production application deployment target: this Windows Server 2022 VPS using native Node.js after a separately approved infrastructure-readiness turn; the repository contains an application scaffold, but no production application/service/deployment exists yet
 - Canonical source/history: Jeff's personal Public repository [`noppol87/RisePals`](https://github.com/noppol87/RisePals), connected locally as the single `origin`
+- Synthetic-alpha identity provider: Clerk Development on Free/Hobby with email verification code only; US identity hosting accepted only for synthetic testing, while production suitability remains undecided
 
 ## Completed artifacts
 
@@ -80,13 +81,18 @@
 - Complete normal-role verification (`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS`, zero owned application tables) and own/cross-user/missing/malformed-context coverage across all three user-owned tables
 - Reproducible loopback-only PostgreSQL 18.4 preparation and verification with a pinned EDB archive hash, validated Microsoft runtime publisher, synthetic data, fresh migration and safe cleanup; no Windows service or production database was created
 - Deterministic verification on the Windows VPS: Vitest reuses one bounded `vmThreads` worker while isolating every file in a VM context, and Playwright serves the existing production build through `next start`
+- RP-TURN-011 internal `IdentityProvider` boundary and Clerk Development adapter, rejecting absent/incomplete/live key configuration and keeping vendor SDK imports inside the provider integration
+- Server-only authentication/authorization transaction that validates a Clerk session, maps only its subject to an internal UUID, resolves account state and establishes trusted PostgreSQL context before any protected operation
+- Second forward migration adding the controlled `profile-v1` `user_profiles` table with forced RLS plus a hardened, minimum-grant, concurrency-safe identity resolve-or-provision function
+- Thai-first/English-complete sign-in, onboarding and profile routes with safe locale return paths, fail-closed account states, controlled profile codes, Clerk-managed logout and no custom auth cookie/token storage
+- Versioned `alpha-privacy-v1` service-data notice, deterministic proof digest and serialized append-only grant/decline/withdrawal receipts; declining does not create or update a profile and withdrawal is not presented as deletion
 
 ## Open decisions
 
 - VPS deployment authentication and transport
 - Branch protection/ruleset and CI provider/plan details
 - GitHub deployment transport, artifact retention and software licensing
-- Authentication provider and user identity model
+- Production identity provider suitability, privacy/legal/data-residency review, deletion orchestration and final credential/session operations
 - Windows reverse proxy, Node service supervisor, release switching and monitoring implementation
 - Managed PostgreSQL/database placement, object storage and backup placement/ownership
 - Payment provider and Thailand-specific billing requirements
@@ -113,15 +119,16 @@
 - RLS trusts a server-set transaction-local user UUID; exposing the application database credential or letting browser input set that context would break the security boundary
 - The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
+- Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the real-provider smoke remains unperformed until Jeff supplies ignored Development keys and completes required personal-account/dashboard actions
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
 
-**RP-TURN-011 — Authentication, Profile and Consent**
+**RP-TURN-012 — Persisted Assessment Sessions and Raw Responses**
 
-Recommended goal after separate authorization: select the identity provider behind the application boundary and establish the minimum profile and versioned consent flow defined in the engineering plan. RP-TURN-011 is recommended but is not authorized or started.
+Recommended goal after RP-TURN-011 review: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 adds database definitions and test infrastructure only: no production database, real account, authentication, profile, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-011 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 is implemented with deterministic/local PostgreSQL coverage but remains Partial pending Project Codex review and a real Clerk Development smoke test. No Clerk resource or identity, real account/data, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -138,3 +145,4 @@ RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
+| 011 | Partial pending review | Clerk Development provider boundary, server-only account authorization, controlled profile/RLS migration and versioned append-only service-data consent implemented with synthetic deterministic verification; no Clerk keys/resource/identity was available, so real-provider smoke and synthetic identity cleanup were not applicable and acceptance readiness is not claimed |

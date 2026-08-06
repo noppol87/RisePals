@@ -20,7 +20,7 @@ Rise Pals ควรเริ่มเป็น **modular monolith** แบบ fu
 
 แนวทางนี้ตรงกับ MVP ที่ต้องมี landing, assessment, result, interactive lesson, practice, progress และ proof แต่ยังไม่ต้องรับต้นทุนของ microservices, native apps หรือ separate content platform
 
-Windows Server 2022 VPS เป็น production application target ที่ Jeff ยืนยันแล้ว และ Jeff เลือก public repository `noppol87/RisePals` บน personal GitHub account เป็น approved future canonical source/history ส่วน framework/tooling ยังเป็น recommendation ที่ต้องผ่าน Project Codex review ก่อนถือเป็น locked implementation decision การติดตั้ง Git, local initialization, remote, authentication, first commit/push, branch protection, CI, deployment transport, reverse proxy, process supervisor, auth, database placement, object storage, backup, analytics, monitoring และ payment vendor ยังเปิดอยู่
+Windows Server 2022 VPS เป็น production application target ที่ Jeff ยืนยันแล้ว และ Jeff เลือก public repository `noppol87/RisePals` บน personal GitHub account เป็น approved future canonical source/history ส่วน Clerk ถูกเลือกเฉพาะ Development สำหรับ synthetic alpha; production identity suitability ยังเปิดอยู่ เช่นเดียวกับ branch protection, CI, deployment transport, reverse proxy, process supervisor, database placement, object storage, backup, analytics, monitoring และ payment vendor
 
 ## Why Next.js
 
@@ -322,11 +322,17 @@ Next.js remains suitable because its official self-hosting path supports a Node 
 
 | Option | Strength | Trade-off | Status |
 |---|---|---|---|
-| Clerk | First-class Next.js SDK, hosted flows and future organization support | External identity dependency and pricing/data-region review | Fastest alpha candidate, not selected |
+| Clerk | First-class Next.js SDK and hosted email-code flow | External identity dependency; Development data is US-hosted and localization is experimental | Selected for synthetic-alpha Development only; production undecided |
 | Supabase Auth | Natural integration if Supabase is also database/storage provider | Increases platform coupling; session/RLS design must be consistent | Integrated alternative |
 | Auth.js | Open source and greater control of identity/provider adapters | Team owns more configuration, security maintenance and account UX | Control-oriented alternative |
 
 Application users always receive an internal `user_id`; provider subjects map to it. Assessment, progress and evidence rows never use a vendor user ID as their primary ownership key. This keeps provider migration and account linking possible.
+
+RP-TURN-011 implements Clerk only behind `IdentityProvider` and provider/server integration modules. Configuration accepts a complete `pk_test_`/`sk_test_` pair and rejects incomplete or live credentials without echoing values. The Clerk SDK manages its own session cookies; Rise Pals creates no auth cookie and stores no provider token. The server validates the session, takes the provider subject directly from that validated server result, serializes first-sign-in resolution and maps it to `user_accounts.id` before setting transaction-local database context. Browser input cannot supply this subject to the data layer.
+
+The application authorization source remains PostgreSQL: `active` may proceed while `suspended`, `deletion_pending` and `deleted` fail closed. Clerk metadata is not an authorization, profile, goals, consent, assessment or application-role store. The database mapping intentionally leaves email null because the approved flow has no need to copy it. Client DTOs contain only controlled profile/consent presentation fields and never session tokens, provider subjects or secrets.
+
+This selection is deliberately non-production. Use one Jeff-controlled Clerk Development application, Free/Hobby, email verification code only and synthetic identities only. Do not enable Production, payment, social login, SMS, passwords, Organizations or custom domains. Clerk's Development instance and US identity hosting require a separate production privacy/legal/residency/security/vendor decision. Thai Clerk localization is experimental, so Rise Pals supplies authoritative bilingual boundary/fallback copy and regression coverage. A real provider smoke and synthetic-user deletion remain required when Jeff supplies ignored Development keys.
 
 ### Object storage, analytics and monitoring
 
@@ -389,7 +395,7 @@ Assessment and career data are sensitive even if local law does not assign every
 
 ## Explicitly deferred decisions
 
-- Authentication, database-hosting and object-storage vendors/placement
+- Production authentication suitability/deletion orchestration plus database-hosting and object-storage vendors/placement
 - Windows HTTPS reverse proxy, Node service supervisor/wrapper, release-switch mechanism and deployment authentication
 - Public `noppol87/RisePals` connection/first push, Git/GitHub authentication, branch rules, CI provider/plan, deployment transport and software licensing
 - Analytics, monitoring, email and payment vendors
