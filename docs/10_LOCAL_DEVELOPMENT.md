@@ -1,8 +1,8 @@
 # Local Development
 
-**Turn:** RP-TURN-008  
-**Status:** Synthetic example-result prototype accepted by Project Codex; no validated or personalized result, server response collection, durable persistence or deployment exists  
-**Checked:** 2026-08-03
+**Turn:** RP-TURN-010  
+**Status:** PostgreSQL schema and migration baseline accepted by Project Codex; no production database, authentication, durable learner state or deployment exists  
+**Checked:** 2026-08-06
 
 ## Confirmed host role and separation rule
 
@@ -647,12 +647,12 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-010 implementation
+## Current boundary after RP-TURN-010 acceptance
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
-- RP-TURN-010-R1 is implemented pending Project Codex review and corrects only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
+- RP-TURN-010 is Accepted by Project Codex and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result and one repository-local lesson prototype. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, published/externally validated learning content, learner profile or account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
 - No cloud or paid provider, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.

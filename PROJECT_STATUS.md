@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-06  
-**Current phase:** Corrected PostgreSQL schema and migration baseline implemented for review; no production database, authentication or durable learner state  
-**Current turn:** RP-TURN-010-R1 implementation complete pending Project Codex review
+**Current phase:** PostgreSQL schema and migration baseline accepted; no production database, authentication or durable learner state  
+**Current turn:** RP-TURN-010 Accepted
 
 ## Locked decisions
 
@@ -117,11 +117,11 @@
 
 ## Next recommended action
 
-**Project Codex review of RP-TURN-010-R1 — PostgreSQL Schema and Migration Baseline Correction**
+**RP-TURN-011 — Authentication, Profile and Consent**
 
-Recommended goal: review the split credential scope, decoded-role validation, sealed lifecycle/reparent/concurrency enforcement, reproducible PostgreSQL preparation, complete forced-RLS matrix and first-attempt build-to-E2E evidence. RP-TURN-011 is not authorized and has not been started.
+Recommended goal after separate authorization: select the identity provider behind the application boundary and establish the minimum profile and versioned consent flow defined in the engineering plan. RP-TURN-011 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-010 adds database definitions and test infrastructure only: no production database, real account, authentication, profile, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-011 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 adds database definitions and test infrastructure only: no production database, real account, authentication, profile, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-011 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -137,4 +137,4 @@ RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-010 adds database
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
-| 010 | Pending R1 review | Nine-table PostgreSQL/Drizzle baseline corrected with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification; no production database or persisted learner activity |
+| 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |

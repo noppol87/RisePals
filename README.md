@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-008 synthetic example-result prototype accepted / no validated or personalized result, server response collection or durable persistence  
-**Last updated:** 2026-08-03
+**Project status:** RP-TURN-010 PostgreSQL schema and migration baseline accepted / no production database, authentication or durable learner state  
+**Last updated:** 2026-08-06
 
 ## Product thesis
 
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds a bounded database schema and migration baseline for review; none of these turns creates onboarding, a validated or personalized assessment result, a production database, published or externally validated learning content, or a production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database schema and migration baseline; none of these turns creates onboarding, a validated or personalized assessment result, a production database, published or externally validated learning content, or a production launch.
 
 Locale routes:
 
@@ -152,4 +152,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype, RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype and RP-TURN-009 — One End-to-End Lesson and Practice Prototype are Accepted. RP-TURN-010 is implemented pending Project Codex review. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype and one database schema baseline now exist, but no published or externally validated lesson, production database, durable assessment/lesson session, saved XP, onboarding, profile, authentication, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-011 is not authorized or started.
+RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype, RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype, RP-TURN-009 — One End-to-End Lesson and Practice Prototype and RP-TURN-010 — PostgreSQL Schema and Migration Baseline are Accepted. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype and one accepted database schema baseline now exist, but no published or externally validated lesson, production database, durable assessment/lesson session, saved XP, onboarding, profile, authentication, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-011 is recommended next but is not authorized or started.
