@@ -254,29 +254,61 @@ CREATE TRIGGER "consent_records_append_only"
   BEFORE UPDATE OR DELETE ON "consent_records"
   FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."reject_consent_mutation"();--> statement-breakpoint
 
-CREATE FUNCTION "rise_pals_private"."reject_published_version_mutation"()
+CREATE FUNCTION "rise_pals_private"."guard_version_lifecycle"()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  IF OLD.status = 'published' THEN
-    RAISE EXCEPTION 'published version rows are immutable' USING ERRCODE = '55000';
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status <> 'draft' THEN
+      RAISE EXCEPTION 'version rows must be inserted as draft' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
   END IF;
-  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+
+  IF TG_OP = 'DELETE' THEN
+    IF OLD.status IN ('published', 'retired') THEN
+      RAISE EXCEPTION 'sealed version rows cannot be deleted' USING ERRCODE = '55000';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF OLD.status = 'retired' THEN
+    RAISE EXCEPTION 'retired version rows are immutable' USING ERRCODE = '55000';
+  END IF;
+
+  IF OLD.status = 'published' THEN
+    IF NEW.status <> 'retired' THEN
+      RAISE EXCEPTION 'published versions may only transition to retired'
+        USING ERRCODE = '55000';
+    END IF;
+    IF (to_jsonb(NEW) - 'status') IS DISTINCT FROM (to_jsonb(OLD) - 'status') THEN
+      RAISE EXCEPTION 'retirement must be a status-only lifecycle change'
+        USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'retired' THEN
+    RAISE EXCEPTION 'draft versions cannot transition directly to retired'
+      USING ERRCODE = '55000';
+  END IF;
+
+  RETURN NEW;
 END;
 $$;--> statement-breakpoint
-REVOKE ALL ON FUNCTION "rise_pals_private"."reject_published_version_mutation"() FROM PUBLIC;--> statement-breakpoint
-CREATE TRIGGER "framework_versions_published_immutable"
-  BEFORE UPDATE OR DELETE ON "framework_versions"
-  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."reject_published_version_mutation"();--> statement-breakpoint
-CREATE TRIGGER "scoring_model_versions_published_immutable"
-  BEFORE UPDATE OR DELETE ON "scoring_model_versions"
-  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."reject_published_version_mutation"();--> statement-breakpoint
-CREATE TRIGGER "assessment_versions_published_immutable"
-  BEFORE UPDATE OR DELETE ON "assessment_versions"
-  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."reject_published_version_mutation"();--> statement-breakpoint
+REVOKE ALL ON FUNCTION "rise_pals_private"."guard_version_lifecycle"() FROM PUBLIC;--> statement-breakpoint
+CREATE TRIGGER "framework_versions_lifecycle_guard"
+  BEFORE INSERT OR UPDATE OR DELETE ON "framework_versions"
+  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."guard_version_lifecycle"();--> statement-breakpoint
+CREATE TRIGGER "scoring_model_versions_lifecycle_guard"
+  BEFORE INSERT OR UPDATE OR DELETE ON "scoring_model_versions"
+  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."guard_version_lifecycle"();--> statement-breakpoint
+CREATE TRIGGER "assessment_versions_lifecycle_guard"
+  BEFORE INSERT OR UPDATE OR DELETE ON "assessment_versions"
+  FOR EACH ROW EXECUTE FUNCTION "rise_pals_private"."guard_version_lifecycle"();--> statement-breakpoint
 
 CREATE FUNCTION "rise_pals_private"."assert_canonical_framework"(target_framework_id uuid)
 RETURNS void
@@ -295,7 +327,7 @@ BEGIN
   FROM framework_versions
   WHERE id = target_framework_id;
 
-  IF target_status IS DISTINCT FROM 'published' THEN
+  IF target_status NOT IN ('published', 'retired') THEN
     RETURN;
   END IF;
 
@@ -360,8 +392,8 @@ END;
 $$;--> statement-breakpoint
 REVOKE ALL ON FUNCTION "rise_pals_private"."validate_framework_publication"() FROM PUBLIC;--> statement-breakpoint
 CREATE TRIGGER "framework_versions_validate_publication"
-  AFTER INSERT OR UPDATE OF status ON "framework_versions"
-  FOR EACH ROW WHEN (NEW.status = 'published')
+  AFTER UPDATE OF status ON "framework_versions"
+  FOR EACH ROW WHEN (NEW.status IN ('published', 'retired') AND OLD.status IS DISTINCT FROM NEW.status)
   EXECUTE FUNCTION "rise_pals_private"."validate_framework_publication"();--> statement-breakpoint
 
 CREATE FUNCTION "rise_pals_private"."guard_framework_competency_mutation"()
@@ -371,13 +403,30 @@ SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
-  parent_id uuid := CASE WHEN TG_OP = 'DELETE' THEN OLD.framework_version_id ELSE NEW.framework_version_id END;
-  parent_status publication_status;
+  parent_ids uuid[];
+  parent_record record;
 BEGIN
-  SELECT status INTO parent_status FROM framework_versions WHERE id = parent_id;
-  IF parent_status = 'published' THEN
-    RAISE EXCEPTION 'competencies belonging to a published framework are immutable' USING ERRCODE = '55000';
+  IF TG_OP = 'INSERT' THEN
+    parent_ids := ARRAY[NEW.framework_version_id];
+  ELSIF TG_OP = 'DELETE' THEN
+    parent_ids := ARRAY[OLD.framework_version_id];
+  ELSE
+    parent_ids := ARRAY[OLD.framework_version_id, NEW.framework_version_id];
   END IF;
+
+  FOR parent_record IN
+    SELECT id, status
+    FROM framework_versions
+    WHERE id = ANY(parent_ids)
+    ORDER BY id
+    FOR UPDATE
+  LOOP
+    IF parent_record.status IN ('published', 'retired') THEN
+      RAISE EXCEPTION 'competencies belonging to sealed frameworks are immutable'
+        USING ERRCODE = '55000';
+    END IF;
+  END LOOP;
+
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$;--> statement-breakpoint
@@ -393,11 +442,11 @@ SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  IF NEW.status = 'published' AND NOT EXISTS (
+  IF NEW.status IN ('published', 'retired') AND NOT EXISTS (
     SELECT 1 FROM framework_versions
-    WHERE id = NEW.framework_version_id AND status = 'published'
+    WHERE id = NEW.framework_version_id AND status IN ('published', 'retired')
   ) THEN
-    RAISE EXCEPTION 'a scoring model can be published only against a published framework'
+    RAISE EXCEPTION 'a sealed scoring model requires a sealed framework'
       USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
@@ -415,17 +464,17 @@ SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  IF NEW.status = 'published' AND NOT EXISTS (
+  IF NEW.status IN ('published', 'retired') AND NOT EXISTS (
     SELECT 1
     FROM framework_versions AS framework
     JOIN scoring_model_versions AS scoring
       ON scoring.id = NEW.scoring_model_version_id
      AND scoring.framework_version_id = framework.id
     WHERE framework.id = NEW.framework_version_id
-      AND framework.status = 'published'
-      AND scoring.status = 'published'
+      AND framework.status IN ('published', 'retired')
+      AND scoring.status IN ('published', 'retired')
   ) THEN
-    RAISE EXCEPTION 'an assessment can be published only against published framework and scoring versions'
+    RAISE EXCEPTION 'a sealed assessment requires sealed framework and scoring versions'
       USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
@@ -443,25 +492,52 @@ SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
-  assessment_id uuid;
-  parent_status publication_status;
+  item_ids uuid[];
+  parent_ids uuid[] := ARRAY[]::uuid[];
+  item_record record;
+  parent_record record;
 BEGIN
   IF TG_TABLE_NAME = 'assessment_item_versions' THEN
-    assessment_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.assessment_version_id ELSE NEW.assessment_version_id END;
+    IF TG_OP = 'INSERT' THEN
+      parent_ids := ARRAY[NEW.assessment_version_id];
+    ELSIF TG_OP = 'DELETE' THEN
+      parent_ids := ARRAY[OLD.assessment_version_id];
+    ELSE
+      parent_ids := ARRAY[OLD.assessment_version_id, NEW.assessment_version_id];
+    END IF;
   ELSE
-    SELECT item.assessment_version_id INTO assessment_id
-    FROM assessment_item_versions AS item
-    WHERE item.id = CASE
-      WHEN TG_OP = 'DELETE' THEN OLD.assessment_item_version_id
-      ELSE NEW.assessment_item_version_id
-    END;
+    IF TG_OP = 'INSERT' THEN
+      item_ids := ARRAY[NEW.assessment_item_version_id];
+    ELSIF TG_OP = 'DELETE' THEN
+      item_ids := ARRAY[OLD.assessment_item_version_id];
+    ELSE
+      item_ids := ARRAY[OLD.assessment_item_version_id, NEW.assessment_item_version_id];
+    END IF;
+
+    FOR item_record IN
+      SELECT id, assessment_version_id
+      FROM assessment_item_versions
+      WHERE id = ANY(item_ids)
+      ORDER BY id
+      FOR KEY SHARE
+    LOOP
+      parent_ids := array_append(parent_ids, item_record.assessment_version_id);
+    END LOOP;
   END IF;
 
-  SELECT status INTO parent_status FROM assessment_versions WHERE id = assessment_id;
-  IF parent_status = 'published' THEN
-    RAISE EXCEPTION 'items and mappings belonging to a published assessment are immutable'
-      USING ERRCODE = '55000';
-  END IF;
+  FOR parent_record IN
+    SELECT id, status
+    FROM assessment_versions
+    WHERE id = ANY(parent_ids)
+    ORDER BY id
+    FOR UPDATE
+  LOOP
+    IF parent_record.status IN ('published', 'retired') THEN
+      RAISE EXCEPTION 'items and mappings belonging to sealed assessments are immutable'
+        USING ERRCODE = '55000';
+    END IF;
+  END LOOP;
+
   RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$;--> statement-breakpoint

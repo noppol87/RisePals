@@ -4,7 +4,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 $temporaryRoot = $null
+$dataDirectory = $null
+$bootstrapPasswordFile = $null
+$bootstrapSqlFile = $null
+$resolvedBin = $null
 $clusterStarted = $false
+$clusterStopped = $false
+$runError = $null
+$cleanupError = $null
 $originalPath = $env:Path
 $originalDatabaseUrl = $env:DATABASE_URL
 $originalMigrationUrl = $env:DATABASE_MIGRATION_URL
@@ -17,32 +24,39 @@ function Resolve-PostgresBin {
     return (Resolve-Path -LiteralPath $Candidate).Path
   }
 
-  $searchRoot = Join-Path ([IO.Path]::GetTempPath()) "risepals-postgresql-*\binaries-tar\pgsql\bin"
-  $match = Get-ChildItem -Path $searchRoot -Directory -ErrorAction SilentlyContinue |
-    Sort-Object FullName -Descending |
-    Select-Object -First 1
-
-  if (-not $match) {
-    throw "Set RISE_PALS_POSTGRES_BIN to the bin directory of a supported PostgreSQL distribution."
+  $preparedBin = Join-Path ([IO.Path]::GetTempPath()) "risepals-postgresql-18.4\pgsql\bin"
+  if (Test-Path -LiteralPath $preparedBin -PathType Container) {
+    return (Resolve-Path -LiteralPath $preparedBin).Path
   }
 
-  return $match.FullName
+  throw "Run npm run db:prepare:disposable, or set RISE_PALS_POSTGRES_BIN to the prepared PostgreSQL 18.4 bin directory."
+}
+
+function Get-PostgresServices {
+  return @(
+    Get-Service -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -match "(?i)postgres" -or $_.DisplayName -match "(?i)postgres" }
+  )
 }
 
 try {
+  if (@(Get-PostgresServices).Count -ne 0) {
+    throw "Disposable verification requires an environment without a PostgreSQL Windows service."
+  }
+
   $resolvedBin = Resolve-PostgresBin -Candidate $PostgresBin
-  foreach ($executable in @("initdb.exe", "pg_ctl.exe", "psql.exe", "postgres.exe")) {
+  foreach ($executable in @("initdb.exe", "pg_ctl.exe", "pg_isready.exe", "psql.exe", "postgres.exe")) {
     if (-not (Test-Path -LiteralPath (Join-Path $resolvedBin $executable) -PathType Leaf)) {
       throw "The PostgreSQL bin directory is incomplete."
     }
   }
 
-  $runtimeDirectory = Join-Path (Split-Path -Parent $resolvedBin) "pgAdmin 4\python"
-  if (Test-Path -LiteralPath $runtimeDirectory -PathType Container) {
-    $env:Path = "$resolvedBin;$runtimeDirectory;$originalPath"
-  } else {
-    $env:Path = "$resolvedBin;$originalPath"
+  $distributionRoot = Split-Path -Parent $resolvedBin
+  $runtimeDirectory = Join-Path $distributionRoot "pgAdmin 4\python"
+  if (-not (Test-Path -LiteralPath $runtimeDirectory -PathType Container)) {
+    throw "The prepared PostgreSQL runtime directory is missing."
   }
+  $env:Path = "$resolvedBin;$runtimeDirectory;$originalPath"
 
   $temporaryBase = Join-Path ([IO.Path]::GetTempPath()) "risepals-postgres-tests"
   [IO.Directory]::CreateDirectory($temporaryBase) | Out-Null
@@ -58,7 +72,11 @@ try {
   $bootstrapPassword = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
   $ownerPassword = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
   $applicationPassword = [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
-  [IO.File]::WriteAllText($bootstrapPasswordFile, $bootstrapPassword, [Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText(
+    $bootstrapPasswordFile,
+    $bootstrapPassword,
+    [Text.UTF8Encoding]::new($false)
+  )
 
   & initdb.exe -D $dataDirectory -U postgres --auth-local=trust --auth-host=scram-sha-256 --pwfile=$bootstrapPasswordFile --encoding=UTF8 --locale=C | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "initdb failed." }
@@ -77,7 +95,9 @@ try {
   $pgCtlStart.WaitForExit()
   $clusterStarted = Test-Path -LiteralPath (Join-Path $dataDirectory "postmaster.pid") -PathType Leaf
   & pg_isready.exe -h 127.0.0.1 -p $port -d postgres | Out-Null
-  if (-not $clusterStarted -or $LASTEXITCODE -ne 0) { throw "The disposable PostgreSQL server did not start." }
+  if (-not $clusterStarted -or $LASTEXITCODE -ne 0) {
+    throw "The disposable PostgreSQL server did not start."
+  }
   Write-Output "Disposable PostgreSQL process started without a Windows service."
 
   $bootstrapSql = @"
@@ -97,30 +117,104 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
   $env:DATABASE_URL = "postgresql://rise_pals_app:$applicationPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
   Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 
-  Write-Output "PostgreSQL $(& postgres.exe --version)"
+  Write-Output "$(& postgres.exe --version)"
   Write-Output "Disposable listener: 127.0.0.1:$port (no service, SSL disabled only for loopback test isolation)"
   & npm.cmd run db:test
   if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+} catch {
+  $runError = $_
 } finally {
-  if ($clusterStarted) {
-    $stopPath = Join-Path $resolvedBin "pg_ctl.exe"
-    & $stopPath -D $dataDirectory -m fast -w stop | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "The disposable PostgreSQL server did not stop cleanly." }
+  if ($clusterStarted -and $resolvedBin -and $dataDirectory) {
+    & (Join-Path $resolvedBin "pg_ctl.exe") -D $dataDirectory -m fast -w stop | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      $clusterStopped = $true
+    } else {
+      $postmasterPidPath = Join-Path $dataDirectory "postmaster.pid"
+      $liveVerifiedProcess = $null
+      $processStateUnverified = $false
+      if (Test-Path -LiteralPath $postmasterPidPath -PathType Leaf) {
+        $postmasterPidText = Get-Content -LiteralPath $postmasterPidPath -TotalCount 1
+        $postmasterPid = 0
+        if ([int]::TryParse($postmasterPidText, [ref]$postmasterPid)) {
+          $candidateProcess = Get-Process -Id $postmasterPid -ErrorAction SilentlyContinue
+          if ($candidateProcess) {
+            try {
+              $expectedProcessPath = [IO.Path]::GetFullPath((Join-Path $resolvedBin "postgres.exe"))
+              $actualProcessPath = [IO.Path]::GetFullPath($candidateProcess.Path)
+              if ($actualProcessPath.Equals($expectedProcessPath, [StringComparison]::OrdinalIgnoreCase)) {
+                $liveVerifiedProcess = $candidateProcess
+              }
+            } catch {
+              $processStateUnverified = $true
+            }
+          }
+        }
+      }
+
+      if ($liveVerifiedProcess) {
+        $cleanupError = "Normal PostgreSQL stop failed; the verified live process and diagnostics were preserved at $temporaryRoot"
+      } elseif ($processStateUnverified -or (Test-Path -LiteralPath $postmasterPidPath -PathType Leaf)) {
+        $cleanupError = "Normal PostgreSQL stop failed and process state is unverified; diagnostics were preserved at $temporaryRoot"
+      } else {
+        $clusterStopped = $true
+      }
+    }
   }
 
   $env:Path = $originalPath
-  if ($null -eq $originalDatabaseUrl) { Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue } else { $env:DATABASE_URL = $originalDatabaseUrl }
-  if ($null -eq $originalMigrationUrl) { Remove-Item Env:DATABASE_MIGRATION_URL -ErrorAction SilentlyContinue } else { $env:DATABASE_MIGRATION_URL = $originalMigrationUrl }
-  if ($null -eq $originalPgPassword) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue } else { $env:PGPASSWORD = $originalPgPassword }
+  if ($null -eq $originalDatabaseUrl) {
+    Remove-Item Env:DATABASE_URL -ErrorAction SilentlyContinue
+  } else {
+    $env:DATABASE_URL = $originalDatabaseUrl
+  }
+  if ($null -eq $originalMigrationUrl) {
+    Remove-Item Env:DATABASE_MIGRATION_URL -ErrorAction SilentlyContinue
+  } else {
+    $env:DATABASE_MIGRATION_URL = $originalMigrationUrl
+  }
+  if ($null -eq $originalPgPassword) {
+    Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
+  } else {
+    $env:PGPASSWORD = $originalPgPassword
+  }
 
-  if ($temporaryRoot) {
-    $resolvedBase = [IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) "risepals-postgres-tests"))
-    $resolvedTemporaryRoot = [IO.Path]::GetFullPath($temporaryRoot)
-    if (-not $resolvedTemporaryRoot.StartsWith($resolvedBase + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
-      throw "Refusing to clean an unexpected database path."
-    }
-    if ([IO.Directory]::Exists($resolvedTemporaryRoot)) {
-      [IO.Directory]::Delete($resolvedTemporaryRoot, $true)
+  foreach ($secretFile in @($bootstrapPasswordFile, $bootstrapSqlFile)) {
+    if ($secretFile -and (Test-Path -LiteralPath $secretFile -PathType Leaf)) {
+      Remove-Item -LiteralPath $secretFile -Force
     }
   }
+
+  if ($temporaryRoot) {
+    $resolvedBase = [IO.Path]::GetFullPath(
+      (Join-Path ([IO.Path]::GetTempPath()) "risepals-postgres-tests")
+    )
+    $resolvedTemporaryRoot = [IO.Path]::GetFullPath($temporaryRoot)
+    if (
+      -not $resolvedTemporaryRoot.StartsWith(
+        $resolvedBase + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase
+      )
+    ) {
+      $cleanupError = "Refusing to clean an unexpected database path."
+    } elseif (-not $clusterStarted -or $clusterStopped) {
+      if ([IO.Directory]::Exists($resolvedTemporaryRoot)) {
+        [IO.Directory]::Delete($resolvedTemporaryRoot, $true)
+      }
+    } elseif (-not $cleanupError) {
+      $cleanupError = "PostgreSQL process state is unverified; diagnostics were preserved at $temporaryRoot"
+    }
+  }
+
+  if (@(Get-PostgresServices).Count -ne 0 -and -not $cleanupError) {
+    $cleanupError = "A PostgreSQL Windows service exists after disposable verification."
+  }
 }
+
+if ($cleanupError) {
+  throw $cleanupError
+}
+if ($runError) {
+  throw $runError
+}
+
+Write-Output "Disposable PostgreSQL stopped; temporary data, logs and credentials were removed."

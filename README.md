@@ -104,7 +104,7 @@ Practice selections and feedback exist only in React memory and reset on refresh
 
 RP-TURN-010 defines nine PostgreSQL tables through Drizzle schema metadata and one reviewed forward SQL migration: user accounts, external identities, append-only consent records, framework versions, competency versions, scoring-model versions used for referential integrity, assessment versions, assessment-item versions and item-to-competency mappings.
 
-The migration uses internal UUIDs, unique provider/subject and versioned business keys, validated versioned JSON objects, restrictive foreign keys, exact published 8+2 framework metadata and 10,000 core basis points, null multiplier weights, immutable published definitions and `timestamptz` timestamps. Forced RLS protects all three user-owned tables. The normal `rise_pals_app` role owns no table, has no `BYPASSRLS` and sees an owner only through a validated server-set transaction-local UUID.
+The migration uses internal UUIDs, unique provider/subject and versioned business keys, validated versioned JSON objects, restrictive foreign keys, exact sealed 8+2 framework metadata and 10,000 core basis points, null multiplier weights and `timestamptz` timestamps. Definition rows start as drafts, publish only after database validation, retire through a status-only transition and remain immutable once published or retired. Deterministically ordered parent-row locks prevent reparent and publication races. Forced RLS protects all three user-owned tables. The normal `rise_pals_app` role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`; it sees an owner only through a validated server-set transaction-local UUID.
 
 This is a schema/test baseline, not a production database. There is no authentication integration, profile, assessment session, raw response, persisted result/score, lesson progress, saved XP or proof storage. Provider, placement, TLS termination, credentials, backups and production operations remain open.
 
@@ -130,13 +130,14 @@ npm run test
 npm run build
 npm run check
 npm run test:e2e:install
+npm run db:prepare:disposable
 npm run test:e2e
 npm run db:test:disposable
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run test:e2e` verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. Run `npm run build` before `npm run test:e2e`; Playwright serves that production output with `next start`, so build-to-browser verification does not reuse or overwrite development output. The browser suite verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
 
-Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Database runtime use requires separate application and migration URLs; the application identity must be a non-owner role without `BYPASSRLS`. The committed values are inert examples only. Never commit a real `.env` file or secret.
+Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Normal application runtime requires only `DATABASE_URL`; never place `DATABASE_MIGRATION_URL` or a table-owner credential in the production application environment. Migration/test tooling intentionally receives both URLs and verifies decoded role separation. The application identity must be a non-owner role without `BYPASSRLS`. The committed values are inert examples only. Never commit a real `.env` file or secret.
 
 The exact install, verification results and Windows notes are recorded in [Local Development](docs/10_LOCAL_DEVELOPMENT.md).
 

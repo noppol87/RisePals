@@ -1,9 +1,9 @@
 import "server-only";
 import { Pool } from "pg";
-import { parseDatabaseEnvironment } from "@/lib/db/config";
+import { parseApplicationDatabaseEnvironment } from "@/lib/db/config";
 
 export function createApplicationPool(environment: NodeJS.ProcessEnv = process.env): Pool {
-  const { applicationUrl } = parseDatabaseEnvironment(environment);
+  const { applicationUrl } = parseApplicationDatabaseEnvironment(environment);
 
   return new Pool({
     connectionString: applicationUrl,

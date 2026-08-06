@@ -521,9 +521,9 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 The physical baseline contains exactly these nine tables: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`.
 
-One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact published 8-core/+2-multiplier registry totaling 10,000 core basis points. Published framework, scoring-model and assessment rows and their owned definition children are immutable. Consent rows are append-only.
+One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
-`user_accounts`, `external_identities` and `consent_records` have forced RLS. Both the table-owning migration role and normal application role resolve rows through a transaction-local `app.current_user_id`; the normal role owns no table and has neither superuser nor `BYPASSRLS`. The trusted Next.js server validates the UUID before setting it inside a transaction. This context is not an authentication mechanism and must never be set from untrusted browser input.
+`user_accounts`, `external_identities` and `consent_records` have forced RLS. Both the table-owning migration role and normal application role resolve rows through a transaction-local `app.current_user_id`; the normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. The trusted Next.js server validates the UUID before setting it inside a transaction. Normal runtime reads only the application URL; only migration/test tooling receives both separately decoded role credentials. This context is not an authentication mechanism and must never be set from untrusted browser input.
 
 The baseline intentionally excludes profiles, authentication/session state, assessment sessions, raw responses, scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage and production accounts. The disposable PostgreSQL harness uses only synthetic users and temporary credentials outside the repository.
 
@@ -533,13 +533,13 @@ The baseline intentionally excludes profiles, authentication/session state, asse
 - PostgreSQL RLS is enabled on user-owned P2/P3 tables when provider context supports it; owner policies compare the trusted application user context to `user_id`.
 - Service/maintenance roles are separate, short-lived where possible and audited. The normal application path does not use a table-owner or `BYPASSRLS` role.
 - Staff support access is not implied by `admin`; define explicit purposes and audited break-glass behavior before pilot.
-- Integration tests create two users and prove cross-user select/update/delete attempts fail for every user-owned table.
+- Integration tests create two users and prove own behavior plus cross-user select/insert/update/delete, missing context and malformed context fail closed as applicable for every user-owned table.
 
 ## Key invariants and indexes
 
 - Unique provider identity mapping and unique published business version keys
 - Foreign keys prevent answers/scores/attempts from referencing mismatched framework/content versions
-- Published version rows reject update; corrections create a new version
+- Published versions reject content/provenance mutation, allow only status-only retirement and become fully immutable when retired; corrections create a new version
 - Only submitted sessions can produce completed scoring runs
 - `scoring_run.input_digest` plus model version makes a derivation reproducible
 - At most three active priority recommendations per scoring run, with unique rank

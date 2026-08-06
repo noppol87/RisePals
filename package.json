@@ -16,6 +16,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "next typegen && tsc --noEmit --project tsconfig.typecheck.json && tsc --noEmit --project tsconfig.database.json",
     "db:generate": "drizzle-kit generate",
+    "db:prepare:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/prepare-postgres.ps1",
     "db:test": "node scripts/db/integration.mjs",
     "db:test:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1",
     "test": "vitest run",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   databaseConfigurationMessages,
+  parseApplicationDatabaseEnvironment,
   parseDatabaseEnvironment,
   parseTrustedUserId,
 } from "@/lib/db/config";
@@ -13,6 +14,25 @@ const validEnvironment = {
 } as const;
 
 describe("database environment", () => {
+  it("parses the application URL without requiring or reading migration credentials", () => {
+    const environment = new Proxy(
+      { DATABASE_URL: validEnvironment.DATABASE_URL },
+      {
+        get(target, property, receiver) {
+          if (property === "DATABASE_MIGRATION_URL") {
+            throw new Error("application configuration read the migration credential");
+          }
+
+          return Reflect.get(target, property, receiver);
+        },
+      },
+    );
+
+    expect(parseApplicationDatabaseEnvironment(environment)).toEqual({
+      applicationUrl: validEnvironment.DATABASE_URL,
+    });
+  });
+
   it("accepts separate loopback application and migration roles", () => {
     expect(parseDatabaseEnvironment(validEnvironment)).toEqual({
       applicationUrl: validEnvironment.DATABASE_URL,
@@ -59,8 +79,52 @@ describe("database environment", () => {
       },
     ],
     [
+      "percent-encoded postgres application username",
+      {
+        ...validEnvironment,
+        DATABASE_URL: "postgresql://post%67res:password@127.0.0.1/rise_pals?sslmode=disable",
+      },
+    ],
+    [
+      "percent-encoded owner application username",
+      {
+        ...validEnvironment,
+        DATABASE_URL: "postgresql://rise_pals_%6Fwner:password@127.0.0.1/rise_pals?sslmode=disable",
+      },
+    ],
+    [
+      "percent-encoded admin application username",
+      {
+        ...validEnvironment,
+        DATABASE_URL: "postgresql://rise_pals_%61dmin:password@127.0.0.1/rise_pals?sslmode=disable",
+      },
+    ],
+    [
+      "percent-encoded migration-like application username",
+      {
+        ...validEnvironment,
+        DATABASE_URL:
+          "postgresql://rise_pals_mig%72ator:password@127.0.0.1/rise_pals?sslmode=disable",
+      },
+    ],
+    [
       "same application and migration role",
       { ...validEnvironment, DATABASE_MIGRATION_URL: validEnvironment.DATABASE_URL },
+    ],
+    [
+      "differently encoded forms of the same role",
+      {
+        ...validEnvironment,
+        DATABASE_MIGRATION_URL:
+          "postgresql://rise_pals_%61pp:other-password@127.0.0.1:5432/rise_pals_test?sslmode=disable",
+      },
+    ],
+    [
+      "malformed percent encoding",
+      {
+        ...validEnvironment,
+        DATABASE_URL: "postgresql://rise_pals_%ZZ:password@127.0.0.1/rise_pals?sslmode=disable",
+      },
     ],
   ])("rejects %s without reflecting the secret value", (_description, environment) => {
     expect(() => parseDatabaseEnvironment(environment)).toThrow(

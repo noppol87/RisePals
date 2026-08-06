@@ -9,7 +9,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    fileParallelism: false,
     include: ["tests/**/*.test.{ts,tsx}"],
+    pool: "vmThreads",
     setupFiles: ["./tests/setup.ts"],
+    vmMemoryLimit: "1GB",
   },
 });

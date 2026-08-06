@@ -85,7 +85,7 @@ Why Node 24: the official Node distribution index listed v24.18.1 as the current
 ### Optional or task-specific
 
 - Docker/Podman: not required; the RP-TURN-010 integration harness uses a supported portable PostgreSQL distribution and creates no service
-- PostgreSQL server binaries: required only for `npm run db:test:disposable`; keep them outside the repository and point `RISE_PALS_POSTGRES_BIN` at their `bin` directory
+- PostgreSQL server binaries: required only for `npm run db:test:disposable`; prepare the pinned/hash-verified 18.4 archive outside the repository with `npm run db:prepare:disposable`
 - WSL: Next.js supports Windows directly; use WSL only if the team deliberately standardizes it
 - Python: the proposed web stack does not require it
 - GitHub CLI: installed for repository authentication and remote verification; Jeff has approved retaining the current development login for convenience
@@ -342,10 +342,16 @@ npm run test:watch
 npm run build
 npm run check
 npm run test:e2e:install
+npm run db:prepare:disposable
 npm run test:e2e
+npm run db:test:disposable
 ```
 
 Use `npm ci` for clean/CI installs and commit `package-lock.json`. Developers may use `npm install` only when deliberately changing dependencies and must review the lockfile diff.
+
+`npm run test:e2e` serves the existing production build with `next start`; run `npm run build` first. This isolates the browser suite from development output and makes the clean build-to-E2E transition deterministic without deleting `.next` or retrying the suite.
+
+Vitest uses the supported `vmThreads` pool with `fileParallelism: false` and a `1GB` worker memory limit. Vitest reuses one worker thread while isolating each file in a separate VM context, avoiding unreliable repeated Windows worker startup without disabling isolation or dropping any test file/assertion. The bounded suite has 20 files; review the explicit memory limit if that count or module graph grows materially.
 
 Final RP-TURN-003-R1 verification on 2026-08-02:
 
@@ -557,8 +563,8 @@ Names are a provider-agnostic contract; provider-specific additions wait for a v
 | Variable | Exposure | Purpose |
 |---|---|---|
 | `APP_BASE_URL` | Server | Canonical origin for secure redirects/links |
-| `DATABASE_URL` | Server secret | PostgreSQL application connection |
-| `DATABASE_MIGRATION_URL` | Server/CI secret | Separate migration/table-owner connection; never use as the application connection |
+| `DATABASE_URL` | Production application server secret | Normal non-owner PostgreSQL application connection; the runtime reads only this URL |
+| `DATABASE_MIGRATION_URL` | Migration/test tooling secret only | Separate migration/table-owner connection; never place it in the production application environment |
 | `AUTH_SECRET` | Server secret | Session/auth integration secret when required |
 | `OBJECT_STORAGE_BUCKET` | Server | Private proof bucket identifier |
 | `OBJECT_STORAGE_ENDPOINT` | Server | Provider adapter endpoint when required |
@@ -577,40 +583,52 @@ Application and Next.js typechecking retain strict mode with `skipLibCheck: fals
 
 ### Typed connection boundary
 
-`DATABASE_URL` and `DATABASE_MIGRATION_URL` are both required whenever database code is used. They must be distinct PostgreSQL URLs with distinct role names, a single explicit database and exactly one approved `sslmode`. Loopback test URLs require `sslmode=disable`; non-loopback URLs reject disabled encryption. The application username also rejects owner/migration/admin/postgres-like names. Errors contain remediation but never echo connection values.
+Normal application runtime requires and reads only `DATABASE_URL`; `createApplicationPool()` does not access `DATABASE_MIGRATION_URL`. Migration and disposable-test tooling intentionally receive both URLs and require distinct decoded role names. URL usernames/passwords/database components are percent-decoded with PostgreSQL-compatible URI interpretation before role checks; malformed encoding fails closed, privileged owner/migration/admin/postgres-like application roles are rejected after decoding, and differently encoded forms of the same role cannot satisfy separation. Both URLs require a single explicit database and exactly one approved `sslmode`. Loopback test URLs require `sslmode=disable`; non-loopback URLs reject disabled encryption. Errors contain remediation but never echo connection values.
 
 The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. Browser input must never control this context directly; real authentication remains unimplemented.
 
 ### Disposable PostgreSQL verification
 
-`scripts/db/run-disposable-postgres.ps1` requires the `bin` directory of a supported PostgreSQL distribution through `RISE_PALS_POSTGRES_BIN`, or discovers the turn's test-only EDB binary directory under the current user's temporary folder. It creates a fresh cluster and random credentials outside the repository, binds PostgreSQL only to `127.0.0.1` on an ephemeral port, disables SSL only on that loopback listener, creates separate `rise_pals_owner` and `rise_pals_app` roles, applies the single migration and runs synthetic constraint/RLS checks. It never registers a Windows service, changes the firewall or machine PATH, or creates a production account.
+`scripts/db/prepare-postgres.ps1` downloads and verifies the exact EDB archive linked for advanced Windows users by PostgreSQL/EDB, then extracts it outside the repository:
+
+- Official distribution page: `https://www.enterprisedb.com/download-postgresql-binaries`
+- Source URL: `https://get.enterprisedb.com/postgresql/postgresql-18.4-1-windows-x64-binaries.zip`
+- Archive: `postgresql-18.4-1-windows-x64-binaries.zip`, 337,444,127 bytes
+- SHA-256: `7EFFE34C0BF89027B3F171447D351CBC460F4566C8D0F643DAEC67F140787858`
+- Publisher evidence: the ZIP and PostgreSQL executables provide no Authenticode signature (`NotSigned`), so the script does not claim one. It anchors the archive to the official HTTPS source and pinned hash, then requires and copies only Authenticode-valid Microsoft Corporation VC runtime DLLs (observed EdgeCore `151.0.4129.59`, runtime `14.50.35719.0`) into the portable bin directory.
+
+The preparation script fails before extraction on a length or checksum mismatch, refuses a destination inside the repository, verifies PostgreSQL reports exactly `18.4`, and changes no machine-wide PATH, service, firewall rule or elevation state. The default prepared location is `%TEMP%\risepals-postgresql-18.4\pgsql\bin`; `RISE_PALS_POSTGRES_BIN` remains an explicit override for an already prepared equivalent directory.
+
+`scripts/db/run-disposable-postgres.ps1` creates a fresh cluster and random credentials outside the repository, binds PostgreSQL only to `127.0.0.1` on an ephemeral port, disables SSL only on that loopback listener, creates separate `rise_pals_owner` and `rise_pals_app` roles, applies the single migration and runs synthetic constraint/RLS checks. It never registers a Windows service, changes the firewall or machine PATH, or creates a production account.
 
 Run the complete safe harness:
 
 ```powershell
-$env:RISE_PALS_POSTGRES_BIN = "C:\path\to\supported-postgresql\bin"
+npm run db:prepare:disposable
 npm run db:test:disposable
-Remove-Item Env:RISE_PALS_POSTGRES_BIN
 ```
 
-The script always requests a fast server stop and verifies the resolved cleanup path remains under `%TEMP%\risepals-postgres-tests` before recursively removing the cluster, log and credential files. After a successful run, no PostgreSQL process, service, database directory or temporary credential remains. `npm run db:test` is the inner test only; run it directly only against a newly created disposable empty database with separately scoped test roles.
+The harness always restores process-local environment values and deletes bootstrap password/SQL files even if normal stop fails. It recursively removes a disposable cluster only after a clean stop or verified absence of the exact process; a live or unverified process leaves its bounded diagnostics directory in place and returns an error rather than deleting it. Cleanup paths must remain under `%TEMP%\risepals-postgres-tests`. After a successful run, no PostgreSQL process, service, database directory or temporary credential remains. `npm run db:test` is the inner test only; run it directly only against a newly created disposable empty database with separately scoped test roles.
 
-The migration creates exactly nine baseline tables and no durable learner activity: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`. The integration harness proves the exact canonical 8+2 registry/weights, null multiplier weights, validated JSON, business/provider uniqueness, append-only consent, restrictive deletion, published-definition immutability and forced RLS with two synthetic users. The normal application role owns no table and is neither superuser nor `BYPASSRLS`.
+The migration creates exactly nine baseline tables and no durable learner activity: `user_accounts`, `external_identities`, `consent_records`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`. Version rows must be inserted as drafts; publication runs database validation; publication-to-retirement must change status only; retired rows cannot update or delete. Exact canonical 8+2 and sealed-parent validation applies to published and retired history. Competency/item/mapping triggers lock every relevant OLD and NEW parent in deterministic order, blocking moves out of or into a sealed parent and closing concurrent publication/mutation races.
+
+The integration harness proves those lifecycle/reparent/concurrency paths plus validated JSON, business/provider uniqueness, append-only consent and restrictive deletion. Through the normal role it verifies `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS` and zero application-table ownership. Its two-user matrix covers own and cross-user SELECT/INSERT/UPDATE/DELETE as applicable, plus missing and malformed trusted context, across `user_accounts`, `external_identities` and `consent_records`; every prohibited result asserts its row count or SQLSTATE.
 
 Production placement remains open. Managed PostgreSQL is preferred for operational isolation, while a database on the same VPS would require explicit capacity, patching, private binding, least-privilege roles, monitoring and encrypted off-host backup evidence. A later decision must verify supported PostgreSQL major version, TLS, pooling mode, backups/deletion, data region, credential rotation and operational access. Never use production data in local or preview environments.
 
-### RP-TURN-010 implementation verification
+### RP-TURN-010-R1 implementation verification
 
 | Check | Result |
 |---|---|
 | `npm ci` | PASS — 488 packages installed, 489 audited, 0 vulnerabilities; only the existing deprecated `@esbuild-kit` notices were emitted |
 | install-script policy | PASS — no packages with unreviewed scripts; `esbuild` allowed, `fsevents` and `unrs-resolver` denied |
 | `npm run format:check` / `npm run lint` / `npm run typecheck` | PASS — formatting, zero-warning ESLint, Next route generation and both strict Rise Pals TypeScript projects completed |
-| `npm run test` / `npm run check` | PASS — 19 files / 157 tests; aggregate gate also completed the 11-page static production build |
-| `npm run test:e2e` | PASS — Chromium 46/46 with unchanged locale, privacy, accessibility, reflow and reduced-motion behavior |
-| `npm run db:test:disposable` | PASS — PostgreSQL 18.4, 85 migration statements, 9 tables, database constraint/immutability checks and two-user forced RLS |
+| `npm run test` / `npm run check` | PASS — one reused `vmThreads` worker with an isolated VM context per file completed 20 files / 165 tests without worker-start timeout; aggregate gate also completed the 11-page static production build |
+| clean `npm run build` → first `npm run test:e2e` → `npm run typecheck` | PASS — Chromium 46/46 on the first attempt through `next start`, then production route generation and strict typecheck passed; no `.next` deletion or retry |
+| `npm run db:prepare:disposable` | PASS — exact 18.4 archive length/SHA-256, official URL, `NotSigned` PostgreSQL executable state and Microsoft-signed EdgeCore VC runtime verified outside the repository |
+| `npm run db:test:disposable` | PASS — PostgreSQL 18.4, 85 migration statements, 9 tables, sealed lifecycle/reparent/concurrency enforcement, full normal-role attributes and complete two-user forced-RLS matrix |
 | production/full npm audits | PASS — 0 vulnerabilities in both graphs; all `esbuild` paths resolve to reviewed override `0.25.12` |
-| client boundary | PASS — expected result/lesson client references only; 12 production client chunk files contain 0 database URL, PostgreSQL, Drizzle, `pg`, private-schema or trusted-context markers |
+| client boundary | PASS — expected result/lesson client references only; 11 production client chunk files contain 0 database URL, PostgreSQL, Drizzle, `pg`, private-schema or trusted-context markers |
 | disposable cleanup | PASS — 0 PostgreSQL processes, services and disposable test roots after the run; temporary database files and credentials removed |
 
 ## UTF-8 and Thai-content notes
@@ -634,7 +652,7 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
-- RP-TURN-010 is implemented pending Project Codex review and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, typed server connection boundary and disposable database verification.
+- RP-TURN-010-R1 is implemented pending Project Codex review and corrects only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result and one repository-local lesson prototype. It is not a validated real assessment and creates no personalized result, real recommendation, onboarding, published/externally validated learning content, learner profile or account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
 - No cloud or paid provider, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.
