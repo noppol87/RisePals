@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-03  
-**Current phase:** Repository-local lesson/practice prototype accepted; no published or externally validated lesson, personalized result or durable learning state  
-**Current turn:** RP-TURN-009 Accepted
+**Status date:** 2026-08-06  
+**Current phase:** PostgreSQL schema and migration baseline accepted; no production database, authentication or durable learner state  
+**Current turn:** RP-TURN-010 Accepted
 
 ## Locked decisions
 
@@ -74,6 +74,12 @@
 - Pure deterministic practice evaluation and memory-only state: incomplete or below threshold previews 0 XP, all three criteria preview 20 XP, retry replaces rather than accumulates and refresh resets
 - Proof-artifact placeholder and non-collecting reflection with no free text, upload, artifact generation, storage, response transmission or assessment-player data access
 - RP-TURN-009 brief, D-016 repository-local lesson/practice prototype boundary, runtime copy-leaf validation and quality gates accepted by Project Codex
+- RP-TURN-010 bounded PostgreSQL/Drizzle schema, one forward migration and typed server-only connection boundary for nine authorized baseline tables
+- Forced RLS for the three user-owned tables, a decoded-role-validated non-owner application credential separated from migration tooling, trusted transaction-local user context, append-only consent and published/retired lifecycle immutability
+- Deterministically locked OLD/NEW framework and assessment parents, closing child reparent and concurrent publication/mutation bypasses
+- Complete normal-role verification (`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS`, zero owned application tables) and own/cross-user/missing/malformed-context coverage across all three user-owned tables
+- Reproducible loopback-only PostgreSQL 18.4 preparation and verification with a pinned EDB archive hash, validated Microsoft runtime publisher, synthetic data, fresh migration and safe cleanup; no Windows service or production database was created
+- Deterministic verification on the Windows VPS: Vitest reuses one bounded `vmThreads` worker while isolating every file in a VM context, and Playwright serves the existing production build through `next start`
 
 ## Open decisions
 
@@ -103,16 +109,19 @@
 - Assessment, career and employment data will require strong privacy controls
 - The scaffold and localized shell prove technical and interaction foundations only; they contain no validated product flow and must not be presented as Milestone 1 user-experience progress
 - Current npm audits pass only with reviewed lockfile overrides for vulnerable transitive PostCSS and Sharp versions; future Next.js upgrades must re-evaluate and remove overrides when upstream is safe
+- Drizzle `0.45.2` declarations span unsupported optional dialects under the repository's TypeScript settings; application typechecking retains `skipLibCheck: false`, while the isolated strict database-schema project skips third-party declaration checking only
+- RLS trusts a server-set transaction-local user UUID; exposing the application database credential or letting browser input set that context would break the security boundary
+- The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
 
-**RP-TURN-010 — PostgreSQL Schema and Migration Baseline**
+**RP-TURN-011 — Authentication, Profile and Consent**
 
-Recommended goal after separate authorization: establish the bounded PostgreSQL/Drizzle schema and migration baseline defined in the engineering plan. RP-TURN-010 is recommended but is not authorized.
+Recommended goal after separate authorization: select the identity provider behind the application boundary and establish the minimum profile and versioned consent flow defined in the engineering plan. RP-TURN-011 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-009 adds one local prototype lesson linked from the fixed synthetic result without reading or scoring the user's temporary `sessionStorage` selections. It creates no published/externally validated learning content, real personalized recommendation, durable lesson progress, saved XP, proof, profile, authentication, database, CI, production service or deployment. RP-TURN-010 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 adds database definitions and test infrastructure only: no production database, real account, authentication, profile, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-011 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -128,3 +137,4 @@ RP-TURN-007, RP-TURN-008 and RP-TURN-009 are Accepted. RP-TURN-009 adds one loca
 | 007 | Accepted | Accessible Thai/English six-scenario player prototype, client-safe view, versioned session-only resume and explicit no-result/privacy boundaries accepted by Project Codex |
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
+| 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
