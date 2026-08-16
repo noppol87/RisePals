@@ -158,17 +158,21 @@ Gate:
 
 Outcome: selected identity provider behind the application boundary, minimal profile and versioned consent receipts.
 
+Implementation status: Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, dedicated sign-in/sign-up routes, same-locale redirect enforcement, protected routes, internal-account authorization, credentialless resolver role, controlled profile, second migration and append-only service-data consent are implemented pending Project Codex review. The bounded 2026-08-16 real Development smoke and its required R3 one-identity rerun passed with one stable internal mapping, consent/profile persistence, logout denial and safe return targets; each identity and disposable PostgreSQL/build resource was deleted and verified. R3 also pins patched `nanoid 3.3.18`, restores zero-vulnerability audits and makes standard build/check/E2E explicitly secret-free even when ignored Development keys remain present. The turn remains Partial only pending review.
+
 Gate:
 
 - Server-side authorization, secure cookie/session behavior, logout and account-state cases pass
 - Cross-user profile access is denied
 - Privacy notice explains collected fields and purposes
 
-Vendor decision required before the turn: auth provider, data region, plan/cost and identity deletion behavior.
+Locked alpha vendor boundary: Clerk Development, Free/Hobby, US-hosted identity data accepted for synthetic testing only, email verification code only and synthetic identity deletion before handoff when a smoke identity exists. Production vendor suitability, region/privacy/legal review and deletion orchestration remain open.
 
 ### RP-TURN-012 — Persisted Assessment Sessions and Raw Responses
 
 Outcome: owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions.
+
+Status: recommended after RP-TURN-011 review but not authorized or started.
 
 Gate:
 

@@ -1,5 +1,7 @@
 param(
-  [string]$PostgresBin = $env:RISE_PALS_POSTGRES_BIN
+  [string]$PostgresBin = $env:RISE_PALS_POSTGRES_BIN,
+  [ValidateSet("integration", "clerk-development-smoke")]
+  [string]$Mode = "integration"
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,6 +17,7 @@ $cleanupError = $null
 $originalPath = $env:Path
 $originalDatabaseUrl = $env:DATABASE_URL
 $originalMigrationUrl = $env:DATABASE_MIGRATION_URL
+$originalDisposableBootstrapUrl = $env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL
 $originalPgPassword = $env:PGPASSWORD
 
 function Resolve-PostgresBin {
@@ -103,6 +106,8 @@ try {
   $bootstrapSql = @"
 CREATE ROLE rise_pals_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$ownerPassword';
 CREATE ROLE rise_pals_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$applicationPassword';
+CREATE ROLE rise_pals_identity_resolver NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+GRANT rise_pals_identity_resolver TO rise_pals_owner WITH ADMIN OPTION;
 CREATE DATABASE rise_pals_test OWNER rise_pals_owner;
 REVOKE CONNECT ON DATABASE rise_pals_test FROM PUBLIC;
 GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
@@ -111,16 +116,27 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
   $env:PGPASSWORD = $bootstrapPassword
   & psql.exe -h 127.0.0.1 -p $port -U postgres -d postgres -v ON_ERROR_STOP=1 -f $bootstrapSqlFile | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Disposable role/database bootstrap failed." }
-  Write-Output "Synthetic owner/application roles and empty database created."
+  Write-Output "Synthetic owner/application roles, credentialless resolver role and empty database created."
 
   $env:DATABASE_MIGRATION_URL = "postgresql://rise_pals_owner:$ownerPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
   $env:DATABASE_URL = "postgresql://rise_pals_app:$applicationPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
+  $env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL = "postgresql://postgres:$bootstrapPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
   Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 
   Write-Output "$(& postgres.exe --version)"
   Write-Output "Disposable listener: 127.0.0.1:$port (no service, SSL disabled only for loopback test isolation)"
-  & npm.cmd run db:test
-  if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+  if ($Mode -eq "integration") {
+    & npm.cmd run db:test
+    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+  } else {
+    if (-not (Test-Path -LiteralPath ".env.local" -PathType Leaf)) {
+      throw "The Clerk Development smoke requires an ignored .env.local file."
+    }
+    & node.exe scripts/auth/bootstrap-disposable-postgres.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Disposable smoke database bootstrap failed." }
+    & node.exe --env-file=.env.local scripts/auth/clerk-development-smoke.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Clerk Development smoke failed." }
+  }
 } catch {
   $runError = $_
 } finally {
@@ -171,6 +187,11 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
     Remove-Item Env:DATABASE_MIGRATION_URL -ErrorAction SilentlyContinue
   } else {
     $env:DATABASE_MIGRATION_URL = $originalMigrationUrl
+  }
+  if ($null -eq $originalDisposableBootstrapUrl) {
+    Remove-Item Env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL -ErrorAction SilentlyContinue
+  } else {
+    $env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL = $originalDisposableBootstrapUrl
   }
   if ($null -eq $originalPgPassword) {
     Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue

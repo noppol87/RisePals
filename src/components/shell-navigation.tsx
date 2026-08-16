@@ -8,6 +8,10 @@ import {
   assessmentExampleResultPath,
   assessmentPath,
   localePath,
+  onboardingPath,
+  profilePath,
+  signInPath,
+  signUpPath,
   sourceVerificationLessonPath,
   type Locale,
 } from "@/lib/i18n/config";
@@ -23,6 +27,10 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
   const onAssessmentRoute = pathname === assessmentPath(currentLocale);
   const onExampleResultRoute = pathname === assessmentExampleResultPath(currentLocale);
   const onSourceVerificationLessonRoute = pathname === sourceVerificationLessonPath(currentLocale);
+  const onProfileRoute = pathname === profilePath(currentLocale);
+  const onOnboardingRoute = pathname === onboardingPath(currentLocale);
+  const onSignInRoute = pathname.startsWith(signInPath(currentLocale));
+  const onSignUpRoute = pathname.startsWith(signUpPath(currentLocale));
 
   return (
     <>
@@ -33,6 +41,15 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
               {messages.homeLabel}
             </TextLink>
           </li>
+          <li>
+            <TextLink
+              href={profilePath(currentLocale)}
+              prefetch={false}
+              aria-current={onProfileRoute ? "page" : undefined}
+            >
+              {messages.profileLabel}
+            </TextLink>
+          </li>
         </ul>
       </nav>
       <LanguageSwitcher
@@ -41,13 +58,21 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
         currentLanguageLabel={messages.currentLanguageLabel}
         languageNames={messages.languageNames}
         routeSuffix={
-          onSourceVerificationLessonRoute
-            ? "/lessons/source-verification-practice"
-            : onExampleResultRoute
-              ? "/assessment/example-result"
-              : onAssessmentRoute
-                ? "/assessment"
-                : ""
+          onProfileRoute
+            ? "/profile"
+            : onOnboardingRoute
+              ? "/onboarding"
+              : onSignInRoute
+                ? "/sign-in"
+                : onSignUpRoute
+                  ? "/sign-up"
+                  : onSourceVerificationLessonRoute
+                    ? "/lessons/source-verification-practice"
+                    : onExampleResultRoute
+                      ? "/assessment/example-result"
+                      : onAssessmentRoute
+                        ? "/assessment"
+                        : ""
         }
       />
     </>

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "./fixtures";
 
 const storageKey = "rise-pals:assessment-player:v1";
 const selectedOptionId = "test-process-assumption-roll-out";

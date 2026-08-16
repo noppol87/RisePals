@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.mts",
+    "next.config.ts",
+    "src/proxy.ts",
+    ".next-clerk-development-smoke/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".next-clerk-development-smoke/dev",
+    "drizzle.config.ts",
+    "src/lib/db/schema.ts"
+  ]
+}

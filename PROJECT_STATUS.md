@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-06  
-**Current phase:** PostgreSQL schema and migration baseline accepted; no production database, authentication or durable learner state  
-**Current turn:** RP-TURN-010 Accepted
+**Status date:** 2026-08-16  
+**Current phase:** Synthetic-alpha authentication/profile/consent boundary accepted; no real users or production service  
+**Current turn:** RP-TURN-011 Accepted; RP-TURN-012 is recommended but not authorized
 
 ## Locked decisions
 
@@ -20,6 +20,7 @@
 - Accepted technical direction: Next.js App Router, React with strict TypeScript, Node.js 24 LTS/npm, PostgreSQL/Drizzle, Git-versioned trusted MDX/metadata for pilot lessons and a modular monolith
 - Production application deployment target: this Windows Server 2022 VPS using native Node.js after a separately approved infrastructure-readiness turn; the repository contains an application scaffold, but no production application/service/deployment exists yet
 - Canonical source/history: Jeff's personal Public repository [`noppol87/RisePals`](https://github.com/noppol87/RisePals), connected locally as the single `origin`
+- Synthetic-alpha identity provider: Clerk Development on Free/Hobby with email verification code only; US identity hosting accepted only for synthetic testing, while production suitability remains undecided
 
 ## Completed artifacts
 
@@ -80,13 +81,20 @@
 - Complete normal-role verification (`NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`, `NOBYPASSRLS`, zero owned application tables) and own/cross-user/missing/malformed-context coverage across all three user-owned tables
 - Reproducible loopback-only PostgreSQL 18.4 preparation and verification with a pinned EDB archive hash, validated Microsoft runtime publisher, synthetic data, fresh migration and safe cleanup; no Windows service or production database was created
 - Deterministic verification on the Windows VPS: Vitest reuses one bounded `vmThreads` worker while isolating every file in a VM context, and Playwright serves the existing production build through `next start`
+- RP-TURN-011 internal `IdentityProvider` boundary and Clerk Development adapter, rejecting absent/incomplete/live key configuration and keeping vendor SDK imports inside the provider integration
+- Server-only authentication/authorization transaction that validates a Clerk session, maps only its subject to an internal UUID, resolves account state and establishes trusted PostgreSQL context before any protected operation
+- Second forward migration adding the controlled `profile-v1` `user_profiles` table with forced RLS plus a hardened, minimum-grant, concurrency-safe identity resolve-or-provision function owned by a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role that neither application nor migration owner may assume after bootstrap
+- Thai-first/English-complete sign-in, sign-up, onboarding and profile routes with same-locale safe return paths, fail-closed account states, controlled profile codes, Clerk-managed logout and no custom auth cookie/token storage
+- Versioned `alpha-privacy-v1` service-data notice, deterministic proof digest and serialized append-only grant/decline/withdrawal receipts; declining does not create or update a profile and withdrawal is not presented as deletion
+- Bounded real Clerk Development smoke on 2026-08-16 proving localized email-code sign-up/sign-in, one stable internal mapping, consent/profile persistence, logout denial, safe return targets and verified synthetic-identity deletion against disposable PostgreSQL
+- Explicit secret-free `build`, aggregate check and Chromium E2E runners that disable Clerk even while ignored Development keys remain present, plus one isolated ignored build used only by the opt-in real-provider smoke
 
 ## Open decisions
 
 - VPS deployment authentication and transport
 - Branch protection/ruleset and CI provider/plan details
 - GitHub deployment transport, artifact retention and software licensing
-- Authentication provider and user identity model
+- Production identity provider suitability, privacy/legal/data-residency review, deletion orchestration and final credential/session operations
 - Windows reverse proxy, Node service supervisor, release switching and monitoring implementation
 - Managed PostgreSQL/database placement, object storage and backup placement/ownership
 - Payment provider and Thailand-specific billing requirements
@@ -108,20 +116,21 @@
 - Self-learning content production may become the largest operational bottleneck
 - Assessment, career and employment data will require strong privacy controls
 - The scaffold and localized shell prove technical and interaction foundations only; they contain no validated product flow and must not be presented as Milestone 1 user-experience progress
-- Current npm audits pass only with reviewed lockfile overrides for vulnerable transitive PostCSS and Sharp versions; future Next.js upgrades must re-evaluate and remove overrides when upstream is safe
+- The reviewed dependency graph now pins patched `nanoid 3.3.18` explicitly while preserving exact PostCSS `8.5.25` and Sharp `0.35.3`; future upstream upgrades must re-evaluate all three overrides rather than changing them silently
 - Drizzle `0.45.2` declarations span unsupported optional dialects under the repository's TypeScript settings; application typechecking retains `skipLibCheck: false`, while the isolated strict database-schema project skips third-party declaration checking only
 - RLS trusts a server-set transaction-local user UUID; exposing the application database credential or letting browser input set that context would break the security boundary
 - The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
+- Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the vendor's supported Development session flow transiently uses `__clerk_handshake`; the final smoke URL was clean, but production provider/session/privacy suitability remains undecided
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
 
-**RP-TURN-011 — Authentication, Profile and Consent**
+**RP-TURN-012 — Persisted Assessment Sessions and Raw Responses**
 
-Recommended goal after separate authorization: select the identity provider behind the application boundary and establish the minimum profile and versioned consent flow defined in the engineering plan. RP-TURN-011 is recommended but is not authorized or started.
+Recommended goal after accepted RP-TURN-011: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 adds database definitions and test infrastructure only: no production database, real account, authentication, profile, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-011 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007 through RP-TURN-011 are Accepted. RP-TURN-011 accepts Clerk Development authentication, internal identity/profile authorization and versioned consent only for synthetic alpha. The real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided. No real account/data, production identity resource, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 is recommended but is not authorized or started; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -138,3 +147,4 @@ RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-010 
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
+| 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |

@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-010 PostgreSQL schema and migration baseline accepted / no production database, authentication or durable learner state  
-**Last updated:** 2026-08-06
+**Project status:** RP-TURN-011 synthetic-alpha authentication/profile/consent boundary Accepted / no real users or production service  
+**Last updated:** 2026-08-16
 
 ## Product thesis
 
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database schema and migration baseline; none of these turns creates onboarding, a validated or personalized assessment result, a production database, published or externally validated learning content, or a production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database baseline. RP-TURN-011 adds a synthetic-alpha authentication, controlled-profile and service-data-consent implementation against one Jeff-controlled Clerk Development resource; it does not create a real account, production identity resource, production database, personalized result, published learning content or production launch.
 
 Locale routes:
 
@@ -68,6 +68,8 @@ Locale routes:
 - `/th/assessment` and `/en/assessment` render the matching six-scenario player prototype
 - `/th/assessment/example-result` and `/en/assessment/example-result` render the matching static synthetic example result
 - `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` render the matching local lesson/practice prototype
+- `/th/sign-in`, `/en/sign-in`, `/th/sign-up` and `/en/sign-up` expose dedicated Clerk Development email-code routes and an explicit unavailable state when ignored Development keys are absent
+- `/th/onboarding`, `/en/onboarding`, `/th/profile` and `/en/profile` are dynamic protected routes for controlled profile and service-data consent
 - unsupported locale segments return not found
 
 The public narrative now provides:
@@ -100,13 +102,19 @@ RP-TURN-009 implements that one lesson through a typed, schema-validated, Git-ve
 
 Practice selections and feedback exist only in React memory and reset on refresh. The route uses no browser storage, cookie, answer-bearing URL, API, server action, analytics, log or network transmission. The future source-verification note is a placeholder only: there is no free-text field, upload, file generation, proof storage or collected reflection. The production MDX compilation/publication pipeline remains deferred to RP-TURN-014.
 
-## Database baseline
+## Database and synthetic-alpha account boundary
 
 RP-TURN-010 defines nine PostgreSQL tables through Drizzle schema metadata and one reviewed forward SQL migration: user accounts, external identities, append-only consent records, framework versions, competency versions, scoring-model versions used for referential integrity, assessment versions, assessment-item versions and item-to-competency mappings.
 
 The migration uses internal UUIDs, unique provider/subject and versioned business keys, validated versioned JSON objects, restrictive foreign keys, exact sealed 8+2 framework metadata and 10,000 core basis points, null multiplier weights and `timestamptz` timestamps. Definition rows start as drafts, publish only after database validation, retire through a status-only transition and remain immutable once published or retired. Deterministically ordered parent-row locks prevent reparent and publication races. Forced RLS protects all three user-owned tables. The normal `rise_pals_app` role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`; it sees an owner only through a validated server-set transaction-local UUID.
 
-This is a schema/test baseline, not a production database. There is no authentication integration, profile, assessment session, raw response, persisted result/score, lesson progress, saved XP or proof storage. Provider, placement, TLS termination, credentials, backups and production operations remain open.
+RP-TURN-011 adds a second forward migration and a tenth table, `user_profiles`. Profile fields are controlled `profile-v1` codes only: locale, one of three timezones, broad role family, broad function, broad experience band and one to three goal codes. Goals are treated as sensitive career data. Employer name, exact title, salary, national identifier and free-text career concerns remain prohibited. Forced RLS now covers all four user-owned tables.
+
+Clerk is behind an internal `IdentityProvider` boundary and is selected only for a Jeff-controlled Development application on Free/Hobby with email verification code. Development keys must remain in ignored local configuration and live keys fail closed. Dedicated same-locale sign-in/sign-up routes cross-link through explicit Clerk props; mismatched-locale, encoded, external, query and fragment return targets fall back to the current locale root. The server validates the Clerk session, resolves its subject to an internal UUID through a hardened concurrency-safe PostgreSQL function, checks the internal account state and only then establishes `app.current_user_id`. The function is owned by a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role that the application and migration owner cannot assume after the bounded bootstrap step; neither normal role can enumerate provider identities without trusted user context. Clerk metadata does not hold profile, consent, goals, application roles or assessment data, and provider subjects are not client DTO fields.
+
+The bilingual `alpha-privacy-v1` notice covers only service profile and future learning-state processing, not marketing, analytics or research. Grant, decline and withdrawal append deterministic receipts; history is never overwritten. Declining cannot create/update a profile, and withdrawal is not account deletion.
+
+This remains a synthetic, non-production implementation. Clerk Development authentication, internal identity/profile authorization and versioned consent are accepted only for synthetic alpha, and Clerk identity hosting in the United States is accepted only for that testing boundary. On 2026-08-16, the bounded real Development smoke and required R3 rerun each used one synthetic test identity to prove localized email-code authentication and the internal account/profile/consent boundary; each identity was deleted and verified absent, and no identifier is retained in Git or documentation. Ignored local Development keys remain configured for Jeff-authorized development use. Production provider suitability, legal/privacy/data-residency review, deletion orchestration, production PostgreSQL, credentials, backups and operations remain open. Assessment responses/results, lesson progress, XP and proof are still not persisted.
 
 Verified prerequisites for this branch:
 
@@ -133,9 +141,10 @@ npm run test:e2e:install
 npm run db:prepare:disposable
 npm run test:e2e
 npm run db:test:disposable
+npm run test:auth:clerk:development
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. Run `npm run build` before `npm run test:e2e`; Playwright serves that production output with `next start`, so build-to-browser verification does not reuse or overwrite development output. The browser suite verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. `npm run build`, `npm run check` and `npm run test:e2e` explicitly blank Clerk configuration in their child processes, so ignored Development keys cannot activate Clerk during standard gates. Run the build before E2E; Playwright serves that secret-free production output through an independently secret-free start command and blocks every browser origin except `http://127.0.0.1:3104`. The suite verifies locale routing, document language, evidence behavior, player/lesson/result privacy, 320px reflow, reduced motion and serious/critical axe findings. `npm run test:auth:clerk:development` is the only opt-in external path: it requires ignored Development keys, builds into a separate ignored directory, creates only a disposable PostgreSQL cluster and unique Clerk synthetic identity, and must verify provider-identity deletion plus local build/database cleanup before succeeding.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Normal application runtime requires only `DATABASE_URL`; never place `DATABASE_MIGRATION_URL` or a table-owner credential in the production application environment. Migration/test tooling intentionally receives both URLs and verifies decoded role separation. The application identity must be a non-owner role without `BYPASSRLS`. The committed values are inert examples only. Never commit a real `.env` file or secret.
 
@@ -152,4 +161,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 — Assessment Domain Fixtures and Scoring Contract, RP-TURN-007 — Assessment Player Prototype, RP-TURN-008 — Synthetic Skill Map and Next-Step Result Prototype, RP-TURN-009 — One End-to-End Lesson and Practice Prototype and RP-TURN-010 — PostgreSQL Schema and Migration Baseline are Accepted. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the separate fixed result and lesson routes never read them. One local lesson prototype and one accepted database schema baseline now exist, but no published or externally validated lesson, production database, durable assessment/lesson session, saved XP, onboarding, profile, authentication, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-011 is recommended next but is not authorized or started.
+RP-TURN-006 through RP-TURN-011 are Accepted. RP-TURN-011 accepts the Clerk Development authentication, internal identity/profile authorization and versioned-consent boundary only for synthetic alpha. Its real-provider smoke and required R3 rerun passed, every synthetic identity was deleted and verified absent, and standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. The reviewed dependency graph pins patched `nanoid 3.3.18` while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged; production and full npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the fixed result, lesson and account/profile flows never read them. No real user/data, production identity resource, published or externally validated lesson, production database, durable assessment/lesson session, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-012 is recommended next but is not authorized or started.

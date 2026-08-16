@@ -103,6 +103,48 @@ export const consentRecords = pgTable(
   ],
 );
 
+export const userProfiles = pgTable(
+  "user_profiles",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => userAccounts.id, { onDelete: "restrict", onUpdate: "restrict" }),
+    preferredLocale: text("preferred_locale").notNull(),
+    timezone: text("timezone").notNull(),
+    roleFamily: text("role_family").notNull(),
+    function: text("function").notNull(),
+    experienceBand: text("experience_band").notNull(),
+    goals: text("goals").array().notNull(),
+    onboardingCompletedAt: utcTimestamp("onboarding_completed_at").notNull(),
+    profileSchemaVersion: text("profile_schema_version").notNull(),
+    updatedAt: utcTimestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    check("user_profiles_locale_check", sql`${table.preferredLocale} IN ('th', 'en')`),
+    check(
+      "user_profiles_timezone_check",
+      sql`${table.timezone} IN ('Asia/Bangkok', 'Europe/Berlin', 'UTC')`,
+    ),
+    check(
+      "user_profiles_role_family_check",
+      sql`${table.roleFamily} IN ('individual-contributor', 'people-manager', 'business-owner', 'student-transitioner', 'other')`,
+    ),
+    check(
+      "user_profiles_function_check",
+      sql`${table.function} IN ('operations', 'technology-data', 'sales-marketing', 'people-support', 'finance-risk', 'other')`,
+    ),
+    check(
+      "user_profiles_experience_band_check",
+      sql`${table.experienceBand} IN ('early', 'mid', 'senior', 'other')`,
+    ),
+    check(
+      "user_profiles_goals_check",
+      sql`cardinality(${table.goals}) BETWEEN 1 AND 3 AND ${table.goals} <@ ARRAY['adapt-to-change', 'improve-judgement', 'communicate-impact', 'build-evidence', 'other']::text[]`,
+    ),
+    check("user_profiles_schema_version_check", sql`${table.profileSchemaVersion} = 'profile-v1'`),
+  ],
+);
+
 export const frameworkVersions = pgTable(
   "framework_versions",
   {
@@ -352,6 +394,7 @@ export const databaseSchema = {
   userAccounts,
   externalIdentities,
   consentRecords,
+  userProfiles,
   frameworkVersions,
   competencyVersions,
   scoringModelVersions,

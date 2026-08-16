@@ -3,6 +3,7 @@ node_modules/
 
 # Next.js and build output
 .next/
+.next-clerk-development-smoke/
 out/
 dist/
 build/
