@@ -23,7 +23,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run start -- --hostname 127.0.0.1 --port ${port}`,
+    command: `node scripts/run-secret-free.mjs start --hostname 127.0.0.1 --port ${port}`,
     url: `${baseURL}/th`,
     reuseExistingServer: false,
     timeout: 120_000,

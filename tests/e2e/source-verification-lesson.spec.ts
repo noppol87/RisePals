@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page, type Request } from "@playwright/test";
+import { expect, test, type Page, type Request } from "./fixtures";
 
 const lessonPath = "/lessons/source-verification-practice";
 const selectedOptionId = "trace-claim-to-source-map";

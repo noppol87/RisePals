@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { access } from "node:fs/promises";
+import { access, rm } from "node:fs/promises";
 import net from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { createClerkClient } from "@clerk/backend";
@@ -12,6 +12,7 @@ const { Pool } = pg;
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.trim();
 const secretKey = process.env.CLERK_SECRET_KEY?.trim();
 const inspectionUrl = process.env.RISE_PALS_DISPOSABLE_BOOTSTRAP_URL;
+const smokeBuildDirectory = ".next-clerk-development-smoke";
 const profileValues = [
   "individual-contributor",
   "technology-data",
@@ -93,6 +94,31 @@ function capture(stream, label) {
     childOutput.push(`${label}:${chunk}`);
     if (childOutput.join("").length > 2_000_000) childOutput.shift();
   });
+}
+
+async function createSmokeProductionBuild() {
+  await rm(smokeBuildDirectory, { force: true, recursive: true });
+  const build = spawn(process.execPath, ["node_modules/next/dist/bin/next", "build"], {
+    cwd: process.cwd(),
+    env: {
+      ...process.env,
+      CLERK_TELEMETRY_DISABLED: "true",
+      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true",
+      RISE_PALS_CLERK_DEVELOPMENT_SMOKE: "true",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
+  capture(build.stdout, "build:stdout");
+  capture(build.stderr, "build:stderr");
+  const result = await new Promise((resolvePromise, reject) => {
+    build.once("error", reject);
+    build.once("exit", (code, signal) => resolvePromise({ code, signal }));
+  });
+  if (result.signal || result.code !== 0) {
+    throw new Error("The Clerk Development smoke production build failed.");
+  }
+  await access(`${smokeBuildDirectory}/BUILD_ID`);
 }
 
 async function waitForServer(port) {
@@ -295,11 +321,11 @@ async function verifyBrowserPrivacy(page) {
   assertNoSensitiveValue(childOutput.join("\n"), "server logs");
 }
 
-await access(".next/BUILD_ID");
 const port = await reservePort();
 const baseUrl = `http://localhost:${port}`;
 
 try {
+  await createSmokeProductionBuild();
   const [instance, organizationSettings, frontendResponse] = await Promise.all([
     clerk.instance.get(),
     clerk.instance.getOrganizationSettings(),
@@ -333,6 +359,7 @@ try {
         ...process.env,
         CLERK_TELEMETRY_DISABLED: "true",
         NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true",
+        RISE_PALS_CLERK_DEVELOPMENT_SMOKE: "true",
       },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -446,6 +473,10 @@ try {
     ]);
   }
   await inspectionPool.end();
+  await rm(smokeBuildDirectory, { force: true, recursive: true }).catch((error) => {
+    console.error(`Temporary smoke build cleanup FAIL: ${redactDiagnostic(error)}`);
+    process.exitCode = 1;
+  });
 }
 
 if (smokePassed && syntheticIdentityCreated && syntheticIdentityDeleted && !process.exitCode) {
