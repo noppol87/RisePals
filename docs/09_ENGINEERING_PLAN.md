@@ -158,7 +158,7 @@ Gate:
 
 Outcome: selected identity provider behind the application boundary, minimal profile and versioned consent receipts.
 
-Implementation status: Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, dedicated sign-in/sign-up routes, same-locale redirect enforcement, protected routes, internal-account authorization, credentialless resolver role, controlled profile, second migration and append-only service-data consent are implemented pending Project Codex review. The bounded 2026-08-16 real Development smoke and its required R3 one-identity rerun passed with one stable internal mapping, consent/profile persistence, logout denial and safe return targets; each identity and disposable PostgreSQL/build resource was deleted and verified. R3 also pins patched `nanoid 3.3.18`, restores zero-vulnerability audits and makes standard build/check/E2E explicitly secret-free even when ignored Development keys remain present. The turn remains Partial only pending review.
+Implementation status: Accepted by Project Codex. Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, dedicated sign-in/sign-up routes, same-locale redirect enforcement, protected routes, internal-account authorization, credentialless resolver role, controlled profile, second migration and append-only service-data consent passed review. The bounded 2026-08-16 real Development smoke and required R3 one-identity rerun passed with one stable internal mapping, consent/profile persistence, logout denial and safe return targets; each identity and disposable PostgreSQL/build resource was deleted and verified. R3 also pins patched `nanoid 3.3.18`, restores zero-vulnerability audits and makes standard build/check/E2E explicitly secret-free even when ignored Development keys remain present.
 
 Gate:
 
@@ -172,7 +172,7 @@ Locked alpha vendor boundary: Clerk Development, Free/Hobby, US-hosted identity 
 
 Outcome: owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions.
 
-Status: recommended after RP-TURN-011 review but not authorized or started.
+Implementation status: Accepted by Project Codex for synthetic alpha. The bounded implementation adds one third migration, only `assessment_sessions`/`assessment_responses`, exact version/consent anchoring, forced owner RLS, append-only raw-option revisions, idempotent mutation keys and a protected Thai/English start/save/resume/submit route. Deterministic code/database/browser gates pass. The final bounded real-provider smoke verified Thai sign-up/onboarding, stable account mapping, current consent/profile, start/save/correction/refresh, complete atomic/idempotent submission, immutable receipt, explicit profile logout, logged-out denial, same-identity re-authentication, safe return handling, privacy/database evidence and complete identity/build/database cleanup. RP-TURN-013 is recommended but not authorized or started.
 
 Gate:
 

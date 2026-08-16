@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "persisted-assessment-definition-v1",
+  "assessmentKey": "workplace-scenarios-fixture",
+  "assessmentVersion": "1.0.0",
+  "frameworkKey": "rise-pals-8-plus-2",
+  "frameworkVersion": "2.0",
+  "scoringModelKey": "integer-rubric-fixture",
+  "scoringModelVersion": "1.0.0",
+  "items": [
+    {
+      "key": "verify-ai-summary-source",
+      "displayOrder": 1,
+      "targetKind": "core",
+      "targetKey": "critical-thinking-fact-checking",
+      "optionIds": [
+        "verify-ai-summary-source-use-draft",
+        "verify-ai-summary-source-check-claims",
+        "verify-ai-summary-source-discard-all"
+      ]
+    },
+    {
+      "key": "test-process-assumption",
+      "displayOrder": 2,
+      "targetKind": "core",
+      "targetKey": "critical-thinking-fact-checking",
+      "optionIds": [
+        "test-process-assumption-roll-out",
+        "test-process-assumption-define-evidence",
+        "test-process-assumption-wait-perfect"
+      ]
+    },
+    {
+      "key": "map-downstream-impact",
+      "displayOrder": 3,
+      "targetKind": "core",
+      "targetKey": "systematic-thinking",
+      "optionIds": [
+        "map-downstream-impact-change-local",
+        "map-downstream-impact-map-test",
+        "map-downstream-impact-ask-separately"
+      ]
+    },
+    {
+      "key": "trace-recurring-bottleneck",
+      "displayOrder": 4,
+      "targetKind": "core",
+      "targetKey": "systematic-thinking",
+      "optionIds": [
+        "trace-recurring-bottleneck-remind-final-team",
+        "trace-recurring-bottleneck-trace-flow",
+        "trace-recurring-bottleneck-add-status"
+      ]
+    },
+    {
+      "key": "own-shared-outcome",
+      "displayOrder": 5,
+      "targetKind": "multiplier",
+      "targetKey": "ownership-thinking",
+      "optionIds": [
+        "own-shared-outcome-complete-task",
+        "own-shared-outcome-coordinate-fix",
+        "own-shared-outcome-fix-own-copy"
+      ]
+    },
+    {
+      "key": "move-with-safe-urgency",
+      "displayOrder": 6,
+      "targetKind": "multiplier",
+      "targetKey": "sense-of-urgency",
+      "optionIds": [
+        "move-with-safe-urgency-rush-all",
+        "move-with-safe-urgency-small-step",
+        "move-with-safe-urgency-wait-certainty"
+      ]
+    }
+  ]
+}

@@ -15,6 +15,7 @@ function renderPlayer(locale: "th" | "en") {
       exampleResultHref={`/${locale}/assessment/example-result`}
       homeHref={`/${locale}`}
       messages={catalogs[locale].assessment}
+      persistedAttemptHref={`/${locale}/assessment/attempt`}
       view={view}
     />,
   );

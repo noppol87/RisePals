@@ -25,6 +25,14 @@ const proofDigest = "b".repeat(64);
 const userA = "10000000-0000-4000-8000-000000000001";
 const userB = "10000000-0000-4000-8000-000000000002";
 const userC = "10000000-0000-4000-8000-000000000003";
+const persistedUserA = "20000000-0000-4000-8000-000000000001";
+const persistedUserB = "20000000-0000-4000-8000-000000000002";
+const persistedDefinition = JSON.parse(
+  await readFile(
+    resolve("src/modules/assessment/persistence/synthetic-published-definition.json"),
+    "utf8",
+  ),
+);
 
 const canonicalCompetencies = [
   ["critical-thinking-fact-checking", "core", 2000, 1],
@@ -236,13 +244,96 @@ async function insertAssessmentFixture(
   return { assessmentId, itemId };
 }
 
+async function insertPersistedAssessmentDefinition(client) {
+  const framework = await insertCanonicalFramework(client, persistedDefinition.frameworkVersion);
+  const scoring = await client.query(
+    `INSERT INTO scoring_model_versions
+      (framework_version_id, model_key, version, method, configuration, limitations_i18n,
+       content_digest)
+     VALUES ($1, $2, $3, 'deterministic_rubric', $4::jsonb, $5::jsonb, $6)
+     RETURNING id`,
+    [
+      framework.frameworkId,
+      persistedDefinition.scoringModelKey,
+      persistedDefinition.scoringModelVersion,
+      JSON.stringify({ schemaVersion: "1", scale: [0, 1, 2] }),
+      JSON.stringify({ schemaVersion: "1", th: "synthetic", en: "synthetic" }),
+      digest,
+    ],
+  );
+  const scoringId = scoring.rows[0].id;
+  await client.query(
+    `UPDATE scoring_model_versions SET status = 'published', published_at = now() WHERE id = $1`,
+    [scoringId],
+  );
+  const assessment = await client.query(
+    `INSERT INTO assessment_versions
+      (assessment_key, version, framework_version_id, scoring_model_version_id,
+       estimated_minutes, content_digest)
+     VALUES ($1, $2, $3, $4, 8, $5)
+     RETURNING id`,
+    [
+      persistedDefinition.assessmentKey,
+      persistedDefinition.assessmentVersion,
+      framework.frameworkId,
+      scoringId,
+      digest,
+    ],
+  );
+  const assessmentId = assessment.rows[0].id;
+  const items = new Map();
+
+  for (const item of persistedDefinition.items) {
+    const inserted = await client.query(
+      `INSERT INTO assessment_item_versions
+        (assessment_version_id, framework_version_id, item_key, item_type, prompt_i18n,
+         response_schema, display_order, required, content_digest)
+       VALUES ($1, $2, $3, 'scenario_choice', $4::jsonb, $5::jsonb, $6, true, $7)
+       RETURNING id`,
+      [
+        assessmentId,
+        framework.frameworkId,
+        item.key,
+        JSON.stringify({ schemaVersion: "1", th: "synthetic", en: "synthetic" }),
+        JSON.stringify({
+          schemaVersion: "assessment-response-options-v1",
+          type: "scenario-choice",
+          optionIds: item.optionIds,
+        }),
+        item.displayOrder,
+        digest,
+      ],
+    );
+    const itemId = inserted.rows[0].id;
+    items.set(item.key, { id: itemId, optionIds: item.optionIds });
+    await client.query(
+      `INSERT INTO assessment_item_competencies
+        (assessment_item_version_id, competency_version_id, framework_version_id,
+         target_kind, rationale_key)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        itemId,
+        framework.competencies.get(item.targetKey),
+        framework.frameworkId,
+        item.targetKind,
+        `synthetic.${item.key}`,
+      ],
+    );
+  }
+  await client.query(
+    `UPDATE assessment_versions SET status = 'published', published_at = now() WHERE id = $1`,
+    [assessmentId],
+  );
+  return { assessmentId, items };
+}
+
 async function verifyRoleAndSchemaBaseline(client) {
   const tables = await client.query(
     `SELECT count(*)::integer AS count
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
-  assert.equal(tables.rows[0].count, 10, "the two fresh migrations create exactly ten tables");
+  assert.equal(tables.rows[0].count, 12, "the three fresh migrations create exactly twelve tables");
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -319,9 +410,18 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM pg_class
      WHERE relname = ANY($1::text[])
      ORDER BY relname`,
-    [["consent_records", "external_identities", "user_accounts", "user_profiles"]],
+    [
+      [
+        "assessment_responses",
+        "assessment_sessions",
+        "consent_records",
+        "external_identities",
+        "user_accounts",
+        "user_profiles",
+      ],
+    ],
   );
-  assert.equal(forcedRls.rowCount, 4);
+  assert.equal(forcedRls.rowCount, 6);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 }
 
@@ -570,7 +670,7 @@ async function verifyConstraintsAndLifecycle() {
       "23514",
     );
 
-    const published = await insertCanonicalFramework(client, "2.0");
+    const published = await insertCanonicalFramework(client, "2.0-lifecycle");
     const draft = await insertCanonicalFramework(client, "2.1-draft", false);
 
     await expectDatabaseRejection(
@@ -1263,6 +1363,454 @@ async function verifySerializedConsentReceipts() {
   }
 }
 
+async function provisionPersistedTestUser(userId, decision = "granted") {
+  return withApplicationUser(userId, async (client) => {
+    await client.query(`INSERT INTO user_accounts (id) VALUES ($1)`, [userId]);
+    const consent = await client.query(
+      `INSERT INTO consent_records
+        (user_id, purpose_code, notice_version, decision, occurred_at, locale,
+         source_surface, proof_digest)
+       VALUES ($1, 'service-profile-learning-state', 'alpha-privacy-v1', $2,
+               clock_timestamp(), 'en', 'synthetic-test', $3)
+       RETURNING id`,
+      [userId, decision, proofDigest],
+    );
+    return consent.rows[0].id;
+  });
+}
+
+async function insertPersistedSession(userId, assessmentId, consentId) {
+  return withApplicationUser(userId, (client) =>
+    client.query(
+      `INSERT INTO assessment_sessions (user_id, assessment_version_id, consent_record_id)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [userId, assessmentId, consentId],
+    ),
+  );
+}
+
+async function savePersistedRevision({
+  userId,
+  sessionId,
+  assessmentId,
+  itemId,
+  itemKey,
+  optionId,
+  expectedRevision,
+  mutationId,
+}) {
+  return withApplicationUser(userId, async (client) => {
+    await client.query(`SELECT id FROM assessment_sessions WHERE id = $1 FOR UPDATE`, [sessionId]);
+    const replay = await client.query(
+      `SELECT revision, response_payload
+       FROM assessment_responses
+       WHERE session_id = $1 AND client_mutation_id = $2`,
+      [sessionId, mutationId],
+    );
+    if (replay.rows[0]) {
+      assert.equal(replay.rows[0].revision, expectedRevision + 1);
+      assert.equal(replay.rows[0].response_payload.selectedOptionId, optionId);
+      return { state: "saved", revision: replay.rows[0].revision, replay: true };
+    }
+    const active = await client.query(
+      `SELECT id, revision
+       FROM assessment_responses
+       WHERE session_id = $1 AND assessment_item_version_id = $2 AND is_active`,
+      [sessionId, itemId],
+    );
+    const currentRevision = active.rows[0]?.revision ?? 0;
+    if (currentRevision !== expectedRevision) {
+      return { state: "conflict", revision: currentRevision };
+    }
+    if (active.rows[0]) {
+      await client.query(`UPDATE assessment_responses SET is_active = false WHERE id = $1`, [
+        active.rows[0].id,
+      ]);
+    }
+    await client.query(
+      `INSERT INTO assessment_responses
+        (session_id, assessment_version_id, assessment_item_version_id, response_payload,
+         revision, supersedes_response_id, client_mutation_id)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)`,
+      [
+        sessionId,
+        assessmentId,
+        itemId,
+        JSON.stringify({ schemaVersion: "assessment-response-v1", selectedOptionId: optionId }),
+        expectedRevision + 1,
+        active.rows[0]?.id ?? null,
+        mutationId,
+      ],
+    );
+    await client.query(
+      `UPDATE assessment_sessions SET last_item_version_id = $1, updated_at = clock_timestamp()
+       WHERE id = $2`,
+      [itemId, sessionId],
+    );
+    return { state: "saved", revision: expectedRevision + 1, replay: false, itemKey };
+  });
+}
+
+async function verifyPersistedAssessmentContract() {
+  const definitionClient = await ownerPool.connect();
+  let definition;
+  try {
+    definition = await insertPersistedAssessmentDefinition(definitionClient);
+  } finally {
+    definitionClient.release();
+  }
+  const consentA = await provisionPersistedTestUser(persistedUserA);
+  const consentB = await provisionPersistedTestUser(persistedUserB);
+
+  const concurrentStarts = await Promise.allSettled([
+    insertPersistedSession(persistedUserA, definition.assessmentId, consentA),
+    insertPersistedSession(persistedUserA, definition.assessmentId, consentA),
+  ]);
+  assert.equal(
+    concurrentStarts.filter((result) => result.status === "fulfilled").length,
+    1,
+    "concurrent starts create exactly one owner/version session",
+  );
+  assert.equal(
+    concurrentStarts.filter(
+      (result) => result.status === "rejected" && result.reason?.code === "23505",
+    ).length,
+    1,
+    "the competing start fails through the database uniqueness contract",
+  );
+
+  const sessionA = await withApplicationUser(persistedUserA, (client) =>
+    client.query(
+      `SELECT id, status, started_at, updated_at, submitted_at
+       FROM assessment_sessions`,
+    ),
+  );
+  assert.equal(sessionA.rowCount, 1);
+  assert.equal(sessionA.rows[0].status, "in_progress");
+  assert.equal(sessionA.rows[0].submitted_at, null);
+  const sessionId = sessionA.rows[0].id;
+
+  const sessionB = await insertPersistedSession(persistedUserB, definition.assessmentId, consentB);
+  const sessionBId = sessionB.rows[0].id;
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserB, (client) =>
+        client.query(`UPDATE assessment_sessions SET status = 'submitted' WHERE id = $1`, [
+          sessionBId,
+        ]),
+      ),
+    "submission with missing required responses",
+    "23514",
+  );
+
+  const firstItem = persistedDefinition.items[0];
+  const firstItemRecord = definition.items.get(firstItem.key);
+  const sameMutation = "30000000-0000-4000-8000-000000000001";
+  const replayResults = await Promise.all([
+    savePersistedRevision({
+      userId: persistedUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: firstItemRecord.id,
+      itemKey: firstItem.key,
+      optionId: firstItem.optionIds[0],
+      expectedRevision: 0,
+      mutationId: sameMutation,
+    }),
+    savePersistedRevision({
+      userId: persistedUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: firstItemRecord.id,
+      itemKey: firstItem.key,
+      optionId: firstItem.optionIds[0],
+      expectedRevision: 0,
+      mutationId: sameMutation,
+    }),
+  ]);
+  assert.ok(replayResults.every((result) => result.state === "saved" && result.revision === 1));
+  assert.equal(
+    replayResults.filter((result) => result.replay).length,
+    1,
+    "the same client mutation retries to the existing stored revision",
+  );
+
+  const competingSaves = await Promise.all([
+    savePersistedRevision({
+      userId: persistedUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: firstItemRecord.id,
+      itemKey: firstItem.key,
+      optionId: firstItem.optionIds[1],
+      expectedRevision: 1,
+      mutationId: "30000000-0000-4000-8000-000000000002",
+    }),
+    savePersistedRevision({
+      userId: persistedUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: firstItemRecord.id,
+      itemKey: firstItem.key,
+      optionId: firstItem.optionIds[2],
+      expectedRevision: 1,
+      mutationId: "30000000-0000-4000-8000-000000000003",
+    }),
+  ]);
+  assert.equal(
+    competingSaves.filter((result) => result.state === "saved").length,
+    1,
+    "one concurrent save wins",
+  );
+  assert.equal(
+    competingSaves.filter((result) => result.state === "conflict" && result.revision === 2).length,
+    1,
+    "the stale concurrent save receives the current revision",
+  );
+
+  const firstHistory = await withApplicationUser(persistedUserA, (client) =>
+    client.query(
+      `SELECT revision, is_active, supersedes_response_id
+       FROM assessment_responses
+       WHERE session_id = $1 AND assessment_item_version_id = $2
+       ORDER BY revision`,
+      [sessionId, firstItemRecord.id],
+    ),
+  );
+  assert.equal(firstHistory.rowCount, 2);
+  assert.deepEqual(
+    firstHistory.rows.map((row) => [row.revision, row.is_active]),
+    [
+      [1, false],
+      [2, true],
+    ],
+    "response revisions retain history with exactly one active row",
+  );
+  assert.equal(firstHistory.rows[1].supersedes_response_id !== null, true);
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(
+          `UPDATE assessment_responses SET is_active = false
+           WHERE session_id = $1 AND assessment_item_version_id = $2 AND is_active`,
+          [sessionId, firstItemRecord.id],
+        ),
+      ),
+    "a committed response deactivation without a successor",
+    "23514",
+  );
+
+  const secondItem = persistedDefinition.items[1];
+  const secondItemRecord = definition.items.get(secondItem.key);
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(
+          `INSERT INTO assessment_responses
+            (session_id, assessment_version_id, assessment_item_version_id, response_payload,
+             revision, client_mutation_id)
+           VALUES ($1, $2, $3, $4::jsonb, 1, $5)`,
+          [
+            sessionId,
+            definition.assessmentId,
+            secondItemRecord.id,
+            JSON.stringify({
+              schemaVersion: "assessment-response-v1",
+              selectedOptionId: "unknown-option",
+            }),
+            "30000000-0000-4000-8000-000000000004",
+          ],
+        ),
+      ),
+    "an option outside the exact published item version",
+    "23514",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(
+          `INSERT INTO assessment_responses
+            (session_id, assessment_version_id, assessment_item_version_id, response_payload,
+             revision, client_mutation_id)
+           VALUES ($1, $2, $3, $4::jsonb, 1, $5)`,
+          [
+            sessionId,
+            definition.assessmentId,
+            secondItemRecord.id,
+            JSON.stringify({
+              schemaVersion: "assessment-response-v1",
+              selectedOptionId: secondItem.optionIds[0],
+              unexpected: "not-allowed",
+            }),
+            "30000000-0000-4000-8000-000000000005",
+          ],
+        ),
+      ),
+    "a response payload with an extra field",
+    "23514",
+  );
+
+  for (const [index, item] of persistedDefinition.items.slice(1).entries()) {
+    const itemRecord = definition.items.get(item.key);
+    const result = await savePersistedRevision({
+      userId: persistedUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: itemRecord.id,
+      itemKey: item.key,
+      optionId: item.optionIds[1],
+      expectedRevision: 0,
+      mutationId: `40000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    });
+    assert.equal(result.state, "saved");
+  }
+
+  await withApplicationUser(persistedUserA, (client) =>
+    client.query(`UPDATE assessment_sessions SET status = 'submitted' WHERE id = $1`, [sessionId]),
+  );
+  const submitted = await withApplicationUser(persistedUserA, (client) =>
+    client.query(
+      `SELECT status, started_at, updated_at, submitted_at
+       FROM assessment_sessions WHERE id = $1`,
+      [sessionId],
+    ),
+  );
+  assert.equal(submitted.rows[0].status, "submitted");
+  assert.ok(submitted.rows[0].submitted_at instanceof Date);
+  assert.ok(submitted.rows[0].updated_at >= submitted.rows[0].started_at);
+
+  await expectDatabaseRejection(
+    () => insertPersistedSession(persistedUserA, definition.assessmentId, consentA),
+    "a second alpha session after submission",
+    "23505",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(`UPDATE assessment_sessions SET last_item_version_id = $1 WHERE id = $2`, [
+          firstItemRecord.id,
+          sessionId,
+        ]),
+      ),
+    "a submitted session mutation",
+    "55000",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(
+          `UPDATE assessment_responses SET is_active = false
+           WHERE session_id = $1 AND assessment_item_version_id = $2 AND is_active`,
+          [sessionId, firstItemRecord.id],
+        ),
+      ),
+    "a post-submission response mutation",
+    "55000",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserA, (client) =>
+        client.query(
+          `INSERT INTO assessment_responses
+            (session_id, assessment_version_id, assessment_item_version_id, response_payload,
+             revision, supersedes_response_id, client_mutation_id)
+           VALUES ($1, $2, $3, $4::jsonb, 3,
+                   (SELECT id FROM assessment_responses
+                    WHERE session_id = $1 AND assessment_item_version_id = $3 AND is_active), $5)`,
+          [
+            sessionId,
+            definition.assessmentId,
+            firstItemRecord.id,
+            JSON.stringify({
+              schemaVersion: "assessment-response-v1",
+              selectedOptionId: firstItem.optionIds[0],
+            }),
+            "50000000-0000-4000-8000-000000000003",
+          ],
+        ),
+      ),
+    "a post-submission response insertion",
+    "55000",
+  );
+
+  const crossUserSessions = await withApplicationUser(persistedUserB, (client) =>
+    client.query(`SELECT id FROM assessment_sessions WHERE id = $1`, [sessionId]),
+  );
+  const crossUserResponses = await withApplicationUser(persistedUserB, (client) =>
+    client.query(`SELECT id FROM assessment_responses WHERE session_id = $1`, [sessionId]),
+  );
+  assert.equal(crossUserSessions.rowCount, 0, "cross-user session reads are hidden by RLS");
+  assert.equal(crossUserResponses.rowCount, 0, "cross-user response reads are hidden by RLS");
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(persistedUserB, (client) =>
+        client.query(
+          `INSERT INTO assessment_responses
+            (session_id, assessment_version_id, assessment_item_version_id, response_payload,
+             revision, client_mutation_id)
+           VALUES ($1, $2, $3, $4::jsonb, 1, $5)`,
+          [
+            sessionId,
+            definition.assessmentId,
+            secondItemRecord.id,
+            JSON.stringify({
+              schemaVersion: "assessment-response-v1",
+              selectedOptionId: secondItem.optionIds[0],
+            }),
+            "50000000-0000-4000-8000-000000000001",
+          ],
+        ),
+      ),
+    "a cross-user response insert",
+    "42501",
+  );
+
+  await withApplicationUser(persistedUserB, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id, purpose_code, notice_version, decision, occurred_at, locale,
+         source_surface, proof_digest)
+       VALUES ($1, 'service-profile-learning-state', 'alpha-privacy-v1', 'withdrawn',
+               clock_timestamp(), 'en', 'synthetic-test', $2)`,
+      [persistedUserB, proofDigest],
+    ),
+  );
+  await expectDatabaseRejection(
+    () =>
+      savePersistedRevision({
+        userId: persistedUserB,
+        sessionId: sessionBId,
+        assessmentId: definition.assessmentId,
+        itemId: firstItemRecord.id,
+        itemKey: firstItem.key,
+        optionId: firstItem.optionIds[0],
+        expectedRevision: 0,
+        mutationId: "50000000-0000-4000-8000-000000000002",
+      }),
+    "a response write after current consent withdrawal",
+    "42501",
+  );
+
+  const privileges = await ownerPool.query(
+    `SELECT has_table_privilege('rise_pals_app', 'assessment_sessions', 'DELETE')
+              AS session_delete,
+            has_table_privilege('rise_pals_app', 'assessment_responses', 'DELETE')
+              AS response_delete,
+            has_column_privilege('rise_pals_app', 'assessment_responses', 'response_payload', 'UPDATE')
+              AS payload_update,
+            has_column_privilege('rise_pals_app', 'assessment_responses', 'is_active', 'UPDATE')
+              AS active_update`,
+  );
+  assert.deepEqual(privileges.rows[0], {
+    session_delete: false,
+    response_delete: false,
+    payload_update: false,
+    active_update: true,
+  });
+}
+
 let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
@@ -1273,8 +1821,9 @@ try {
   await verifyConcurrentPublicationGuards();
   await verifyRowLevelSecurity();
   await verifySerializedConsentReceipts();
+  await verifyPersistedAssessmentContract();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 10 tables, atomic Clerk provisioning, profile controls, lifecycle/reparent/concurrency enforcement and complete two-user forced-RLS matrix).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 12 tables, atomic Clerk provisioning, profile controls, lifecycle/reparent/concurrency enforcement, persisted assessment revision/idempotency/submission controls and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);
