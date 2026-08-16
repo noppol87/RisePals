@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-012  
-**Status:** Bounded persisted synthetic-assessment implementation and real-provider verification complete pending Project Codex review; no real users, production database/service or deployment exists  
+**Status:** RP-TURN-012 Accepted by Project Codex for synthetic alpha; no real users, production database/service or deployment exists  
 **Checked:** 2026-08-16
 
 ## Confirmed host role and separation rule
@@ -736,7 +736,7 @@ The third migration creates only `assessment_sessions` and `assessment_responses
 | final bounded real Clerk Development smoke | PASS — one new synthetic identity completed Thai email-code sign-up/onboarding, one stable internal account mapping, current consent/profile persistence, persisted start, first-answer correction, refresh resume, six-answer submission/double-submit protection, immutable receipt reload, explicit profile logout, logged-out same-locale denial, same-identity re-authentication, safe return handling and final browser/privacy assertions. Database evidence confirmed 1 submitted session, 7 historical revisions, 6 active responses, no copied email and rejected post-submit mutation. |
 | final smoke cleanup | PASS — cleanup deleted the unique synthetic identity and re-queried it absent without logging an identifier. Read-only checks found zero PostgreSQL processes/services, zero disposable child roots/files, no isolated smoke build and no tracked `.env.local`; temporary data/logs/credentials were removed. |
 
-The implementation and required deterministic/database/browser/real-provider verification are complete pending Project Codex review. This is not an acceptance claim, does not authorize production use and does not authorize RP-TURN-013.
+Project Codex Accepted the implementation and deterministic/database/browser/real-provider verification for synthetic alpha only. This acceptance does not authorize production use or RP-TURN-013.
 
 ## Current boundary after RP-TURN-012 implementation
 
@@ -745,10 +745,10 @@ The implementation and required deterministic/database/browser/real-provider ver
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
 - RP-TURN-010 is Accepted by Project Codex and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
 - RP-TURN-011 is Accepted only for synthetic alpha. It adds Clerk Development authentication, internal identity/profile authorization, a second migration, protected routes and versioned append-only service-data consent. The bounded real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` are unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided; no real user/data or production identity resource exists.
-- RP-TURN-012 implements owner-scoped raw synthetic assessment start/save/resume/submit pending Project Codex review. Its deterministic, disposable-database and final bounded real-provider verification gates pass; RP-TURN-013 is not authorized.
+- RP-TURN-012 owner-scoped raw synthetic assessment start/save/resume/submit is Accepted by Project Codex for synthetic alpha. Its deterministic, disposable-database and final bounded real-provider verification gates pass; RP-TURN-013 is recommended but not authorized.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-local lesson prototype, bounded account/profile/consent and raw assessment persistence implementations. It is not a validated real assessment and creates no score, personalized result, real recommendation, published/externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage` only in the public player. The persisted path never reads them and uses PostgreSQL only after explicit authenticated start/current consent. Lesson selections/feedback remain only in React memory, refresh resets them and no durable lesson state or saved XP exists.
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No real profile/data, score/result/recommendation persistence, lesson progress, saved XP or proof storage exists. RP-TURN-012 stores only synthetic-alpha raw selected-option revision history; retention/export/erasure and production use remain open. RP-TURN-013 is recommended only after acceptance and is not authorized or started.
+- No real profile/data, score/result/recommendation persistence, lesson progress, saved XP or proof storage exists. RP-TURN-012 stores only synthetic-alpha raw selected-option revision history; retention/export/erasure and production use remain open. RP-TURN-013 is recommended but not authorized or started.

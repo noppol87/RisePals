@@ -1,7 +1,7 @@
 # Initial Data Model
 
 **Turn:** RP-TURN-001  
-**Status:** Logical MVP model plus accepted RP-TURN-010/011 baseline and bounded RP-TURN-012 raw assessment persistence implementation pending review  
+**Status:** Logical MVP model plus accepted RP-TURN-010/011 baseline and RP-TURN-012 synthetic-alpha raw assessment persistence boundary  
 **Reviewed:** 2026-08-01
 
 ## Purpose
