@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-16  
-**Current phase:** RP-TURN-012 persisted synthetic-assessment boundary Accepted for synthetic alpha; no real users or production service  
-**Current turn:** RP-TURN-012 Accepted by Project Codex; RP-TURN-013 is recommended but not authorized
+**Current phase:** RP-TURN-013 reproducible synthetic result implementation complete with deterministic/database/browser gates; real-provider verification Partial  
+**Current turn:** RP-TURN-013 is pending Project Codex review and a separately authorized real-provider-smoke correction; it is not Accepted
 
 ## Locked decisions
 
@@ -94,6 +94,11 @@
 - Disposable PostgreSQL integration proving 155 statements across three migrations and 12 tables, concurrent-start convergence, mutation replay, concurrent-save winner/conflict, incomplete/post-submit rejection, current-consent enforcement and cross-user/missing-context forced-RLS behavior
 - Secret-free application gates for RP-TURN-012: 27 test files / 219 tests, a 17-page production build and Chromium 62/62; no scoring/result/recommendation, new dependency, production database or deployment was added
 - Bounded RP-TURN-012 real Clerk Development smoke proving Thai email-code sign-up/onboarding, one stable internal mapping, current consent/profile persistence, start/save/correction/refresh, atomic idempotent submission, immutable receipt, profile logout denial, same-identity re-authentication, safe return handling and browser/database privacy boundaries; the one synthetic identity and all disposable resources were deleted and verified absent
+- Immutable repository-local result policy `persisted-synthetic-priority-v1@1.0.0` with pinned canonical JSON and SHA-256 digest `10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157`
+- Pure server-only persisted-result derivation with canonical input/output digests, exact integer normalization/cross-multiplication, two assessed core rows, six unassessed cores, two separate multiplier observations, controlled explanations and zero-or-one unique-lowest priority
+- Fourth forward migration adding exactly `scoring_runs`, `competency_scores`, `multiplier_observations`, `score_explanations` and `priority_recommendations`; the fresh disposable schema has 17 tables and all five derived tables are forced-RLS protected and append-only for the application role
+- Protected Thai/English `/assessment/result` flow with explicit generation only, refresh-safe replay, bounded lesson/unavailable action, no identifier-bearing URL and a client DTO that omits raw answers, option IDs, database IDs, digests, policy internals and RLS context
+- RP-TURN-013 deterministic evidence: 29 test files / 238 tests, 19 generated production pages/routes, Chromium 65/65, PostgreSQL 18.4 integration with 234 statements across four migrations and 17 tables, exact result-route chunk inspection and zero-vulnerability production/full audits
 
 ## Open decisions
 
@@ -129,15 +134,16 @@
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the vendor's supported Development session flow transiently uses `__clerk_handshake`; the final smoke URL was clean, but production provider/session/privacy suitability remains undecided
 - RP-TURN-012 acceptance is limited to synthetic alpha and does not approve Clerk, PostgreSQL, retention/export/erasure operations or the broader privacy/session design for real users or production.
+- RP-TURN-013 real-provider verification is Partial: the one authorized attempt stopped before identity creation because `scripts/auth/bootstrap-disposable-postgres.mjs` retained a stale 12-table assertion while the authorized migration correctly produced 17 tables. No Clerk identity/browser context or isolated build was created; PostgreSQL process/data/log/credential resources were removed. A new Project Codex authorization is required before correcting that harness assertion or running another smoke.
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
 
-**RP-TURN-013 — Reproducible Scoring and Priority Recommendation (recommended, not authorized)**
+**RP-TURN-013-R1 — Correct the disposable smoke schema assertion and authorize one new bounded real-provider smoke (recommended, not authorized)**
 
-RP-TURN-012 is Accepted by Project Codex for synthetic alpha only. RP-TURN-013 — Reproducible Scoring and Priority Recommendation is the next recommended turn and is not authorized.
+RP-TURN-012 remains Accepted by Project Codex for synthetic alpha only. RP-TURN-013 implementation and deterministic/database/browser verification are ready for review, but the real-provider disposition is Partial because the authorized smoke stopped at the stale pre-identity table-count assertion. Project Codex must inspect the implementation and separately authorize any correction/rerun.
 
-RP-TURN-007 through RP-TURN-012 are Accepted. RP-TURN-012 adds only synthetic-alpha raw session/response persistence; its implementation and real-provider verification are accepted only within that boundary. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. No real account/data, production identity resource, production database, score/result/recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-013 is recommended but not authorized or started; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007 through RP-TURN-012 are Accepted. RP-TURN-013 adds only a synthetic-alpha persisted derived-result prototype and is not Accepted. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. No real account/data, production identity resource, production database, validated score/result/recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-014 is not authorized or started.
 
 ## Turn history
 
@@ -156,3 +162,4 @@ RP-TURN-007 through RP-TURN-012 are Accepted. RP-TURN-012 adds only synthetic-al
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
 | 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only; RP-TURN-013 remains unauthorized |
+| 013 | Partial — pending review | Reproducible owner-scoped synthetic result implementation, five-table forced-RLS append-only migration, deterministic policy/digests, separate core/multiplier evidence and zero-or-one provisional priority pass deterministic/database/browser gates; the one authorized real-provider attempt stopped before identity creation at a stale 12-table bootstrap assertion and cleaned all disposable resources |

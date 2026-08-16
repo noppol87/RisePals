@@ -27,6 +27,10 @@ const userB = "10000000-0000-4000-8000-000000000002";
 const userC = "10000000-0000-4000-8000-000000000003";
 const persistedUserA = "20000000-0000-4000-8000-000000000001";
 const persistedUserB = "20000000-0000-4000-8000-000000000002";
+const derivedUserA = "20000000-0000-4000-8000-000000000003";
+const derivedUserB = "20000000-0000-4000-8000-000000000004";
+const derivedUserC = "20000000-0000-4000-8000-000000000005";
+const resultPolicyDigest = "10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157";
 const persistedDefinition = JSON.parse(
   await readFile(
     resolve("src/modules/assessment/persistence/synthetic-published-definition.json"),
@@ -324,7 +328,13 @@ async function insertPersistedAssessmentDefinition(client) {
     `UPDATE assessment_versions SET status = 'published', published_at = now() WHERE id = $1`,
     [assessmentId],
   );
-  return { assessmentId, items };
+  return {
+    assessmentId,
+    frameworkId: framework.frameworkId,
+    scoringId,
+    competencies: framework.competencies,
+    items,
+  };
 }
 
 async function verifyRoleAndSchemaBaseline(client) {
@@ -333,7 +343,11 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
-  assert.equal(tables.rows[0].count, 12, "the three fresh migrations create exactly twelve tables");
+  assert.equal(
+    tables.rows[0].count,
+    17,
+    "the four fresh migrations create exactly seventeen tables",
+  );
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -414,14 +428,19 @@ async function verifyRoleAndSchemaBaseline(client) {
       [
         "assessment_responses",
         "assessment_sessions",
+        "competency_scores",
         "consent_records",
         "external_identities",
+        "multiplier_observations",
+        "priority_recommendations",
+        "score_explanations",
+        "scoring_runs",
         "user_accounts",
         "user_profiles",
       ],
     ],
   );
-  assert.equal(forcedRls.rowCount, 6);
+  assert.equal(forcedRls.rowCount, 11);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 }
 
@@ -1452,6 +1471,444 @@ async function savePersistedRevision({
   });
 }
 
+async function createSubmittedSyntheticSession(userId, definition, optionIndexes) {
+  const consentId = await provisionPersistedTestUser(userId);
+  const session = await insertPersistedSession(userId, definition.assessmentId, consentId);
+  const sessionId = session.rows[0].id;
+
+  for (const [index, item] of persistedDefinition.items.entries()) {
+    const itemRecord = definition.items.get(item.key);
+    const optionIndex = optionIndexes[index] ?? 1;
+    const saved = await savePersistedRevision({
+      userId,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: itemRecord.id,
+      itemKey: item.key,
+      optionId: item.optionIds[optionIndex],
+      expectedRevision: 0,
+      mutationId: `60000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+    });
+    assert.equal(saved.state, "saved");
+  }
+
+  await withApplicationUser(userId, (client) =>
+    client.query(`UPDATE assessment_sessions SET status = 'submitted' WHERE id = $1`, [sessionId]),
+  );
+  return { consentId, sessionId };
+}
+
+async function insertSyntheticDerivedRun({
+  userId,
+  sessionId,
+  definition,
+  runNumber,
+  previousRunId = null,
+  coreEarned,
+  multiplierEarned = [1, 1],
+  mutationId,
+  inputDigest = digest,
+  outputDigest = alternateDigest,
+  forcedPriorityKey,
+}) {
+  return withApplicationUser(userId, async (client) => {
+    const run = await client.query(
+      `INSERT INTO scoring_runs
+        (user_id, assessment_session_id, assessment_version_id, framework_version_id,
+         scoring_model_version_id, run_number, run_kind, supersedes_scoring_run_id,
+         client_mutation_id, input_digest, output_digest, result_policy_key,
+         result_policy_version, result_policy_digest)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+               'persisted-synthetic-priority-v1', '1.0.0', $12)
+       RETURNING id`,
+      [
+        userId,
+        sessionId,
+        definition.assessmentId,
+        definition.frameworkId,
+        definition.scoringId,
+        runNumber,
+        runNumber === 1 ? "normal" : "rescore",
+        previousRunId,
+        mutationId,
+        inputDigest,
+        outputDigest,
+        resultPolicyDigest,
+      ],
+    );
+    const runId = run.rows[0].id;
+    const coreDefinitions = [
+      {
+        key: "critical-thinking-fact-checking",
+        earned: coreEarned[0],
+        items: ["verify-ai-summary-source", "test-process-assumption"],
+      },
+      {
+        key: "systematic-thinking",
+        earned: coreEarned[1],
+        items: ["map-downstream-impact", "trace-recurring-bottleneck"],
+      },
+    ];
+    for (const core of coreDefinitions) {
+      await client.query(
+        `INSERT INTO competency_scores
+          (user_id, scoring_run_id, framework_version_id, competency_version_id, target_kind,
+           earned_points, available_points, evidence_count, normalized_basis_points)
+         VALUES ($1, $2, $3, $4, 'core', $5::integer, 4, 2,
+                 floor(($5::integer::numeric * 10000) / 4)::integer)`,
+        [userId, runId, definition.frameworkId, definition.competencies.get(core.key), core.earned],
+      );
+    }
+    for (const multiplier of [
+      { key: "ownership-thinking", earned: multiplierEarned[0] },
+      { key: "sense-of-urgency", earned: multiplierEarned[1] },
+    ]) {
+      await client.query(
+        `INSERT INTO multiplier_observations
+          (user_id, scoring_run_id, framework_version_id, competency_version_id, target_kind,
+           earned_rubric_points, available_rubric_points, evidence_count, limitation_code)
+         VALUES ($1, $2, $3, $4, 'multiplier', $5, 2, 1,
+                 'single-scenario-not-behavior-pattern')`,
+        [
+          userId,
+          runId,
+          definition.frameworkId,
+          definition.competencies.get(multiplier.key),
+          multiplier.earned,
+        ],
+      );
+    }
+
+    const params = JSON.stringify({ schemaVersion: "persisted-result-explanation-params-v1" });
+    const explanations = [
+      {
+        targetKind: "run",
+        targetCompetencyKind: null,
+        competencyId: null,
+        code: "synthetic-partial-result-limitation",
+        items: persistedDefinition.items.map((item) => item.key),
+        limitations: ["not-validated-assessment", "partial-core-slice"],
+      },
+      ...coreDefinitions.map((core) => ({
+        targetKind: "core",
+        targetCompetencyKind: "core",
+        competencyId: definition.competencies.get(core.key),
+        code: "assessed-core-raw-signal",
+        items: core.items,
+        limitations: ["not-validated-assessment", "partial-core-slice"],
+      })),
+      {
+        targetKind: "multiplier",
+        targetCompetencyKind: "multiplier",
+        competencyId: definition.competencies.get("ownership-thinking"),
+        code: "single-scenario-multiplier-observation",
+        items: ["own-shared-outcome"],
+        limitations: ["not-validated-assessment", "single-scenario-not-behavior-pattern"],
+      },
+      {
+        targetKind: "multiplier",
+        targetCompetencyKind: "multiplier",
+        competencyId: definition.competencies.get("sense-of-urgency"),
+        code: "single-scenario-multiplier-observation",
+        items: ["move-with-safe-urgency"],
+        limitations: ["not-validated-assessment", "single-scenario-not-behavior-pattern"],
+      },
+    ];
+
+    const comparison = coreEarned[0] * 4 - coreEarned[1] * 4;
+    const lowestKey =
+      forcedPriorityKey ??
+      (comparison < 0
+        ? "critical-thinking-fact-checking"
+        : comparison > 0
+          ? "systematic-thinking"
+          : null);
+    const priorityItems =
+      lowestKey === "critical-thinking-fact-checking"
+        ? ["verify-ai-summary-source", "test-process-assumption"]
+        : lowestKey === "systematic-thinking"
+          ? ["map-downstream-impact", "trace-recurring-bottleneck"]
+          : [];
+    explanations.push({
+      targetKind: "priority",
+      targetCompetencyKind: lowestKey ? "core" : null,
+      competencyId: lowestKey ? definition.competencies.get(lowestKey) : null,
+      code: lowestKey ? "unique-lowest-assessed-core-signal" : "no-distinct-priority",
+      items: priorityItems,
+      limitations: ["not-validated-assessment", "partial-core-slice"],
+    });
+
+    for (const explanation of explanations) {
+      await client.query(
+        `INSERT INTO score_explanations
+          (user_id, scoring_run_id, framework_version_id, target_kind,
+           target_competency_kind, competency_version_id, explanation_code,
+           message_params, supporting_item_keys, limitation_codes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::text[], $10::text[])`,
+        [
+          userId,
+          runId,
+          definition.frameworkId,
+          explanation.targetKind,
+          explanation.targetCompetencyKind,
+          explanation.competencyId,
+          explanation.code,
+          params,
+          explanation.items,
+          explanation.limitations,
+        ],
+      );
+    }
+
+    if (lowestKey) {
+      const nextAction =
+        lowestKey === "critical-thinking-fact-checking"
+          ? {
+              kind: "prototype-lesson",
+              lessonVersionId: "lesson-source-verification-practice-v1",
+              lessonVersion: "1.0.0",
+            }
+          : { kind: "practice-unavailable" };
+      await client.query(
+        `INSERT INTO priority_recommendations
+          (user_id, scoring_run_id, framework_version_id, competency_version_id, target_kind,
+           rank, reason_code, supporting_item_keys, next_action)
+         VALUES ($1, $2, $3, $4, 'core', 1, 'unique-lowest-assessed-core-signal',
+                 $5::text[], $6::jsonb)`,
+        [
+          userId,
+          runId,
+          definition.frameworkId,
+          definition.competencies.get(lowestKey),
+          priorityItems,
+          JSON.stringify(nextAction),
+        ],
+      );
+    }
+    await client.query("SET CONSTRAINTS ALL IMMEDIATE");
+    return runId;
+  });
+}
+
+async function verifyDerivedScoringContract(definition) {
+  const uniqueSession = await createSubmittedSyntheticSession(
+    derivedUserA,
+    definition,
+    [0, 2, 1, 1, 2, 2],
+  );
+  const concurrentNormal = await Promise.allSettled([
+    insertSyntheticDerivedRun({
+      userId: derivedUserA,
+      sessionId: uniqueSession.sessionId,
+      definition,
+      runNumber: 1,
+      coreEarned: [1, 4],
+      mutationId: "70000000-0000-4000-8000-000000000001",
+    }),
+    insertSyntheticDerivedRun({
+      userId: derivedUserA,
+      sessionId: uniqueSession.sessionId,
+      definition,
+      runNumber: 1,
+      coreEarned: [1, 4],
+      mutationId: "70000000-0000-4000-8000-000000000002",
+    }),
+  ]);
+  assert.equal(
+    concurrentNormal.filter((result) => result.status === "fulfilled").length,
+    1,
+    `concurrent normal generation persists one complete run (${concurrentNormal
+      .filter((result) => result.status === "rejected")
+      .map(
+        (result) => `${result.reason?.code ?? "no-code"}:${result.reason?.message ?? "no-message"}`,
+      )
+      .join(" | ")})`,
+  );
+  const initialRunId = concurrentNormal.find((result) => result.status === "fulfilled").value;
+  const initialRows = await withApplicationUser(derivedUserA, (client) =>
+    client.query(
+      `SELECT run_number, run_kind, input_digest, output_digest, supersedes_scoring_run_id
+       FROM scoring_runs ORDER BY run_number`,
+    ),
+  );
+  assert.deepEqual(initialRows.rows, [
+    {
+      run_number: 1,
+      run_kind: "normal",
+      input_digest: digest,
+      output_digest: alternateDigest,
+      supersedes_scoring_run_id: null,
+    },
+  ]);
+
+  const rescoreId = await insertSyntheticDerivedRun({
+    userId: derivedUserA,
+    sessionId: uniqueSession.sessionId,
+    definition,
+    runNumber: 2,
+    previousRunId: initialRunId,
+    coreEarned: [1, 4],
+    mutationId: "70000000-0000-4000-8000-000000000003",
+  });
+  const semanticRows = await withApplicationUser(derivedUserA, (client) =>
+    client.query(
+      `SELECT run.run_number, run.input_digest, run.output_digest,
+              score.earned_points, score.available_points, competency.competency_key
+       FROM scoring_runs AS run
+       JOIN competency_scores AS score ON score.scoring_run_id = run.id
+       JOIN competency_versions AS competency ON competency.id = score.competency_version_id
+       ORDER BY run.run_number, competency.display_order`,
+    ),
+  );
+  assert.equal(semanticRows.rowCount, 4);
+  assert.deepEqual(
+    semanticRows.rows.slice(0, 2).map((row) => ({
+      input_digest: row.input_digest,
+      output_digest: row.output_digest,
+      earned_points: row.earned_points,
+      available_points: row.available_points,
+      competency_key: row.competency_key,
+    })),
+    semanticRows.rows.slice(2).map((row) => ({
+      input_digest: row.input_digest,
+      output_digest: row.output_digest,
+      earned_points: row.earned_points,
+      available_points: row.available_points,
+      competency_key: row.competency_key,
+    })),
+    "identical explicit re-score reproduces the semantic core rows and digests",
+  );
+
+  const updateError = await expectDatabaseRejection(
+    () =>
+      disposableBootstrapPool.query(`UPDATE scoring_runs SET output_digest = $1 WHERE id = $2`, [
+        digest,
+        rescoreId,
+      ]),
+    "a completed scoring run update",
+    "55000",
+  );
+  assert.equal(
+    String(updateError.message).includes(digest),
+    false,
+    "failure text excludes digests",
+  );
+  await expectDatabaseRejection(
+    () =>
+      disposableBootstrapPool.query(`DELETE FROM competency_scores WHERE scoring_run_id = $1`, [
+        rescoreId,
+      ]),
+    "a completed derived-child delete",
+    "55000",
+  );
+
+  const tiedSession = await createSubmittedSyntheticSession(
+    derivedUserB,
+    definition,
+    [1, 1, 1, 1, 1, 1],
+  );
+  const tiedRunId = await insertSyntheticDerivedRun({
+    userId: derivedUserB,
+    sessionId: tiedSession.sessionId,
+    definition,
+    runNumber: 1,
+    coreEarned: [4, 4],
+    multiplierEarned: [2, 2],
+    mutationId: "70000000-0000-4000-8000-000000000004",
+  });
+  const tiedPriority = await withApplicationUser(derivedUserB, (client) =>
+    client.query(
+      `SELECT
+        (SELECT count(*)::integer FROM priority_recommendations WHERE scoring_run_id = $1)
+          AS recommendations,
+        (SELECT explanation_code FROM score_explanations
+         WHERE scoring_run_id = $1 AND target_kind = 'priority') AS explanation`,
+      [tiedRunId],
+    ),
+  );
+  assert.deepEqual(tiedPriority.rows[0], {
+    recommendations: 0,
+    explanation: "no-distinct-priority",
+  });
+
+  const invalidSession = await createSubmittedSyntheticSession(
+    derivedUserC,
+    definition,
+    [1, 1, 1, 1, 1, 1],
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertSyntheticDerivedRun({
+        userId: derivedUserC,
+        sessionId: invalidSession.sessionId,
+        definition,
+        runNumber: 1,
+        coreEarned: [4, 4],
+        forcedPriorityKey: "critical-thinking-fact-checking",
+        mutationId: "70000000-0000-4000-8000-000000000005",
+      }),
+    "a forced priority for tied core evidence",
+    "23514",
+  );
+  const noPartialRun = await withApplicationUser(derivedUserC, (client) =>
+    client.query(`SELECT id FROM scoring_runs`),
+  );
+  assert.equal(noPartialRun.rowCount, 0, "a rejected derivation leaves no partial run");
+
+  const crossUserTables = [
+    "scoring_runs",
+    "competency_scores",
+    "multiplier_observations",
+    "score_explanations",
+    "priority_recommendations",
+  ];
+  for (const table of crossUserTables) {
+    const own = await withApplicationUser(derivedUserA, (client) =>
+      client.query(`SELECT id FROM ${table}`),
+    );
+    const cross = await withApplicationUser(derivedUserB, (client) =>
+      client.query(`SELECT id FROM ${table} WHERE user_id = $1`, [derivedUserA]),
+    );
+    const missing = await applicationPool.query(`SELECT id FROM ${table}`);
+    assert.ok(own.rowCount > 0, `${table} exposes owner rows`);
+    assert.equal(cross.rowCount, 0, `${table} hides cross-owner rows`);
+    assert.equal(missing.rowCount, 0, `${table} fails closed without context`);
+    await expectDatabaseRejection(
+      () => withMalformedContext((client) => client.query(`SELECT id FROM ${table}`)),
+      `${table} rejects malformed context`,
+      "22P02",
+    );
+  }
+
+  const privileges = await ownerPool.query(
+    `SELECT table_name,
+            has_table_privilege('rise_pals_app', table_name, 'UPDATE') AS can_update,
+            has_table_privilege('rise_pals_app', table_name, 'DELETE') AS can_delete
+     FROM information_schema.tables
+     WHERE table_schema = 'public'
+       AND table_name = ANY($1::text[])
+     ORDER BY table_name`,
+    [crossUserTables],
+  );
+  assert.equal(privileges.rowCount, 5);
+  assert.ok(privileges.rows.every((row) => !row.can_update && !row.can_delete));
+
+  await withApplicationUser(derivedUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id, purpose_code, notice_version, decision, occurred_at, locale,
+         source_surface, proof_digest)
+       VALUES ($1, 'service-profile-learning-state', 'alpha-privacy-v1', 'withdrawn',
+               clock_timestamp(), 'en', 'synthetic-test', $2)`,
+      [derivedUserA, proofDigest],
+    ),
+  );
+  const hiddenAfterWithdrawal = await withApplicationUser(derivedUserA, (client) =>
+    client.query(`SELECT id FROM scoring_runs`),
+  );
+  assert.equal(hiddenAfterWithdrawal.rowCount, 0, "current consent withdrawal hides derived rows");
+}
+
 async function verifyPersistedAssessmentContract() {
   const definitionClient = await ownerPool.connect();
   let definition;
@@ -1809,6 +2266,8 @@ async function verifyPersistedAssessmentContract() {
     payload_update: false,
     active_update: true,
   });
+
+  await verifyDerivedScoringContract(definition);
 }
 
 let migrationResult = { migrationFiles: [], statementCount: 0 };
@@ -1823,7 +2282,7 @@ try {
   await verifySerializedConsentReceipts();
   await verifyPersistedAssessmentContract();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 12 tables, atomic Clerk provisioning, profile controls, lifecycle/reparent/concurrency enforcement, persisted assessment revision/idempotency/submission controls and complete cross-user forced-RLS evidence).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 17 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);

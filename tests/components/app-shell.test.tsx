@@ -93,6 +93,20 @@ describe("localized application shell", () => {
     expect(screen.getByRole("link", { name: "หน้าหลัก" })).not.toHaveAttribute("aria-current");
   });
 
+  it("preserves the persisted result route while switching locale", () => {
+    navigation.pathname = "/th/assessment/result";
+    render(
+      <AppShell locale="th" messages={catalogs.th.shell}>
+        <p>Result</p>
+      </AppShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "English" })).toHaveAttribute(
+      "href",
+      "/en/assessment/result",
+    );
+  });
+
   it("preserves the source-verification lesson route while switching locale", () => {
     navigation.pathname = "/th/lessons/source-verification-practice";
     render(

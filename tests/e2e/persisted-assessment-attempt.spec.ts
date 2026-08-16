@@ -52,6 +52,31 @@ for (const locale of ["th", "en"] as const) {
       ),
     ).toEqual([]);
   });
+
+  test(`${locale} persisted result fails closed without Clerk and leaks no result data`, async ({
+    page,
+  }) => {
+    const unexpectedOrigins = new Set<string>();
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.hostname !== "127.0.0.1") unexpectedOrigins.add(url.origin);
+    });
+
+    await page.goto(`/${locale}/assessment/result`);
+    await expect(page).toHaveURL(new RegExp(`/${locale}/assessment/result$`));
+    await expect(
+      page.getByRole("heading", {
+        level: 2,
+        name:
+          locale === "th" ? "ยังไม่มีเซสชันที่พร้อมสร้างผลลัพธ์" : "No submitted session is ready",
+      }),
+    ).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(
+      /selectedOptionId|sessionId|scoringRunId|inputDigest|outputDigest/i,
+    );
+    await page.waitForLoadState("networkidle");
+    expect([...unexpectedOrigins]).toEqual([]);
+  });
 }
 
 test("temporary prototype links honestly without copying browser state", async ({ page }) => {
@@ -70,6 +95,17 @@ test("persisted attempt language switching preserves only the route", async ({ p
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en\/assessment\/attempt$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  expect(new URL(page.url()).search).toBe("");
+  expect(new URL(page.url()).hash).toBe("");
+});
+
+test("persisted result language switching preserves only the protected result route", async ({
+  page,
+}) => {
+  await page.goto("/th/assessment/result");
+  await expect(page).toHaveURL(/\/th\/assessment\/result$/);
+  await page.getByRole("link", { name: "English" }).click();
+  await expect(page).toHaveURL(/\/en\/assessment\/result$/);
   expect(new URL(page.url()).search).toBe("");
   expect(new URL(page.url()).hash).toBe("");
 });
