@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-16  
-**Current phase:** Synthetic-alpha authentication/profile/consent implementation and real-provider smoke pending Project Codex review; no real users or production service  
-**Current turn:** RP-TURN-011-R3 Partial pending Project Codex review; advisory resolved and deterministic secret-free standard gates restored
+**Current phase:** Synthetic-alpha authentication/profile/consent boundary accepted; no real users or production service  
+**Current turn:** RP-TURN-011 Accepted; RP-TURN-012 is recommended but not authorized
 
 ## Locked decisions
 
@@ -128,9 +128,9 @@
 
 **RP-TURN-012 — Persisted Assessment Sessions and Raw Responses**
 
-Recommended goal after RP-TURN-011 review: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
+Recommended goal after accepted RP-TURN-011: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 now has deterministic/local PostgreSQL coverage, a successful bounded real Clerk Development smoke, zero-vulnerability npm audits and explicitly secret-free standard gates, but remains Partial pending Project Codex review. The R3 rerun created exactly one new synthetic identity and deleted/verified it; no real account/data, production identity resource, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007 through RP-TURN-011 are Accepted. RP-TURN-011 accepts Clerk Development authentication, internal identity/profile authorization and versioned consent only for synthetic alpha. The real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided. No real account/data, production identity resource, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 is recommended but is not authorized or started; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -147,4 +147,4 @@ RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
-| 011 | Partial pending review | Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only account authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent verified by deterministic tests and real Development smoke; R3 pins patched `nanoid 3.3.18`, restores zero-vulnerability audits and makes standard build/check/E2E explicitly secret-free while the isolated opt-in smoke still passes and cleans its synthetic identity/build/database |
+| 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |

@@ -586,7 +586,7 @@ Application and Next.js typechecking retain strict mode with `skipLibCheck: fals
 
 Normal application runtime requires and reads only `DATABASE_URL`; `createApplicationPool()` does not access `DATABASE_MIGRATION_URL`. Migration and disposable-test tooling intentionally receive both URLs and require distinct decoded role names. URL usernames/passwords/database components are percent-decoded with PostgreSQL-compatible URI interpretation before role checks; malformed encoding fails closed, privileged owner/migration/admin/postgres-like application roles are rejected after decoding, and differently encoded forms of the same role cannot satisfy separation. Both URLs require a single explicit database and exactly one approved `sslmode`. Loopback test URLs require `sslmode=disable`; non-loopback URLs reject disabled encryption. Errors contain remediation but never echo connection values.
 
-The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. RP-TURN-011 adds the validated-session-to-internal-UUID authorization boundary above it; browser input still never controls this context directly. Real-provider smoke and production authentication approval remain incomplete.
+The normal pool is created only from a server-only module. `withUserDatabaseTransaction` validates a non-nil UUID, starts a transaction and sets `app.current_user_id` transaction-locally before calling data access. RP-TURN-011 adds the validated-session-to-internal-UUID authorization boundary above it; browser input still never controls this context directly. The real-provider smoke and required R3 rerun are accepted only for synthetic alpha; production authentication/provider suitability remains undecided.
 
 ### Disposable PostgreSQL verification
 
@@ -680,7 +680,7 @@ On 2026-08-16 the Jeff-controlled Personal Workspace/Hobby/Development applicati
 
 The real-provider smoke created one unique reserved synthetic test identity, rendered the real Thai and English Clerk components, completed email-code sign-up/sign-in, reused one internal UUID, persisted one service-data consent and controlled profile without copying email, denied profile access after logout, and rejected cross-locale/external return targets. Cleanup deleted and re-queried the remote identity, stopped PostgreSQL and removed temporary data, logs and credentials. Clerk's supported Development session synchronization transiently used the vendor-controlled `__clerk_handshake` query parameter during authentication; the harness rejects every other JWT-bearing application URL parameter and verifies the final application URL has no query or fragment. This Development-only behavior is not production approval.
 
-### RP-TURN-011 implementation verification
+### Accepted RP-TURN-011 verification
 
 | Check | Result |
 |---|---|
@@ -713,13 +713,13 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 6. For database failures, confirm the target is a disposable development/test database before running any migration command.
 7. Never paste secret values into a handoff, screenshot, issue or command output.
 
-## Current boundary after RP-TURN-011 implementation
+## Current boundary after accepted RP-TURN-011
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
 - RP-TURN-010 is Accepted by Project Codex and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
-- RP-TURN-011 adds a second migration, a controlled synthetic-alpha profile/account boundary, protected routes and append-only service-data consent. The bounded real Clerk Development smoke and R3 rerun passed and every synthetic identity was deleted; patched dependencies, zero-vulnerability audits and secret-free standard gates are verified. The turn remains Partial only pending Project Codex review, with no real user/data or production identity resource.
+- RP-TURN-011 is Accepted only for synthetic alpha. It adds Clerk Development authentication, internal identity/profile authorization, a second migration, protected routes and versioned append-only service-data consent. The bounded real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` are unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided; no real user/data or production identity resource exists.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-local lesson prototype and the bounded account/profile/consent implementation. It is not a validated real assessment and creates no personalized result, real recommendation, published/externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.

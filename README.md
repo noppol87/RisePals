@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-011-R3 authentication/profile/consent and deterministic Clerk-isolated verification pending review / no real users or production service  
+**Project status:** RP-TURN-011 synthetic-alpha authentication/profile/consent boundary Accepted / no real users or production service  
 **Last updated:** 2026-08-16
 
 ## Product thesis
@@ -114,7 +114,7 @@ Clerk is behind an internal `IdentityProvider` boundary and is selected only for
 
 The bilingual `alpha-privacy-v1` notice covers only service profile and future learning-state processing, not marketing, analytics or research. Grant, decline and withdrawal append deterministic receipts; history is never overwritten. Declining cannot create/update a profile, and withdrawal is not account deletion.
 
-This remains a synthetic, non-production implementation. Clerk identity hosting in the United States is accepted only for synthetic alpha testing. On 2026-08-16, one bounded real Development smoke created one synthetic test identity, proved localized email-code authentication and the internal account/profile/consent boundary, then deleted and rechecked that identity; no identifier is retained in Git or documentation. Ignored local Development keys remain configured for Jeff-authorized development use. Production provider suitability, legal/privacy/residency review, deletion orchestration, production PostgreSQL, credentials, backups and operations remain open. Assessment responses/results, lesson progress, XP and proof are still not persisted.
+This remains a synthetic, non-production implementation. Clerk Development authentication, internal identity/profile authorization and versioned consent are accepted only for synthetic alpha, and Clerk identity hosting in the United States is accepted only for that testing boundary. On 2026-08-16, the bounded real Development smoke and required R3 rerun each used one synthetic test identity to prove localized email-code authentication and the internal account/profile/consent boundary; each identity was deleted and verified absent, and no identifier is retained in Git or documentation. Ignored local Development keys remain configured for Jeff-authorized development use. Production provider suitability, legal/privacy/data-residency review, deletion orchestration, production PostgreSQL, credentials, backups and operations remain open. Assessment responses/results, lesson progress, XP and proof are still not persisted.
 
 Verified prerequisites for this branch:
 
@@ -161,4 +161,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 through RP-TURN-010 are Accepted. RP-TURN-011 is implemented, its bounded real Clerk Development smoke passed and R3 restores deterministic secret-free standard gates plus zero-vulnerability audits, but it remains Partial pending Project Codex review. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the fixed result, lesson and new account/profile flows never read them. Every synthetic smoke identity was deleted. No real user/data, production identity resource, published or externally validated lesson, production database, durable assessment/lesson session, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-012 is recommended next but is not authorized or started.
+RP-TURN-006 through RP-TURN-011 are Accepted. RP-TURN-011 accepts the Clerk Development authentication, internal identity/profile authorization and versioned-consent boundary only for synthetic alpha. Its real-provider smoke and required R3 rerun passed, every synthetic identity was deleted and verified absent, and standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. The reviewed dependency graph pins patched `nanoid 3.3.18` while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged; production and full npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the fixed result, lesson and account/profile flows never read them. No real user/data, production identity resource, published or externally validated lesson, production database, durable assessment/lesson session, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-012 is recommended next but is not authorized or started.
