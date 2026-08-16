@@ -10,6 +10,7 @@ import {
   localePath,
   onboardingPath,
   profilePath,
+  persistedAssessmentPath,
   signInPath,
   signUpPath,
   sourceVerificationLessonPath,
@@ -25,6 +26,7 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
   const pathname = usePathname();
   const homePath = localePath(currentLocale);
   const onAssessmentRoute = pathname === assessmentPath(currentLocale);
+  const onPersistedAssessmentRoute = pathname === persistedAssessmentPath(currentLocale);
   const onExampleResultRoute = pathname === assessmentExampleResultPath(currentLocale);
   const onSourceVerificationLessonRoute = pathname === sourceVerificationLessonPath(currentLocale);
   const onProfileRoute = pathname === profilePath(currentLocale);
@@ -70,9 +72,11 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
                     ? "/lessons/source-verification-practice"
                     : onExampleResultRoute
                       ? "/assessment/example-result"
-                      : onAssessmentRoute
-                        ? "/assessment"
-                        : ""
+                      : onPersistedAssessmentRoute
+                        ? "/assessment/attempt"
+                        : onAssessmentRoute
+                          ? "/assessment"
+                          : ""
         }
       />
     </>

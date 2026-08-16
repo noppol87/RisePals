@@ -100,6 +100,9 @@ export type AssessmentPlayerCatalog = Readonly<{
   storageRestored: string;
   storageDiscarded: string;
   storageCleared: string;
+  persistedAttemptHeading: string;
+  persistedAttemptBody: string;
+  persistedAttemptLinkLabel: string;
   startLabel: string;
   questionHeadingTemplate: string;
   positionTemplate: string;
@@ -343,6 +346,10 @@ export const catalogs = {
       storageRestored: "กู้คืนขั้นและตัวเลือกที่บันทึกชั่วคราวในแท็บนี้แล้ว",
       storageDiscarded: "ข้อมูลชั่วคราวเดิมไม่เข้ากับต้นแบบปัจจุบัน จึงถูกล้างอย่างปลอดภัย",
       storageCleared: "ล้างคำตอบชั่วคราวแล้ว",
+      persistedAttemptHeading: "ทดลองเส้นทางบันทึกสำหรับบัญชีอัลฟา",
+      persistedAttemptBody:
+        "เส้นทางแยกนี้ต้องลงชื่อเข้าใช้และให้ความยินยอมก่อน โดยจะเริ่มเซสชันใหม่ใน PostgreSQL เท่านั้น ระบบจะไม่อ่านหรือนำเข้าคำตอบชั่วคราวจากแท็บนี้",
+      persistedAttemptLinkLabel: "เปิดเส้นทางบันทึก (ไม่คัดลอกคำตอบในแท็บนี้)",
       startLabel: "เริ่มต้นแบบ 6 สถานการณ์",
       questionHeadingTemplate: "สถานการณ์ที่ {current}",
       positionTemplate: "สถานการณ์ {current} จาก {total}",
@@ -600,6 +607,10 @@ export const catalogs = {
       storageDiscarded:
         "Earlier temporary state was incompatible with this prototype and was cleared safely.",
       storageCleared: "Temporary selections were cleared.",
+      persistedAttemptHeading: "Try the signed-in persisted alpha path",
+      persistedAttemptBody:
+        "This separate path requires sign-in and current consent, then starts a new PostgreSQL session. It never reads or imports temporary answers from this tab.",
+      persistedAttemptLinkLabel: "Open the persisted path (tab answers are not copied)",
       startLabel: "Start the six-scenario prototype",
       questionHeadingTemplate: "Scenario {current}",
       positionTemplate: "Scenario {current} of {total}",

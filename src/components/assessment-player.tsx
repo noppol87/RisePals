@@ -27,6 +27,7 @@ type AssessmentPlayerProps = Readonly<{
   exampleResultHref: string;
   homeHref: string;
   messages: AssessmentPlayerCatalog;
+  persistedAttemptHref: string;
   view: AssessmentPlayerView;
 }>;
 
@@ -36,6 +37,7 @@ export function AssessmentPlayer({
   exampleResultHref,
   homeHref,
   messages,
+  persistedAttemptHref,
   view,
 }: AssessmentPlayerProps) {
   const [state, setState] = useState<AssessmentPlayerState>(createInitialPlayerState);
@@ -165,6 +167,14 @@ export function AssessmentPlayer({
             <h2 id="storage-notice-heading">{messages.storageHeading}</h2>
             <p>{messages.storageBody}</p>
           </div>
+
+          <aside className="assessment-example-link" aria-labelledby="persisted-attempt-heading">
+            <h2 id="persisted-attempt-heading">{messages.persistedAttemptHeading}</h2>
+            <p>{messages.persistedAttemptBody}</p>
+            <TextLink href={persistedAttemptHref} prefetch={false}>
+              {messages.persistedAttemptLinkLabel}
+            </TextLink>
+          </aside>
 
           {storageMessage ? (
             <p className="assessment-player__status" role="status">

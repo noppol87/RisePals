@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-16  
-**Current phase:** Synthetic-alpha authentication/profile/consent boundary accepted; no real users or production service  
-**Current turn:** RP-TURN-011 Accepted; RP-TURN-012 is recommended but not authorized
+**Current phase:** Persisted synthetic-assessment implementation complete; real-provider verification Partial; no real users or production service  
+**Current turn:** RP-TURN-012 implementation complete pending Project Codex review; one authorized smoke stopped before logout/re-auth completion; RP-TURN-013 is not authorized
 
 ## Locked decisions
 
@@ -88,6 +88,11 @@
 - Versioned `alpha-privacy-v1` service-data notice, deterministic proof digest and serialized append-only grant/decline/withdrawal receipts; declining does not create or update a profile and withdrawal is not presented as deletion
 - Bounded real Clerk Development smoke on 2026-08-16 proving localized email-code sign-up/sign-in, one stable internal mapping, consent/profile persistence, logout denial, safe return targets and verified synthetic-identity deletion against disposable PostgreSQL
 - Explicit secret-free `build`, aggregate check and Chromium E2E runners that disable Clerk even while ignored Development keys remain present, plus one isolated ignored build used only by the opt-in real-provider smoke
+- RP-TURN-012 third forward migration adding only `assessment_sessions` and `assessment_responses`, with exact published-version/consent anchors, database-owned timestamps, bounded `in_progress → submitted` lifecycle and forced owner RLS
+- Strict raw-response payloads containing only the selected option ID and schema version, append-only monotonic revisions, explicit supersession, idempotent client mutation IDs, stale-write conflicts and exactly one active revision per session/item
+- Dynamic Thai/English `/assessment/attempt` path with explicit start, one-at-a-time save, server restore after refresh, review, atomic submission and immutable no-result receipt; the original public sessionStorage player remains separate and is never imported
+- Disposable PostgreSQL integration proving 155 statements across three migrations and 12 tables, concurrent-start convergence, mutation replay, concurrent-save winner/conflict, incomplete/post-submit rejection, current-consent enforcement and cross-user/missing-context forced-RLS behavior
+- Secret-free application gates for RP-TURN-012: 27 test files / 219 tests, a 17-page production build and Chromium 62/62; no scoring/result/recommendation, new dependency, production database or deployment was added
 
 ## Open decisions
 
@@ -122,15 +127,16 @@
 - The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the vendor's supported Development session flow transiently uses `__clerk_handshake`; the final smoke URL was clean, but production provider/session/privacy suitability remains undecided
+- RP-TURN-012's single authorized real-provider smoke reached persisted start, correction, refresh resume, six-answer submission, double-submit protection and immutable receipt, then timed out because the harness attempted to find the profile-only logout control on the assessment receipt route; cleanup deleted and verified the synthetic identity absent and removed the isolated build/database/process/data/log/credentials, but logout denial, repeat-sign-in restore and final browser/privacy assertions were not completed. The harness navigation is corrected but cannot be rerun without new authorization.
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
 
-**RP-TURN-012 — Persisted Assessment Sessions and Raw Responses**
+**RP-TURN-012 verification follow-up — complete the bounded real-provider logout/re-auth/privacy smoke**
 
-Recommended goal after accepted RP-TURN-011: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
+The repository implementation and deterministic/database/browser gates are complete. Project Codex must review the Partial smoke evidence and separately authorize any single follow-up run. RP-TURN-013 — Reproducible Scoring and Priority Recommendation is recommended only after RP-TURN-012 acceptance and is not authorized.
 
-RP-TURN-007 through RP-TURN-011 are Accepted. RP-TURN-011 accepts Clerk Development authentication, internal identity/profile authorization and versioned consent only for synthetic alpha. The real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided. No real account/data, production identity resource, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 is recommended but is not authorized or started; every later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
+RP-TURN-007 through RP-TURN-011 are Accepted. RP-TURN-012 adds only synthetic-alpha raw session/response persistence and remains pending review with Partial real-provider verification. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. No real account/data, production identity resource, production database, score/result/recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-013 is not authorized or started; every follow-up smoke, later turn, branch-protection/CI change and VPS infrastructure action requires its own approved brief.
 
 ## Turn history
 
@@ -148,3 +154,4 @@ RP-TURN-007 through RP-TURN-011 are Accepted. RP-TURN-011 accepts Clerk Developm
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
 | 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |
+| 012 | Partial — pending review | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract and deterministic/database/browser gates complete; one authorized real-provider smoke verified persistence through immutable submission and cleanup but stopped before logout/re-auth/privacy completion, so no acceptance claim is made and RP-TURN-013 remains unauthorized |

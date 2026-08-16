@@ -9,6 +9,7 @@ type LanguageSwitcherProps = Readonly<{
   routeSuffix:
     | ""
     | "/assessment"
+    | "/assessment/attempt"
     | "/assessment/example-result"
     | "/lessons/source-verification-practice"
     | "/profile"

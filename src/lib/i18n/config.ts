@@ -21,6 +21,10 @@ export function assessmentPath(locale: Locale): `/${Locale}/assessment` {
   return `/${locale}/assessment`;
 }
 
+export function persistedAssessmentPath(locale: Locale): `/${Locale}/assessment/attempt` {
+  return `/${locale}/assessment/attempt`;
+}
+
 export function assessmentExampleResultPath(
   locale: Locale,
 ): `/${Locale}/assessment/example-result` {

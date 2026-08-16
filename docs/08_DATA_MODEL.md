@@ -1,7 +1,7 @@
 # Initial Data Model
 
 **Turn:** RP-TURN-001  
-**Status:** Logical MVP model plus accepted RP-TURN-010 baseline and bounded RP-TURN-011 profile/identity extension pending review  
+**Status:** Logical MVP model plus accepted RP-TURN-010/011 baseline and bounded RP-TURN-012 raw assessment persistence implementation pending review  
 **Reviewed:** 2026-08-01
 
 ## Purpose
@@ -12,7 +12,7 @@
 
 และรักษาทางไปสู่ Prove → Opportunity โดยไม่ทำให้คะแนน diagnostic ที่ยังไม่ validate กลายเป็น automated hiring gate
 
-เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle โดย RP-TURN-010 นำเก้าตารางฐานที่ได้รับอนุญาตไปสร้างเป็น Drizzle schema/migration และ RP-TURN-011 เพิ่มเฉพาะ `user_profiles` พร้อม Clerk Development mapping boundary สำหรับ synthetic alpha; entity อื่นในเอกสารยังเป็นแบบจำลองอนาคต และ managed PostgreSQL/production identity vendor ยังไม่ได้รับอนุมัติ
+เอกสารนี้กำหนด logical entities, ownership, versioning, privacy และ lifecycle โดย RP-TURN-010 นำเก้าตารางฐานที่ได้รับอนุญาตไปสร้างเป็น Drizzle schema/migration, RP-TURN-011 เพิ่ม `user_profiles` พร้อม Clerk Development mapping boundary และ RP-TURN-012 เพิ่มเฉพาะ `assessment_sessions`/`assessment_responses` สำหรับ synthetic alpha; entity อื่นในเอกสารยังเป็นแบบจำลองอนาคต และ managed PostgreSQL/production identity vendor ยังไม่ได้รับอนุมัติ
 
 ## Modeling principles
 
@@ -369,6 +369,41 @@ Pure TypeScript validation requires exact object keys, compatible schema/assessm
 
 This storage choice is prototype-only and non-production: it is scoped to the current browser tab/session, is not guaranteed durable and does not provide cross-device resume. Any durable assessment response design requires a separately reviewed privacy, consent, authentication, retention, export/deletion and server-persistence turn.
 
+## RP-TURN-012 persisted synthetic-attempt boundary
+
+The separately protected `/[locale]/assessment/attempt` path implements the authorized durable slice without importing the RP-TURN-007 browser record. PostgreSQL is authoritative only inside this explicit signed-in flow. Selected item/option IDs remain P3 sensitive assessment data even though every scenario is synthetic.
+
+### `assessment_sessions` implemented columns and lifecycle
+
+| Field | Implemented constraint |
+|---|---|
+| `id` | Internal UUID primary key; never placed in a browser DTO or URL |
+| `user_id` | Internal `user_accounts.id`; forced-RLS owner and immutable |
+| `assessment_version_id` | Exact published immutable version; immutable composite anchor for items/responses |
+| `consent_record_id` | Exact granted `service-profile-learning-state` / `alpha-privacy-v1` receipt used at start; immutable and server-selected |
+| `status` | Only `in_progress` or `submitted`; only forward transition is accepted |
+| `last_item_version_id` | Nullable resume marker with composite FK to the same assessment version |
+| `started_at`, `updated_at`, `submitted_at` | Database-owned `timestamptz`; submitted timestamp exists only after complete atomic submission |
+
+A partial unique index permits at most one active owner/version session, while the alpha insert guard also refuses a replacement after submission because re-assessment is out of scope. Concurrent starts converge through the DAL advisory lock and database uniqueness. Submitted rows cannot reopen, update or delete. No role/function/experience snapshot is stored because it is unnecessary for this slice.
+
+### `assessment_responses` implemented payload and provenance
+
+| Field | Implemented constraint |
+|---|---|
+| `id` | Internal UUID primary key; server/database only |
+| `session_id`, `assessment_version_id`, `assessment_item_version_id` | Composite FKs require one exact session/assessment/item lineage |
+| `response_payload` | Exact JSON object `{ "schemaVersion": "assessment-response-v1", "selectedOptionId": <accepted ID> }` only |
+| `revision` | Positive, monotonic per session/item and unique |
+| `supersedes_response_id` | Explicit same-session prior revision; unique when present |
+| `client_mutation_id` | UUID unique per session; identical retry resolves to the stored revision |
+| `is_active` | Exactly one active row for every answered session/item, enforced by partial uniqueness plus a deferred constraint trigger |
+| `created_at` | Database-owned `timestamptz` |
+
+The item response schema contains only the canonical option-ID allowlist for its published version. Database triggers reject unknown/mismatched items or options, extra/malformed payload fields, skipped/branched revisions, incomplete submission and all post-submit response insertion/update/deletion. The application may insert and deactivate the prior active row within one transaction but cannot update payload columns or delete history. Stale expected revisions return a client-safe conflict rather than overwrite.
+
+The client may receive localized item presentation, item/option IDs, its current selections, revision numbers and non-sensitive status only. It never receives owner/session/row UUIDs, provider subject, consent history, localized-copy persistence, rubric points, target mappings, framework weights, score/result/recommendation fields or database errors. No answer is stored in local/session storage, cookies, query strings, fragments, analytics, console output or logs by this route.
+
 ## Learning content and practice
 
 ### `lesson_version`
@@ -517,15 +552,15 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 ## Authorization and database policy
 
-### Implemented RP-TURN-010 baseline and RP-TURN-011 extension
+### Implemented RP-TURN-010 baseline and RP-TURN-011/012 extensions
 
-The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds only `user_profiles`, bringing the fresh two-migration schema to ten tables: `user_accounts`, `external_identities`, `consent_records`, `user_profiles`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions` and `assessment_item_competencies`.
+The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`, bringing the fresh three-migration schema to twelve tables: `user_accounts`, `external_identities`, `consent_records`, `user_profiles`, `framework_versions`, `competency_versions`, `scoring_model_versions`, `assessment_versions`, `assessment_item_versions`, `assessment_item_competencies`, `assessment_sessions` and `assessment_responses`.
 
 One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
 `user_accounts`, `external_identities`, `consent_records` and `user_profiles` have forced RLS. Both the table-owning migration role and normal application role resolve owned rows through a transaction-local `app.current_user_id`; without valid context both see zero provider-identity rows. The normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. A hardened `SECURITY DEFINER` function exposes only Clerk resolve-or-provision to the application role: it fixes `search_path`, rejects other provider/subject shapes, serializes on the mapping key, relies on provider/subject uniqueness, provisions account and mapping atomically, revokes `PUBLIC` and grants only runtime execution. The function owner is a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role with only required table operations and narrow forced-RLS policies; neither application nor migration owner can assume it after the privileged bootstrap revokes temporary migration membership. The server may call the function only after a validated Clerk session and then establishes the internal UUID context. Browser input never controls the provider subject or context.
 
-The RP-TURN-011 extension persists only a controlled profile and append-only service-data consent receipts. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Assessment sessions, raw responses, scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage, real identities and production accounts remain excluded. The disposable PostgreSQL harness uses only synthetic users and temporary credentials outside the repository.
+The RP-TURN-011 extension persists a controlled profile and append-only service-data consent receipts. RP-TURN-012 adds only owner-scoped synthetic assessment sessions and raw selected-option revision history. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Scoring runs, persisted results, recommendations, lesson progress, XP, proof/evidence storage, real identities and production accounts remain excluded. The disposable PostgreSQL harness uses only synthetic users, repository-local synthetic published definitions and temporary credentials outside the repository.
 
 - Browser code never receives a privileged database credential.
 - Server Data Access Layer checks active account, required role, owner/relationship and requested fields.
@@ -533,11 +568,12 @@ The RP-TURN-011 extension persists only a controlled profile and append-only ser
 - PostgreSQL RLS is enabled on user-owned P2/P3 tables when provider context supports it; owner policies compare the trusted application user context to `user_id`.
 - Service/maintenance roles are separate, short-lived where possible and audited. The normal application path does not use a table-owner or `BYPASSRLS` role.
 - Staff support access is not implied by `admin`; define explicit purposes and audited break-glass behavior before pilot.
-- Integration tests create synthetic users and prove own behavior plus cross-user select/insert/update/delete, missing context and malformed context fail closed as applicable across all four user-owned tables. They also prove normal owner/application roles cannot enumerate identity mappings without context, the credentialless resolver cannot be assumed, `PUBLIC` cannot execute it, the application can execute only this bounded privileged function, concurrent first sign-ins converge and malformed provider subjects fail closed.
+- Integration tests create synthetic users and prove own behavior plus cross-user select/insert/update/delete, missing context and malformed context fail closed as applicable across all six user-owned tables. They also prove normal owner/application roles cannot enumerate identity mappings without context, the credentialless resolver cannot be assumed, `PUBLIC` cannot execute it, the application can execute only the bounded identity function, concurrent first sign-ins/assessment starts converge, mutation retry is idempotent, concurrent response saves produce one winner/one conflict and malformed provider/assessment inputs fail closed.
 
 ## Key invariants and indexes
 
 - Unique provider identity mapping and unique published business version keys
+- One bounded alpha assessment session per owner/version, one active response revision per answered item and unique client mutation/revision/supersession provenance
 - Foreign keys prevent answers/scores/attempts from referencing mismatched framework/content versions
 - Published versions reject content/provenance mutation, allow only status-only retirement and become fully immutable when retired; corrections create a new version
 - Only submitted sessions can produce completed scoring runs

@@ -42,6 +42,8 @@ const childOutput = [];
 const browserMessages = [];
 const applicationRequestUrls = [];
 const applicationJsonResponses = [];
+const thirdPartyRequestBodies = [];
+const selectedSmokeOptionIds = [];
 let server;
 let browser;
 let context;
@@ -171,6 +173,12 @@ async function databaseState() {
        (SELECT count(*)::integer FROM external_identities WHERE provider = 'clerk') AS identity_count,
        (SELECT count(*)::integer FROM consent_records) AS consent_count,
        (SELECT count(*)::integer FROM user_profiles) AS profile_count,
+       (SELECT count(*)::integer FROM assessment_sessions) AS session_count,
+       (SELECT count(*)::integer FROM assessment_sessions WHERE status = 'submitted')
+         AS submitted_session_count,
+       (SELECT count(*)::integer FROM assessment_responses) AS response_count,
+       (SELECT count(*)::integer FROM assessment_responses WHERE is_active)
+         AS active_response_count,
        (SELECT user_id::text FROM external_identities WHERE provider = 'clerk' LIMIT 1) AS internal_user_id,
        (SELECT provider_subject FROM external_identities WHERE provider = 'clerk' LIMIT 1) AS provider_subject,
        (SELECT count(*)::integer FROM user_accounts AS row_data
@@ -180,6 +188,10 @@ async function databaseState() {
        (SELECT count(*)::integer FROM consent_records AS row_data
         WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
        (SELECT count(*)::integer FROM user_profiles AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM assessment_sessions AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM assessment_responses AS row_data
         WHERE strpos(to_jsonb(row_data)::text, $1) > 0) AS email_copy_count`,
     [syntheticEmail],
   );
@@ -319,6 +331,33 @@ async function verifyBrowserPrivacy(page) {
   assertNoSensitiveValue(applicationJsonResponses.join("\n"), "application JSON responses");
   assertNoSensitiveValue(browserMessages.join("\n"), "browser logs");
   assertNoSensitiveValue(childOutput.join("\n"), "server logs");
+  for (const selectedOptionId of selectedSmokeOptionIds) {
+    assert.equal(
+      JSON.stringify(storage).includes(selectedOptionId),
+      false,
+      "answers stay out of storage",
+    );
+    assert.equal(
+      applicationUrlsWithoutHandshakeValues.join("\n").includes(selectedOptionId),
+      false,
+      "answers stay out of URLs",
+    );
+    assert.equal(
+      browserMessages.join("\n").includes(selectedOptionId),
+      false,
+      "answers stay out of browser logs",
+    );
+    assert.equal(
+      childOutput.join("\n").includes(selectedOptionId),
+      false,
+      "answers stay out of server logs",
+    );
+    assert.equal(
+      thirdPartyRequestBodies.join("\n").includes(selectedOptionId),
+      false,
+      "answers stay out of third-party requests",
+    );
+  }
 }
 
 const port = await reservePort();
@@ -397,6 +436,7 @@ try {
   page.on("console", (message) => browserMessages.push(`${message.type()}:${message.text()}`));
   page.on("request", (request) => {
     if (request.url().startsWith(baseUrl)) applicationRequestUrls.push(request.url());
+    else if (request.postData()) thirdPartyRequestBodies.push(request.postData());
   });
   page.on("response", async (response) => {
     if (
@@ -428,9 +468,71 @@ try {
   const saved = await databaseState();
   assert.equal(saved.consent_count, 1, "one granted consent receipt must exist");
   assert.equal(saved.profile_count, 1, "one controlled profile must exist");
+  assert.equal(saved.session_count, 0, "profile setup must not create an assessment session");
   assert.equal(saved.email_copy_count, 0, "the saved data must not contain the email");
 
+  await page.goto(`${baseUrl}/th/assessment/attempt`);
+  await page.getByRole("button", { name: "เริ่มการตอบแบบบันทึก", exact: true }).click();
+  await page.waitForURL(
+    (url) => url.origin === baseUrl && url.pathname === "/th/assessment/attempt",
+  );
+  let attemptForm = page.locator("form.assessment-question-form");
+  await attemptForm.waitFor();
+  const firstSelectedOption = await attemptForm.getByRole("radio").nth(1).getAttribute("value");
+  assert(firstSelectedOption);
+  selectedSmokeOptionIds.push(firstSelectedOption);
+  await attemptForm.getByRole("radio").nth(1).check();
+  await attemptForm.getByRole("button", { name: "บันทึกและไปข้อต่อไป" }).click();
+  await page.getByRole("heading", { name: "สถานการณ์ 2 จาก 6" }).waitFor();
+  await page.getByRole("button", { name: "ย้อนกลับ", exact: true }).click();
+  attemptForm = page.locator("form.assessment-question-form");
+  const correctedOption = await attemptForm.getByRole("radio").nth(2).getAttribute("value");
+  assert(correctedOption);
+  selectedSmokeOptionIds.push(correctedOption);
+  await attemptForm.getByRole("radio").nth(2).check();
+  await attemptForm.getByRole("button", { name: "บันทึกและไปข้อต่อไป" }).click();
+  await page.getByRole("heading", { name: "สถานการณ์ 2 จาก 6" }).waitFor();
+  await page.reload();
+  await page.getByRole("heading", { name: "สถานการณ์ 2 จาก 6" }).waitFor();
+
+  for (let index = 1; index < 6; index += 1) {
+    const form = page.locator("form.assessment-question-form");
+    await form.waitFor();
+    const selectedOption = await form.getByRole("radio").nth(1).getAttribute("value");
+    assert(selectedOption);
+    selectedSmokeOptionIds.push(selectedOption);
+    await form.getByRole("radio").nth(1).check();
+    await form
+      .getByRole("button", { name: index === 5 ? "บันทึกและตรวจทาน" : "บันทึกและไปข้อต่อไป" })
+      .click();
+    if (index < 5) {
+      await page.getByRole("heading", { name: `สถานการณ์ ${index + 2} จาก 6` }).waitFor();
+    }
+  }
+  await page.getByRole("heading", { name: "ตรวจทานก่อนส่ง" }).waitFor();
+  await page.getByRole("button", { name: "ส่งและล็อกคำตอบดิบ", exact: true }).dblclick();
+  await page.getByRole("heading", { name: "เซสชันถูกล็อกเรียบร้อย" }).waitFor();
+  await page.reload();
+  await page.getByRole("heading", { name: "เซสชันถูกล็อกเรียบร้อย" }).waitFor();
+  assert.equal(await page.locator("form.assessment-question-form, input[type=radio]").count(), 0);
+
+  const persisted = await databaseState();
+  assert.equal(persisted.session_count, 1, "one persisted assessment session must exist");
+  assert.equal(persisted.submitted_session_count, 1, "the persisted session must be submitted");
+  assert.equal(persisted.response_count, 7, "one correction must preserve seven raw revisions");
+  assert.equal(persisted.active_response_count, 6, "each answered item has one active response");
+  assert.equal(
+    persisted.email_copy_count,
+    0,
+    "persisted assessment data must not contain the email",
+  );
+
+  await page.goto(`${baseUrl}/th/profile`);
+  await page.locator("form.profile-form").waitFor();
   await signOut(page, "th");
+  await page.goto(`${baseUrl}/th/assessment/attempt`);
+  await page.waitForURL((url) => url.origin === baseUrl && url.pathname.startsWith("/th/sign-in"));
+  assert.equal(await page.locator("form.assessment-question-form").count(), 0);
   await page.goto(`${baseUrl}/th/profile`);
   await page.waitForURL((url) => url.origin === baseUrl && url.pathname.startsWith("/th/sign-in"));
   assert.equal(
@@ -440,6 +542,8 @@ try {
   );
 
   await submitEmailCode(page, "sign-in", "th", "/en/profile", "/th");
+  await page.goto(`${baseUrl}/th/assessment/attempt`);
+  await page.getByRole("heading", { name: "เซสชันถูกล็อกเรียบร้อย" }).waitFor();
   await page.goto(`${baseUrl}/th/profile`);
   await page.locator("form.profile-form").waitFor();
   await assertSingleMapping(internalUserId);
@@ -481,7 +585,7 @@ try {
 
 if (smokePassed && syntheticIdentityCreated && syntheticIdentityDeleted && !process.exitCode) {
   console.log(
-    "Clerk Development smoke PASS (localized email-code sign-up/sign-in, one stable internal mapping, consent/profile, logout denial, safe returns, privacy boundaries and verified synthetic identity deletion).",
+    "Clerk Development smoke PASS (localized email-code sign-up/sign-in, one stable internal mapping, consent/profile, persisted start/save/correction/refresh/re-auth/submission boundaries, logout denial, safe returns, privacy boundaries and verified synthetic identity deletion).",
   );
 } else if (!process.exitCode) {
   throw new Error("The Clerk Development smoke did not satisfy its cleanup contract.");

@@ -27,6 +27,10 @@ export const assessmentItemType = pgEnum("assessment_item_type", [
   "scenario_choice",
   "self_reflection",
 ]);
+export const assessmentSessionStatus = pgEnum("assessment_session_status", [
+  "in_progress",
+  "submitted",
+]);
 
 const utcTimestamp = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const versionedJsonCheck = (column: { name: string }) =>
@@ -92,6 +96,7 @@ export const consentRecords = pgTable(
   },
   (table) => [
     index("consent_records_user_occurred_idx").on(table.userId, table.occurredAt),
+    unique("consent_records_id_user_unique").on(table.id, table.userId),
     check("consent_records_purpose_not_blank", sql`btrim(${table.purposeCode}) <> ''`),
     check("consent_records_notice_not_blank", sql`btrim(${table.noticeVersion}) <> ''`),
     check(
@@ -329,6 +334,7 @@ export const assessmentItemVersions = pgTable(
       table.displayOrder,
     ),
     unique("assessment_item_versions_id_framework_unique").on(table.id, table.frameworkVersionId),
+    unique("assessment_item_versions_id_assessment_unique").on(table.id, table.assessmentVersionId),
     foreignKey({
       name: "assessment_item_versions_assessment_framework_fk",
       columns: [table.assessmentVersionId, table.frameworkVersionId],
@@ -390,6 +396,115 @@ export const assessmentItemCompetencies = pgTable(
   ],
 );
 
+export const assessmentSessions = pgTable(
+  "assessment_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    assessmentVersionId: uuid("assessment_version_id").notNull(),
+    consentRecordId: uuid("consent_record_id").notNull(),
+    status: assessmentSessionStatus("status").notNull().default("in_progress"),
+    lastItemVersionId: uuid("last_item_version_id"),
+    startedAt: utcTimestamp("started_at").notNull().defaultNow(),
+    updatedAt: utcTimestamp("updated_at").notNull().defaultNow(),
+    submittedAt: utcTimestamp("submitted_at"),
+  },
+  (table) => [
+    unique("assessment_sessions_id_user_unique").on(table.id, table.userId),
+    unique("assessment_sessions_id_assessment_unique").on(table.id, table.assessmentVersionId),
+    uniqueIndex("assessment_sessions_one_active_per_owner_version")
+      .on(table.userId, table.assessmentVersionId)
+      .where(sql`${table.status} = 'in_progress'`),
+    index("assessment_sessions_user_started_idx").on(table.userId, table.startedAt),
+    foreignKey({
+      name: "assessment_sessions_user_fk",
+      columns: [table.userId],
+      foreignColumns: [userAccounts.id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "assessment_sessions_assessment_fk",
+      columns: [table.assessmentVersionId],
+      foreignColumns: [assessmentVersions.id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "assessment_sessions_consent_owner_fk",
+      columns: [table.consentRecordId, table.userId],
+      foreignColumns: [consentRecords.id, consentRecords.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "assessment_sessions_last_item_assessment_fk",
+      columns: [table.lastItemVersionId, table.assessmentVersionId],
+      foreignColumns: [assessmentItemVersions.id, assessmentItemVersions.assessmentVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "assessment_sessions_submission_timestamp_check",
+      sql`(${table.status} = 'in_progress' AND ${table.submittedAt} IS NULL) OR (${table.status} = 'submitted' AND ${table.submittedAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const assessmentResponses = pgTable(
+  "assessment_responses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sessionId: uuid("session_id").notNull(),
+    assessmentVersionId: uuid("assessment_version_id").notNull(),
+    assessmentItemVersionId: uuid("assessment_item_version_id").notNull(),
+    responsePayload: jsonb("response_payload").notNull(),
+    revision: integer("revision").notNull(),
+    supersedesResponseId: uuid("supersedes_response_id"),
+    clientMutationId: uuid("client_mutation_id").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("assessment_responses_id_session_unique").on(table.id, table.sessionId),
+    uniqueIndex("assessment_responses_session_mutation_unique").on(
+      table.sessionId,
+      table.clientMutationId,
+    ),
+    uniqueIndex("assessment_responses_one_active_per_item")
+      .on(table.sessionId, table.assessmentItemVersionId)
+      .where(sql`${table.isActive} = true`),
+    index("assessment_responses_session_created_idx").on(table.sessionId, table.createdAt),
+    foreignKey({
+      name: "assessment_responses_session_assessment_fk",
+      columns: [table.sessionId, table.assessmentVersionId],
+      foreignColumns: [assessmentSessions.id, assessmentSessions.assessmentVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "assessment_responses_item_assessment_fk",
+      columns: [table.assessmentItemVersionId, table.assessmentVersionId],
+      foreignColumns: [assessmentItemVersions.id, assessmentItemVersions.assessmentVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "assessment_responses_supersedes_session_fk",
+      columns: [table.supersedesResponseId, table.sessionId],
+      foreignColumns: [table.id, table.sessionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("assessment_responses_revision_positive", sql`${table.revision} > 0`),
+    check(
+      "assessment_responses_supersession_shape_check",
+      sql`(${table.revision} = 1 AND ${table.supersedesResponseId} IS NULL) OR (${table.revision} > 1 AND ${table.supersedesResponseId} IS NOT NULL)`,
+    ),
+    check("assessment_responses_payload_json_check", versionedJsonCheck(table.responsePayload)),
+  ],
+);
+
 export const databaseSchema = {
   userAccounts,
   externalIdentities,
@@ -401,4 +516,6 @@ export const databaseSchema = {
   assessmentVersions,
   assessmentItemVersions,
   assessmentItemCompetencies,
+  assessmentSessions,
+  assessmentResponses,
 } as const;

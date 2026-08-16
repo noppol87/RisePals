@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AssessmentPlayer } from "@/components/assessment-player";
-import { assessmentExampleResultPath, assessmentPath, localePath } from "@/lib/i18n/config";
+import {
+  assessmentExampleResultPath,
+  assessmentPath,
+  localePath,
+  persistedAssessmentPath,
+} from "@/lib/i18n/config";
 import { getCatalogForSegment } from "@/lib/i18n/server";
 import { createAssessmentPlayerView } from "@/modules/assessment/player/view";
 
@@ -43,6 +48,7 @@ export default async function AssessmentPlayerPage({ params }: AssessmentPlayerP
       exampleResultHref={assessmentExampleResultPath(resolved.locale)}
       homeHref={localePath(resolved.locale)}
       messages={resolved.catalog.assessment}
+      persistedAttemptHref={persistedAssessmentPath(resolved.locale)}
       view={createAssessmentPlayerView(resolved.locale)}
     />
   );
