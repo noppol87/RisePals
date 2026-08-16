@@ -642,7 +642,7 @@ The exact lockfile adds `@clerk/nextjs 7.7.0` and `@clerk/localizations 4.14.1` 
 
 Clerk SDK imports are limited to small `.mjs` runtime shims under `src/modules/identity/providers/clerk/`. Reviewed local `.d.mts` files type only the adapter surface because Clerk 7.7.0's published declaration graph conflicts with this repository's `exactOptionalPropertyTypes` and references optional wallet/password packages not installed for the email-code flow. Application strict mode and `skipLibCheck: false` remain unchanged; every Rise Pals TypeScript source and the local adapter declarations are checked.
 
-To run the authorized bounded real smoke, Jeff must complete this manual dashboard/environment checklist without sharing values in chat:
+To run an authorized bounded real smoke, use this dashboard/environment checklist without sharing values in chat:
 
 1. Create or select one Jeff-controlled Clerk **Development** application on Free/Hobby; do not activate Production or add payment information.
 2. Configure email verification code as the only alpha sign-up/sign-in method; do not enable passwords, social OAuth, SMS or Organizations.
@@ -658,6 +658,14 @@ CLERK_SECRET_KEY=sk_test_...
 
 Never paste values into chat, commits, screenshots, logs or handoff text. Incomplete pairs and `pk_live_`/`sk_live_` fail closed. Do not create/activate Production, add payment details, social OAuth, SMS, passwords, Organizations or custom domains. Test only with Clerk's reserved synthetic email convention and remove every synthetic identity before handoff. Without keys, sign-in/sign-up/profile routes render an explicit unavailable state, make no Clerk request and do not initialize the database pool.
 
+Run the opt-in smoke only after a secret-free production build exists:
+
+```powershell
+npm run test:auth:clerk:development
+```
+
+The command refuses absent, incomplete or live keys. It creates a loopback-only disposable PostgreSQL cluster, applies the reviewed migrations, starts the production build, uses Clerk's official synthetic-email/testing-token convention, and succeeds only after the unique remote identity is deleted and verified. Its database, logs and generated credentials are removed in `finally`; the normal `npm run check` and `npm run test:e2e` remain secret-free and independent of Clerk availability.
+
 ### Server authorization, profile and consent
 
 `IdentityProvider` returns only a validated server session state and provider subject. The server-only authorization transaction takes a provider-key advisory lock, calls the hardened resolve-or-provision function through the normal application role, checks the internal account state and only then establishes `app.current_user_id`. Active accounts proceed; absent, invalid, expired, unavailable, suspended, deletion-pending and deleted states fail closed. Provider subjects and tokens are never client DTO fields. Clerk manages logout/session cookies; Rise Pals creates no custom auth cookie or token store.
@@ -666,22 +674,25 @@ The dynamic `/th|en/sign-in`, `/sign-up`, `/onboarding` and `/profile` routes pr
 
 `alpha-privacy-v1` covers the `service-profile-learning-state` purpose only. Its proof digest is SHA-256 over one canonical versioned contract. Consent mutations lock the internal account row, use post-lock `clock_timestamp()` and append grant/decline/withdrawal receipts. Current state sorts by `occurred_at`, then receipt UUID. Decline never invokes profile persistence; profile upsert rechecks a current grant inside the same owner-scoped transaction. Withdrawal is described as access-state change, not deletion.
 
-No Clerk keys/resource or synthetic provider identity was available in the RP-TURN-011 implementation workspace, so no real-provider smoke or remote identity deletion was performed. This is a known acceptance blocker and the turn is `Partial`, not production-ready.
+On 2026-08-16 the Jeff-controlled Personal Workspace/Hobby/Development application was verified with email verification code as its only method; password authentication, social/OAuth providers and Organizations were disabled. No Production instance, payment method, SMS or custom domain was created. The matching Development pair remains locally configured in ignored `.env.local`; only presence/test form, matching Development instance, ignore status and non-staged/non-tracked state were verified, and no value or fragment is recorded.
+
+The real-provider smoke created one unique reserved synthetic test identity, rendered the real Thai and English Clerk components, completed email-code sign-up/sign-in, reused one internal UUID, persisted one service-data consent and controlled profile without copying email, denied profile access after logout, and rejected cross-locale/external return targets. Cleanup deleted and re-queried the remote identity, stopped PostgreSQL and removed temporary data, logs and credentials. Clerk's supported Development session synchronization transiently used the vendor-controlled `__clerk_handshake` query parameter during authentication; the harness rejects every other JWT-bearing application URL parameter and verifies the final application URL has no query or fragment. This Development-only behavior is not production approval.
 
 ### RP-TURN-011 implementation verification
 
 | Check | Result |
 |---|---|
-| `npm ci` | PASS — 499 packages installed, 500 audited, 0 vulnerabilities; only the existing deprecated `@esbuild-kit` notices were emitted |
+| `npm ci` | PASS WITH AUDIT FINDING — 499 packages installed, 500 audited; npm reported one high vulnerability and only the existing deprecated `@esbuild-kit` notices |
 | pending scripts / strict policy | PASS — `npm approve-scripts --allow-scripts-pending --json` reported no unreviewed package; `npm config get strict-allow-scripts` returned `true` |
 | Clerk dependency pins | PASS — `@clerk/nextjs 7.7.0` and `@clerk/localizations 4.14.1` are exact direct dependencies |
 | `npm run format:check` / `npm run lint` / `npm run typecheck` | PASS — Prettier, zero-warning ESLint, Next route generation and both strict Rise Pals TypeScript projects completed |
 | `npm run test` / `npm run check` | PASS — 25 files / 209 tests; aggregate gate completed the 17-page production build with sign-in/sign-up/onboarding/profile dynamic and the established public routes static |
 | `npm run test:e2e` | PASS — Chromium 56/56, including bilingual sign-in/sign-up unavailable boundaries, zero unexpected third-party requests without keys, 320px reflow and axe checks. Next.js emitted four internal `NoFallbackError` diagnostic lines while Playwright exercised negative/dynamic-route cases; the command exited 0 with no failed or user-visible cases. |
 | `npm run db:test:disposable` | PASS — PostgreSQL 18.4, 108 statements across 2 migrations, 10 tables, credentialless/non-assumable resolver role, zero-context identity non-enumeration, atomic concurrent Clerk provisioning, profile controls, consent serialization, sealed lifecycle/concurrency rules and complete two-user forced-RLS matrix; cluster/data/logs/credentials removed |
-| production/full npm audits | PASS — 0 vulnerabilities in both graphs |
-| production client boundary | PASS with recorded upstream marker — 16 client chunks / 1,056,510 bytes contain 0 database URL, migration URL, disposable-bootstrap URL, provider-subject, Drizzle, PostgreSQL/private-schema, trusted-context or Clerk secret-value markers. The Clerk client SDK itself contains the literal environment-variable name `CLERK_SECRET_KEY`; no value/prefix is bundled, and all six result/lesson/onboarding/profile/sign-in/sign-up manifests contain 0 Rise Pals server/DAL markers. |
-| real Clerk Development smoke | NOT RUN — no Jeff-supplied ignored Development keys/resource existed; no synthetic remote identity was created, so there was nothing to delete. Turn status remains Partial. |
+| production/full npm audits | FAIL — both report one high `nanoid <3.3.18` advisory (`GHSA-2v37-7h3g-55p8`) through PostCSS `8.5.25`, which is the exact reviewed root override used by the Next/Tailwind/Vite graph; no dependency or lockfile change was made in this bounded R2 |
+| production client boundary | PASS with recorded upstream marker — 17 client chunks / 1,092,380 bytes contain 0 database URL, migration URL, disposable-bootstrap URL, provider-subject, identity-resolver, Drizzle, PostgreSQL URL or Clerk secret-value-prefix markers. The Clerk client SDK itself contains one literal environment-variable name `CLERK_SECRET_KEY`; no value/prefix is bundled, and all six result/lesson/onboarding/profile/sign-in/sign-up manifests contain 0 Rise Pals server/DAL markers. |
+| `npm run test:auth:clerk:development` | PASS — real Thai/English Clerk email-code components, one synthetic sign-up identity, same-locale onboarding, one account/mapping, consent/profile, logout denial, repeat sign-in to the same internal UUID, cross-locale/external return rejection, browser/log/client privacy checks and verified remote identity deletion; disposable PostgreSQL applied 108 statements across 2 migrations to 10 empty tables and removed its process/data/logs/credentials |
+| ignored key-state proof | PASS — both Development values were present in test form and matched the same Development instance; `.env.local` was ignored, untracked, unstaged and retained locally without printing values |
 
 ## UTF-8 and Thai-content notes
 
@@ -705,10 +716,10 @@ RP-TURN-002 adds `.gitattributes` to keep Markdown at LF and to recognize intent
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
 - RP-TURN-009 is Accepted by Project Codex and adds one schema-validated Thai/English local lesson/practice prototype linked from the fixed synthetic result with an explicit non-personalized boundary and strict runtime copy-leaf validation.
 - RP-TURN-010 is Accepted by Project Codex and adds only the nine-table PostgreSQL/Drizzle definition baseline, one forward migration, split typed server/tooling connection boundary and disposable database verification.
-- RP-TURN-011 adds a second migration, a controlled synthetic-alpha profile/account boundary, protected routes and append-only service-data consent. It remains Partial pending Project Codex review and a real Clerk Development smoke; no Clerk resource, remote identity or real user/data was created.
+- RP-TURN-011 adds a second migration, a controlled synthetic-alpha profile/account boundary, protected routes and append-only service-data consent. The 2026-08-16 bounded real Clerk Development smoke passed and its synthetic identity was deleted; the turn remains Partial pending Project Codex review and disposition of the current dependency advisory, with no real user/data or production identity resource.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-local lesson prototype and the bounded account/profile/consent implementation. It is not a validated real assessment and creates no personalized result, real recommendation, published/externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage`; the example and lesson routes never read them. Lesson selections/feedback remain only in React memory, refresh resets them, no response is sent to a server and no durable assessment/lesson state or saved XP exists.
-- No cloud or paid resource, production database, persistent local database, Windows service, production account or deployment was created. The completed disposable cluster and credentials were removed.
+- No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No real-provider smoke, real profile/data, assessment session/response/result persistence, lesson progress, saved XP or proof storage exists. RP-TURN-012 is recommended but is not authorized or started.
+- No real profile/data, assessment session/response/result persistence, lesson progress, saved XP or proof storage exists. RP-TURN-012 is recommended but is not authorized or started.

@@ -1,5 +1,7 @@
 param(
-  [string]$PostgresBin = $env:RISE_PALS_POSTGRES_BIN
+  [string]$PostgresBin = $env:RISE_PALS_POSTGRES_BIN,
+  [ValidateSet("integration", "clerk-development-smoke")]
+  [string]$Mode = "integration"
 )
 
 $ErrorActionPreference = "Stop"
@@ -123,8 +125,18 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
 
   Write-Output "$(& postgres.exe --version)"
   Write-Output "Disposable listener: 127.0.0.1:$port (no service, SSL disabled only for loopback test isolation)"
-  & npm.cmd run db:test
-  if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+  if ($Mode -eq "integration") {
+    & npm.cmd run db:test
+    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+  } else {
+    if (-not (Test-Path -LiteralPath ".env.local" -PathType Leaf)) {
+      throw "The Clerk Development smoke requires an ignored .env.local file."
+    }
+    & node.exe scripts/auth/bootstrap-disposable-postgres.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Disposable smoke database bootstrap failed." }
+    & node.exe --env-file=.env.local scripts/auth/clerk-development-smoke.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Clerk Development smoke failed." }
+  }
 } catch {
   $runError = $_
 } finally {

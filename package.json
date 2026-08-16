@@ -19,6 +19,7 @@
     "db:prepare:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/prepare-postgres.ps1",
     "db:test": "node scripts/db/integration.mjs",
     "db:test:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1",
+    "test:auth:clerk:development": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1 -Mode clerk-development-smoke",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test --project=chromium",

@@ -1,4 +1,4 @@
-import type { NextRequest, NextResponse } from "next/server";
+import type { NextMiddleware } from "next/server";
 
 export function auth(): Promise<
   Readonly<{
@@ -7,4 +7,4 @@ export function auth(): Promise<
   }>
 >;
 
-export function clerkMiddleware(): (request: NextRequest) => NextResponse | Promise<NextResponse>;
+export function clerkMiddleware(): NextMiddleware;

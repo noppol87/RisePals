@@ -158,7 +158,7 @@ Gate:
 
 Outcome: selected identity provider behind the application boundary, minimal profile and versioned consent receipts.
 
-Implementation status: Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, dedicated sign-in/sign-up routes, same-locale redirect enforcement, protected routes, internal-account authorization, credentialless resolver role, controlled profile, second migration and append-only service-data consent are implemented pending Project Codex review. Because Jeff-supplied ignored Development keys were unavailable, no Clerk resource/identity or real-provider smoke exists and the turn must remain Partial until that bounded smoke and synthetic-user deletion can be reviewed.
+Implementation status: Clerk Development is selected only for a synthetic Free/Hobby alpha using email verification code; the provider boundary, dedicated sign-in/sign-up routes, same-locale redirect enforcement, protected routes, internal-account authorization, credentialless resolver role, controlled profile, second migration and append-only service-data consent are implemented pending Project Codex review. The bounded 2026-08-16 real Development smoke passed with one unique synthetic identity, one stable internal mapping, consent/profile persistence, logout denial and safe return targets; the identity and disposable PostgreSQL resources were deleted and verified. The turn remains Partial pending review and disposition of the current high transitive `nanoid` advisory.
 
 Gate:
 

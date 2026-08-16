@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-06  
-**Current phase:** Synthetic-alpha authentication/profile/consent implementation pending review and real-provider smoke; no real users or production service  
-**Current turn:** RP-TURN-011-R1 Partial pending Project Codex review
+**Status date:** 2026-08-16  
+**Current phase:** Synthetic-alpha authentication/profile/consent implementation and real-provider smoke pending Project Codex review; no real users or production service  
+**Current turn:** RP-TURN-011-R2 Partial pending Project Codex review; real Clerk Development smoke complete and one dependency advisory open
 
 ## Locked decisions
 
@@ -86,6 +86,7 @@
 - Second forward migration adding the controlled `profile-v1` `user_profiles` table with forced RLS plus a hardened, minimum-grant, concurrency-safe identity resolve-or-provision function owned by a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role that neither application nor migration owner may assume after bootstrap
 - Thai-first/English-complete sign-in, sign-up, onboarding and profile routes with same-locale safe return paths, fail-closed account states, controlled profile codes, Clerk-managed logout and no custom auth cookie/token storage
 - Versioned `alpha-privacy-v1` service-data notice, deterministic proof digest and serialized append-only grant/decline/withdrawal receipts; declining does not create or update a profile and withdrawal is not presented as deletion
+- Bounded real Clerk Development smoke on 2026-08-16 proving localized email-code sign-up/sign-in, one stable internal mapping, consent/profile persistence, logout denial, safe return targets and verified synthetic-identity deletion against disposable PostgreSQL
 
 ## Open decisions
 
@@ -114,12 +115,12 @@
 - Self-learning content production may become the largest operational bottleneck
 - Assessment, career and employment data will require strong privacy controls
 - The scaffold and localized shell prove technical and interaction foundations only; they contain no validated product flow and must not be presented as Milestone 1 user-experience progress
-- Current npm audits pass only with reviewed lockfile overrides for vulnerable transitive PostCSS and Sharp versions; future Next.js upgrades must re-evaluate and remove overrides when upstream is safe
+- Current npm audits report one high-severity `nanoid <3.3.18` advisory through the exact PostCSS `8.5.25` override; resolving that dependency graph requires separate review, and the existing PostCSS/Sharp overrides must not be changed silently
 - Drizzle `0.45.2` declarations span unsupported optional dialects under the repository's TypeScript settings; application typechecking retains `skipLibCheck: false`, while the isolated strict database-schema project skips third-party declaration checking only
 - RLS trusts a server-set transaction-local user UUID; exposing the application database credential or letting browser input set that context would break the security boundary
 - The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
-- Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the real-provider smoke remains unperformed until Jeff supplies ignored Development keys and completes required personal-account/dashboard actions
+- Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the vendor's supported Development session flow transiently uses `__clerk_handshake`; the final smoke URL was clean, but production provider/session/privacy suitability remains undecided
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
 ## Next recommended action
@@ -128,7 +129,7 @@
 
 Recommended goal after RP-TURN-011 review: add an owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions. RP-TURN-012 is recommended but is not authorized or started.
 
-RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 is implemented with deterministic/local PostgreSQL coverage but remains Partial pending Project Codex review and a real Clerk Development smoke test. No Clerk resource or identity, real account/data, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
+RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 now has deterministic/local PostgreSQL coverage and a successful bounded real Clerk Development smoke, but remains Partial pending Project Codex review and disposition of the current dependency advisory. The one synthetic provider identity was deleted and verified; no real account/data, production identity resource, production database, assessment session/response/result, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-012 and every later turn, branch-protection/CI change and VPS infrastructure action require their own approved brief.
 
 ## Turn history
 
@@ -145,4 +146,4 @@ RP-TURN-007, RP-TURN-008, RP-TURN-009 and RP-TURN-010 are Accepted. RP-TURN-011 
 | 008 | Accepted | Static Thai/English synthetic example result with exact canonical-fixture identity/content validation before scoring, two raw core signals, six unassessed cores, separate one-scenario +2 observations, complete limitations and a traceable planned/unavailable example practice; never reads player selections |
 | 009 | Accepted | Schema-validated Thai/English local lesson prototype with synthetic source-verification content, strict runtime copy-leaf validation, memory-only three-criterion practice, deterministic 0/20 preview XP, proof placeholder and no collection or persistence accepted by Project Codex |
 | 010 | Accepted | Nine-table PostgreSQL/Drizzle baseline with runtime/migration credential separation, decoded-role checks, sealed lifecycle and parent locking, complete forced-RLS matrix, reproducible disposable PostgreSQL preparation and deterministic build-to-E2E verification accepted by Project Codex; no production database or persisted learner activity |
-| 011 | Partial pending review | Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only account authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent implemented with synthetic deterministic verification; no Clerk keys/resource/identity was available, so real-provider smoke and synthetic identity cleanup were not applicable and acceptance readiness is not claimed |
+| 011 | Partial pending review | Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only account authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent verified by deterministic tests and the 2026-08-16 real Development smoke; the synthetic identity and disposable database were removed, local ignored Development keys remain configured, and one high transitive dependency advisory awaits review |

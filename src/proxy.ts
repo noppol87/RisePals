@@ -1,9 +1,6 @@
-import type { NextRequest } from "next/server";
 import { clerkDevelopmentProxy } from "@/modules/identity/providers/clerk/proxy";
 
-export default function proxy(request: NextRequest) {
-  return clerkDevelopmentProxy(request);
-}
+export default clerkDevelopmentProxy;
 
 export const config = {
   matcher: [

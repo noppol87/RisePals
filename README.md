@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-011 synthetic-alpha authentication/profile/consent implementation pending review and real Clerk smoke / no real users or production service  
-**Last updated:** 2026-08-06
+**Project status:** RP-TURN-011 synthetic-alpha authentication/profile/consent implementation and real Clerk Development smoke pending review / no real users or production service  
+**Last updated:** 2026-08-16
 
 ## Product thesis
 
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database baseline. RP-TURN-011 adds a synthetic-alpha authentication, controlled-profile and service-data-consent implementation; it does not create a Clerk resource, real account, production database, personalized result, published learning content or production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database baseline. RP-TURN-011 adds a synthetic-alpha authentication, controlled-profile and service-data-consent implementation against one Jeff-controlled Clerk Development resource; it does not create a real account, production identity resource, production database, personalized result, published learning content or production launch.
 
 Locale routes:
 
@@ -114,7 +114,7 @@ Clerk is behind an internal `IdentityProvider` boundary and is selected only for
 
 The bilingual `alpha-privacy-v1` notice covers only service profile and future learning-state processing, not marketing, analytics or research. Grant, decline and withdrawal append deterministic receipts; history is never overwritten. Declining cannot create/update a profile, and withdrawal is not account deletion.
 
-This remains a synthetic, non-production implementation. Clerk identity hosting in the United States is accepted only for synthetic alpha testing. No Development keys/resource/test identity was available during this turn, so no real-provider smoke was run and the turn remains Partial. Production provider suitability, legal/privacy/residency review, deletion orchestration, production PostgreSQL, credentials, backups and operations remain open. Assessment responses/results, lesson progress, XP and proof are still not persisted.
+This remains a synthetic, non-production implementation. Clerk identity hosting in the United States is accepted only for synthetic alpha testing. On 2026-08-16, one bounded real Development smoke created one synthetic test identity, proved localized email-code authentication and the internal account/profile/consent boundary, then deleted and rechecked that identity; no identifier is retained in Git or documentation. Ignored local Development keys remain configured for Jeff-authorized development use. Production provider suitability, legal/privacy/residency review, deletion orchestration, production PostgreSQL, credentials, backups and operations remain open. Assessment responses/results, lesson progress, XP and proof are still not persisted.
 
 Verified prerequisites for this branch:
 
@@ -141,9 +141,10 @@ npm run test:e2e:install
 npm run db:prepare:disposable
 npm run test:e2e
 npm run db:test:disposable
+npm run test:auth:clerk:development
 ```
 
-`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. Run `npm run build` before `npm run test:e2e`; Playwright serves that production output with `next start`, so build-to-browser verification does not reuse or overwrite development output. The browser suite verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings.
+`npm run test:e2e:install` installs only the pinned Playwright Chromium browser. Run `npm run build` before `npm run test:e2e`; Playwright serves that production output with `next start`, so build-to-browser verification does not reuse or overwrite development output. The browser suite verifies locale routing, document language, evidence behavior, the locale-matched player CTA, keyboard completion, answer validation, Back/refresh/clear/language-switch state behavior, the static example result and its text-equivalent signal map, the memory-only lesson practice and deterministic feedback, 320px reflow, desktop layout, reduced motion, absence of answer data in storage/URLs/requests/logs/cookies, absence of unexpected third-party requests and serious/critical axe findings. `npm run test:auth:clerk:development` is an explicit opt-in external smoke: it requires ignored Development keys, creates only a disposable PostgreSQL cluster and unique Clerk synthetic identity, and must verify both provider-identity deletion and local cleanup before succeeding.
 
 Copy `.env.example` to an ignored local environment file only when local configuration is needed. `APP_BASE_URL` is optional and accepts only a normalized HTTP(S) origin without credentials, a non-root path, query or fragment. Normal application runtime requires only `DATABASE_URL`; never place `DATABASE_MIGRATION_URL` or a table-owner credential in the production application environment. Migration/test tooling intentionally receives both URLs and verifies decoded role separation. The application identity must be a non-owner role without `BYPASSRLS`. The committed values are inert examples only. Never commit a real `.env` file or secret.
 
@@ -160,4 +161,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 through RP-TURN-010 are Accepted. RP-TURN-011 is implemented and locally verified but remains Partial pending Project Codex review and a real Clerk Development smoke. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the fixed result, lesson and new account/profile flows never read them. No real user/data, Clerk resource, published or externally validated lesson, production database, durable assessment/lesson session, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-012 is recommended next but is not authorized or started.
+RP-TURN-006 through RP-TURN-010 are Accepted. RP-TURN-011 is implemented and its bounded real Clerk Development smoke passed, but it remains Partial pending Project Codex review and disposition of one current high transitive dependency advisory. The player still produces no result; its selected item/option IDs may exist temporarily in same-tab `sessionStorage`, but the fixed result, lesson and new account/profile flows never read them. The synthetic smoke identity was deleted. No real user/data, production identity resource, published or externally validated lesson, production database, durable assessment/lesson session, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-012 is recommended next but is not authorized or started.
