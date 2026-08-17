@@ -582,8 +582,10 @@ try {
     concurrentPage.getByRole("button", { name: "สร้างผลลัพธ์สังเคราะห์", exact: true }).click(),
   ]);
   await Promise.all([
-    page.getByRole("heading", { name: "สัญญาณทักษะจาก 6 สถานการณ์จำลอง" }).waitFor(),
-    concurrentPage.getByRole("heading", { name: "สัญญาณทักษะจาก 6 สถานการณ์จำลอง" }).waitFor(),
+    page.getByRole("heading", { level: 2, name: "สัญญาณทักษะหลักที่มีหลักฐาน" }).waitFor(),
+    concurrentPage
+      .getByRole("heading", { level: 2, name: "สัญญาณทักษะหลักที่มีหลักฐาน" })
+      .waitFor(),
   ]);
   await concurrentPage.close();
 
@@ -671,6 +673,15 @@ try {
   await page.locator("form.profile-form").waitFor();
   await assertSingleMapping(internalUserId);
   await verifyBrowserPrivacy(page);
+  assert.equal(
+    childOutput.some(
+      (entry) =>
+        entry.includes("Refreshing the session token resulted in an infinite redirect loop") ||
+        entry.includes("instance keys do not match"),
+    ),
+    false,
+    "Clerk session refresh must not report a redirect loop or key mismatch",
+  );
 
   smokePassed = true;
 } catch (error) {
