@@ -28,6 +28,7 @@ function renderAttempt() {
         currentItemKey: view.items[0]!.key,
       }}
       locale="en"
+      resultHref="/en/assessment/result"
     />,
   );
   return { ...result, view };
@@ -76,8 +77,14 @@ describe("persisted assessment attempt client boundary", () => {
     }
     expect(container.innerHTML).not.toMatch(/assessmentVersionId|sessionId|userId/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Submit and lock raw responses" }));
+    const submitButton = screen.getByRole("button", { name: "Submit and lock raw responses" });
+    await waitFor(() => expect(submitButton).toBeEnabled());
+    fireEvent.click(submitButton);
     await screen.findByRole("heading", { name: "The session is locked" });
+    expect(screen.getByRole("link", { name: "Generate the synthetic result" })).toHaveAttribute(
+      "href",
+      "/en/assessment/result",
+    );
     expect(submitAction).toHaveBeenCalledWith("en");
   });
 

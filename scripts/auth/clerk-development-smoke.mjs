@@ -44,6 +44,7 @@ const applicationRequestUrls = [];
 const applicationJsonResponses = [];
 const thirdPartyRequestBodies = [];
 const selectedSmokeOptionIds = [];
+const resultDigestValues = [];
 let server;
 let browser;
 let context;
@@ -179,6 +180,27 @@ async function databaseState() {
        (SELECT count(*)::integer FROM assessment_responses) AS response_count,
        (SELECT count(*)::integer FROM assessment_responses WHERE is_active)
          AS active_response_count,
+       (SELECT count(*)::integer FROM scoring_runs) AS scoring_run_count,
+       (SELECT count(*)::integer FROM competency_scores) AS competency_score_count,
+       (SELECT count(*)::integer FROM multiplier_observations) AS multiplier_observation_count,
+       (SELECT count(*)::integer FROM score_explanations) AS score_explanation_count,
+       (SELECT count(*)::integer FROM priority_recommendations) AS priority_recommendation_count,
+       (SELECT run_number FROM scoring_runs ORDER BY run_number DESC LIMIT 1) AS run_number,
+       (SELECT run_kind FROM scoring_runs ORDER BY run_number DESC LIMIT 1) AS run_kind,
+       (SELECT input_digest FROM scoring_runs ORDER BY run_number DESC LIMIT 1) AS input_digest,
+       (SELECT output_digest FROM scoring_runs ORDER BY run_number DESC LIMIT 1) AS output_digest,
+       (SELECT array_agg(competency.competency_key ORDER BY competency.display_order)
+        FROM competency_scores AS score
+        JOIN competency_versions AS competency ON competency.id = score.competency_version_id)
+         AS core_keys,
+       (SELECT array_agg(competency.competency_key ORDER BY competency.display_order)
+        FROM multiplier_observations AS observation
+        JOIN competency_versions AS competency ON competency.id = observation.competency_version_id)
+         AS multiplier_keys,
+       (SELECT competency.competency_key
+        FROM priority_recommendations AS priority
+        JOIN competency_versions AS competency ON competency.id = priority.competency_version_id
+        LIMIT 1) AS priority_key,
        (SELECT user_id::text FROM external_identities WHERE provider = 'clerk' LIMIT 1) AS internal_user_id,
        (SELECT provider_subject FROM external_identities WHERE provider = 'clerk' LIMIT 1) AS provider_subject,
        (SELECT count(*)::integer FROM user_accounts AS row_data
@@ -192,6 +214,16 @@ async function databaseState() {
        (SELECT count(*)::integer FROM assessment_sessions AS row_data
         WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
        (SELECT count(*)::integer FROM assessment_responses AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM scoring_runs AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM competency_scores AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM multiplier_observations AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM score_explanations AS row_data
+        WHERE strpos(to_jsonb(row_data)::text, $1) > 0) +
+       (SELECT count(*)::integer FROM priority_recommendations AS row_data
         WHERE strpos(to_jsonb(row_data)::text, $1) > 0) AS email_copy_count`,
     [syntheticEmail],
   );
@@ -326,11 +358,19 @@ async function verifyBrowserPrivacy(page) {
     hash: location.hash,
   }));
   assert.deepEqual(finalLocation, { search: "", hash: "" }, "the final app URL must be clean");
-  assertNoSensitiveValue(JSON.stringify(storage), "browser storage");
-  assertNoSensitiveValue(applicationUrlsWithoutHandshakeValues.join("\n"), "application URLs");
-  assertNoSensitiveValue(applicationJsonResponses.join("\n"), "application JSON responses");
-  assertNoSensitiveValue(browserMessages.join("\n"), "browser logs");
-  assertNoSensitiveValue(childOutput.join("\n"), "server logs");
+  assertNoSensitiveValue(JSON.stringify(storage), "browser storage", resultDigestValues);
+  assertNoSensitiveValue(
+    applicationUrlsWithoutHandshakeValues.join("\n"),
+    "application URLs",
+    resultDigestValues,
+  );
+  assertNoSensitiveValue(
+    applicationJsonResponses.join("\n"),
+    "application JSON responses",
+    resultDigestValues,
+  );
+  assertNoSensitiveValue(browserMessages.join("\n"), "browser logs", resultDigestValues);
+  assertNoSensitiveValue(childOutput.join("\n"), "server logs", resultDigestValues);
   for (const selectedOptionId of selectedSmokeOptionIds) {
     assert.equal(
       JSON.stringify(storage).includes(selectedOptionId),
@@ -358,6 +398,22 @@ async function verifyBrowserPrivacy(page) {
       "answers stay out of third-party requests",
     );
   }
+}
+
+function trackPage(page) {
+  page.on("console", (message) => browserMessages.push(`${message.type()}:${message.text()}`));
+  page.on("request", (request) => {
+    if (request.url().startsWith(baseUrl)) applicationRequestUrls.push(request.url());
+    else if (request.postData()) thirdPartyRequestBodies.push(request.postData());
+  });
+  page.on("response", async (response) => {
+    if (
+      response.url().startsWith(baseUrl) &&
+      response.headers()["content-type"]?.includes("application/json")
+    ) {
+      applicationJsonResponses.push(await response.text());
+    }
+  });
 }
 
 const port = await reservePort();
@@ -433,19 +489,7 @@ try {
   });
 
   const page = await context.newPage();
-  page.on("console", (message) => browserMessages.push(`${message.type()}:${message.text()}`));
-  page.on("request", (request) => {
-    if (request.url().startsWith(baseUrl)) applicationRequestUrls.push(request.url());
-    else if (request.postData()) thirdPartyRequestBodies.push(request.postData());
-  });
-  page.on("response", async (response) => {
-    if (
-      response.url().startsWith(baseUrl) &&
-      response.headers()["content-type"]?.includes("application/json")
-    ) {
-      applicationJsonResponses.push(await response.text());
-    }
-  });
+  trackPage(page);
 
   await submitEmailCode(page, "sign-up", "th", "/th/onboarding", "/th/onboarding");
   const users = await listSyntheticUsers();
@@ -527,12 +571,84 @@ try {
     "persisted assessment data must not contain the email",
   );
 
+  await page.getByRole("link", { name: "ไปสร้างผลลัพธ์สังเคราะห์", exact: true }).click();
+  await page.getByRole("heading", { name: "พร้อมสร้างผลลัพธ์อย่างชัดเจน" }).waitFor();
+  const concurrentPage = await context.newPage();
+  trackPage(concurrentPage);
+  await concurrentPage.goto(`${baseUrl}/th/assessment/result`);
+  await concurrentPage.getByRole("heading", { name: "พร้อมสร้างผลลัพธ์อย่างชัดเจน" }).waitFor();
+  await Promise.all([
+    page.getByRole("button", { name: "สร้างผลลัพธ์สังเคราะห์", exact: true }).click(),
+    concurrentPage.getByRole("button", { name: "สร้างผลลัพธ์สังเคราะห์", exact: true }).click(),
+  ]);
+  await Promise.all([
+    page.getByRole("heading", { level: 2, name: "สัญญาณทักษะหลักที่มีหลักฐาน" }).waitFor(),
+    concurrentPage
+      .getByRole("heading", { level: 2, name: "สัญญาณทักษะหลักที่มีหลักฐาน" })
+      .waitFor(),
+  ]);
+  await concurrentPage.close();
+
+  assert.equal(
+    await page.locator('section[aria-labelledby="persisted-core-heading"] article').count(),
+    2,
+    "the result must render exactly two assessed core signals",
+  );
+  assert.equal(
+    await page.locator(".example-unassessed-list li").count(),
+    6,
+    "the result must name exactly six unassessed core competencies",
+  );
+  assert.equal(
+    await page.locator('section[aria-labelledby="persisted-multiplier-heading"] article').count(),
+    2,
+    "the result must keep exactly two multiplier observations separate",
+  );
+  await page.getByText("ได้ 3 จาก 4 คะแนนหลักฐาน", { exact: true }).waitFor();
+  await page.getByText("ได้ 4 จาก 4 คะแนนหลักฐาน", { exact: true }).waitFor();
+  const lessonLink = page.getByRole("link", {
+    name: "เปิดบทเรียนต้นแบบการตรวจสอบแหล่งข้อมูล",
+    exact: true,
+  });
+  assert.equal(
+    await lessonLink.getAttribute("href"),
+    "/th/lessons/source-verification-practice",
+    "the bounded Critical Thinking priority may link only to the existing prototype",
+  );
+
+  const derived = await databaseState();
+  assert.equal(derived.scoring_run_count, 1, "concurrent generation must converge on one run");
+  assert.equal(derived.run_number, 1, "normal generation must create run one");
+  assert.equal(derived.run_kind, "normal", "browser generation cannot request a re-score");
+  assert.equal(derived.competency_score_count, 2, "only two assessed core rows may exist");
+  assert.deepEqual(derived.core_keys, ["critical-thinking-fact-checking", "systematic-thinking"]);
+  assert.equal(derived.multiplier_observation_count, 2);
+  assert.deepEqual(derived.multiplier_keys, ["ownership-thinking", "sense-of-urgency"]);
+  assert.equal(derived.score_explanation_count, 6);
+  assert.equal(derived.priority_recommendation_count, 1);
+  assert.equal(derived.priority_key, "critical-thinking-fact-checking");
+  assert.equal(derived.email_copy_count, 0, "derived data must not copy the email");
+  assert.match(derived.input_digest, /^[0-9a-f]{64}$/);
+  assert.match(derived.output_digest, /^[0-9a-f]{64}$/);
+  resultDigestValues.push(derived.input_digest, derived.output_digest);
+
+  await page.reload();
+  await page.getByRole("heading", { name: "สัญญาณทักษะจาก 6 สถานการณ์จำลอง" }).waitFor();
+  assert.equal(
+    (await databaseState()).scoring_run_count,
+    1,
+    "refresh must restore the current result without creating a run",
+  );
+
   await page.goto(`${baseUrl}/th/profile`);
   await page.locator("form.profile-form").waitFor();
   await signOut(page, "th");
   await page.goto(`${baseUrl}/th/assessment/attempt`);
   await page.waitForURL((url) => url.origin === baseUrl && url.pathname.startsWith("/th/sign-in"));
   assert.equal(await page.locator("form.assessment-question-form").count(), 0);
+  await page.goto(`${baseUrl}/th/assessment/result`);
+  await page.waitForURL((url) => url.origin === baseUrl && url.pathname.startsWith("/th/sign-in"));
+  assert.equal(await page.locator(".persisted-result__card").count(), 0);
   await page.goto(`${baseUrl}/th/profile`);
   await page.waitForURL((url) => url.origin === baseUrl && url.pathname.startsWith("/th/sign-in"));
   assert.equal(
@@ -544,6 +660,9 @@ try {
   await submitEmailCode(page, "sign-in", "th", "/en/profile", "/th");
   await page.goto(`${baseUrl}/th/assessment/attempt`);
   await page.getByRole("heading", { name: "เซสชันถูกล็อกเรียบร้อย" }).waitFor();
+  await page.goto(`${baseUrl}/th/assessment/result`);
+  await page.getByRole("heading", { name: "สัญญาณทักษะจาก 6 สถานการณ์จำลอง" }).waitFor();
+  assert.equal((await databaseState()).scoring_run_count, 1);
   await page.goto(`${baseUrl}/th/profile`);
   await page.locator("form.profile-form").waitFor();
   await assertSingleMapping(internalUserId);
@@ -554,6 +673,15 @@ try {
   await page.locator("form.profile-form").waitFor();
   await assertSingleMapping(internalUserId);
   await verifyBrowserPrivacy(page);
+  assert.equal(
+    childOutput.some(
+      (entry) =>
+        entry.includes("Refreshing the session token resulted in an infinite redirect loop") ||
+        entry.includes("instance keys do not match"),
+    ),
+    false,
+    "Clerk session refresh must not report a redirect loop or key mismatch",
+  );
 
   smokePassed = true;
 } catch (error) {
@@ -585,7 +713,7 @@ try {
 
 if (smokePassed && syntheticIdentityCreated && syntheticIdentityDeleted && !process.exitCode) {
   console.log(
-    "Clerk Development smoke PASS (localized email-code sign-up/sign-in, one stable internal mapping, consent/profile, persisted start/save/correction/refresh/re-auth/submission boundaries, logout denial, safe returns, privacy boundaries and verified synthetic identity deletion).",
+    "Clerk Development smoke PASS (localized email-code sign-up/sign-in, stable owner mapping and consent/profile; persisted submission; concurrent explicit result generation converging on one run; exact two-core, six-unassessed, separate two-multiplier and bounded priority evidence; refresh/logout/re-auth restoration; safe returns; privacy boundaries; and verified synthetic identity deletion).",
   );
 } else if (!process.exitCode) {
   throw new Error("The Clerk Development smoke did not satisfy its cleanup contract.");

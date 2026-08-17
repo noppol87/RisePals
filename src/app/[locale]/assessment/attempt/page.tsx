@@ -8,6 +8,7 @@ import {
   localePath,
   onboardingPath,
   persistedAssessmentPath,
+  persistedAssessmentResultPath,
 } from "@/lib/i18n/config";
 import { persistedAssessmentCopy } from "@/modules/assessment/persistence/copy";
 import { loadPersistedAssessmentPageState } from "@/modules/assessment/persistence/dal";
@@ -90,7 +91,12 @@ export default async function PersistedAssessmentAttemptPage({ params }: Attempt
       ) : null}
 
       {state.state === "in-progress" ? (
-        <PersistedAssessmentAttempt copy={copy} initialState={state} locale={locale} />
+        <PersistedAssessmentAttempt
+          copy={copy}
+          initialState={state}
+          locale={locale}
+          resultHref={persistedAssessmentResultPath(locale)}
+        />
       ) : null}
 
       {state.state === "submitted" ? (
@@ -99,11 +105,13 @@ export default async function PersistedAssessmentAttemptPage({ params }: Attempt
           <h2>{copy.completionHeading}</h2>
           <p>{copy.completionBody}</p>
           <p className="assessment-completion-boundary">{copy.completionBoundary}</p>
+          <p>{copy.resultActionBoundary}</p>
           <p>
             {copy.answeredTemplate
               .replace("{answered}", String(state.answeredCount))
               .replace("{total}", String(state.totalItems))}
           </p>
+          <TextLink href={persistedAssessmentResultPath(locale)}>{copy.resultActionLabel}</TextLink>
           <TextLink href={localePath(locale)}>{copy.homeLabel}</TextLink>
         </div>
       ) : null}

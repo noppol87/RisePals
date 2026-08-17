@@ -11,6 +11,7 @@ type LanguageSwitcherProps = Readonly<{
     | "/assessment"
     | "/assessment/attempt"
     | "/assessment/example-result"
+    | "/assessment/result"
     | "/lessons/source-verification-practice"
     | "/profile"
     | "/onboarding"

@@ -36,6 +36,8 @@ export type PersistedAssessmentCopy = Readonly<{
   completionHeading: string;
   completionBody: string;
   completionBoundary: string;
+  resultActionLabel: string;
+  resultActionBoundary: string;
   homeLabel: string;
 }>;
 
@@ -87,7 +89,10 @@ export const persistedAssessmentCopy = {
     completionBody:
       "ระบบเก็บคำตอบดิบทั้งหกและประวัติการแก้ไขตามบัญชีของคุณ การรีเฟรชหรือเข้าสู่ระบบใหม่จะแสดงสถานะส่งแล้วนี้",
     completionBoundary:
-      "ไม่มีคะแนน ผลลัพธ์ คำแนะนำ ระดับความสามารถ การวิเคราะห์บุคลิกภาพ หรือข้อสรุปเกี่ยวกับงานใน RP-TURN-012",
+      "การส่งคำตอบเพียงอย่างเดียวไม่มีคะแนนและยังไม่สร้างผลลัพธ์ การเปิดหน้าผลลัพธ์ก็จะไม่คำนวณจนกว่าคุณจะกดสร้างอย่างชัดเจน",
+    resultActionLabel: "ไปสร้างผลลัพธ์สังเคราะห์",
+    resultActionBoundary:
+      "ผลลัพธ์ครอบคลุมทักษะหลักเพียง 2 ด้าน ไม่ใช่ภาพรวมทักษะ ระดับความสามารถ หรือข้อสรุปเกี่ยวกับงาน",
     homeLabel: "กลับหน้าหลัก",
   },
   en: {
@@ -138,7 +143,10 @@ export const persistedAssessmentCopy = {
     completionBody:
       "The service retains six raw responses and their revision history for your account. Refreshing or signing in again restores this submitted state.",
     completionBoundary:
-      "RP-TURN-012 provides no score, result, recommendation, proficiency, personality analysis, or employment inference.",
+      "Submission alone creates no score or result. Opening the result page also does not calculate one until you explicitly generate it.",
+    resultActionLabel: "Generate the synthetic result",
+    resultActionBoundary:
+      "The result covers only two core competencies; it is not a complete profile, proficiency level, or employment inference.",
     homeLabel: "Return home",
   },
 } as const satisfies Record<Locale, PersistedAssessmentCopy>;

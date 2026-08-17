@@ -172,7 +172,7 @@ Locked alpha vendor boundary: Clerk Development, Free/Hobby, US-hosted identity 
 
 Outcome: owner-scoped start/save/resume/submit flow referencing immutable assessment/item versions.
 
-Implementation status: Accepted by Project Codex for synthetic alpha. The bounded implementation adds one third migration, only `assessment_sessions`/`assessment_responses`, exact version/consent anchoring, forced owner RLS, append-only raw-option revisions, idempotent mutation keys and a protected Thai/English start/save/resume/submit route. Deterministic code/database/browser gates pass. The final bounded real-provider smoke verified Thai sign-up/onboarding, stable account mapping, current consent/profile, start/save/correction/refresh, complete atomic/idempotent submission, immutable receipt, explicit profile logout, logged-out denial, same-identity re-authentication, safe return handling, privacy/database evidence and complete identity/build/database cleanup. RP-TURN-013 is recommended but not authorized or started.
+Implementation status: Accepted by Project Codex for synthetic alpha. The bounded implementation adds one third migration, only `assessment_sessions`/`assessment_responses`, exact version/consent anchoring, forced owner RLS, append-only raw-option revisions, idempotent mutation keys and a protected Thai/English start/save/resume/submit route. Deterministic code/database/browser gates pass. The final bounded real-provider smoke verified Thai sign-up/onboarding, stable account mapping, current consent/profile, start/save/correction/refresh, complete atomic/idempotent submission, immutable receipt, explicit profile logout, logged-out denial, same-identity re-authentication, safe return handling, privacy/database evidence and complete identity/build/database cleanup. RP-TURN-013 was subsequently authorized as a separate bounded turn.
 
 Gate:
 
@@ -183,6 +183,8 @@ Gate:
 ### RP-TURN-013 — Reproducible Scoring and Priority Recommendation
 
 Outcome: versioned scoring runs, competency scores, explanation records and recommendations calculated from submitted responses.
+
+Implementation status: Partial, pending Project Codex review and separate rerun authorization. The bounded implementation pins `persisted-synthetic-priority-v1@1.0.0`, adds exactly five forced-RLS append-only derived tables in one fourth migration, implements canonical input/output SHA-256 provenance and a protected explicit-generation Thai/English result route, and keeps core signals, multiplier observations, explanations and zero-or-one priority physically and semantically separate. Deterministic/unit/build/browser/client-boundary/audit gates and disposable PostgreSQL 18.4 verification pass with 17 tables. The one authorized real-provider attempt stopped during disposable bootstrap before identity creation because the smoke bootstrap retained a stale expected table count of 12. All disposable process/data/log/credential resources were removed and no isolated smoke build or synthetic identity was created. Do not correct or rerun without a new Project Codex authorization. RP-TURN-014 is not authorized.
 
 Gate:
 

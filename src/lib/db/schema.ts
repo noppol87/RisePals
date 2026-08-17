@@ -505,6 +505,321 @@ export const assessmentResponses = pgTable(
   ],
 );
 
+export const scoringRuns = pgTable(
+  "scoring_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    assessmentSessionId: uuid("assessment_session_id").notNull(),
+    assessmentVersionId: uuid("assessment_version_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    scoringModelVersionId: uuid("scoring_model_version_id").notNull(),
+    runNumber: integer("run_number").notNull(),
+    runKind: text("run_kind").notNull(),
+    supersedesScoringRunId: uuid("supersedes_scoring_run_id"),
+    clientMutationId: uuid("client_mutation_id").notNull(),
+    inputDigest: text("input_digest").notNull(),
+    outputDigest: text("output_digest").notNull(),
+    resultPolicyKey: text("result_policy_key").notNull(),
+    resultPolicyVersion: text("result_policy_version").notNull(),
+    resultPolicyDigest: text("result_policy_digest").notNull(),
+    computedAt: utcTimestamp("computed_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("scoring_runs_id_user_unique").on(table.id, table.userId),
+    unique("scoring_runs_id_session_unique").on(table.id, table.assessmentSessionId),
+    unique("scoring_runs_id_framework_unique").on(table.id, table.frameworkVersionId),
+    uniqueIndex("scoring_runs_session_number_unique").on(
+      table.assessmentSessionId,
+      table.runNumber,
+    ),
+    uniqueIndex("scoring_runs_session_mutation_unique").on(
+      table.assessmentSessionId,
+      table.clientMutationId,
+    ),
+    index("scoring_runs_user_computed_idx").on(table.userId, table.computedAt),
+    foreignKey({
+      name: "scoring_runs_session_owner_fk",
+      columns: [table.assessmentSessionId, table.userId],
+      foreignColumns: [assessmentSessions.id, assessmentSessions.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "scoring_runs_session_assessment_fk",
+      columns: [table.assessmentSessionId, table.assessmentVersionId],
+      foreignColumns: [assessmentSessions.id, assessmentSessions.assessmentVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "scoring_runs_assessment_framework_fk",
+      columns: [table.assessmentVersionId, table.frameworkVersionId],
+      foreignColumns: [assessmentVersions.id, assessmentVersions.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "scoring_runs_scoring_framework_fk",
+      columns: [table.scoringModelVersionId, table.frameworkVersionId],
+      foreignColumns: [scoringModelVersions.id, scoringModelVersions.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "scoring_runs_supersedes_session_fk",
+      columns: [table.supersedesScoringRunId, table.assessmentSessionId],
+      foreignColumns: [table.id, table.assessmentSessionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("scoring_runs_number_positive", sql`${table.runNumber} > 0`),
+    check("scoring_runs_kind_check", sql`${table.runKind} IN ('normal', 'rescore')`),
+    check(
+      "scoring_runs_supersession_shape_check",
+      sql`(${table.runNumber} = 1 AND ${table.runKind} = 'normal' AND ${table.supersedesScoringRunId} IS NULL) OR (${table.runNumber} > 1 AND ${table.runKind} = 'rescore' AND ${table.supersedesScoringRunId} IS NOT NULL)`,
+    ),
+    check("scoring_runs_input_digest_check", sql`${table.inputDigest} ~ '^[0-9a-f]{64}$'`),
+    check("scoring_runs_output_digest_check", sql`${table.outputDigest} ~ '^[0-9a-f]{64}$'`),
+    check(
+      "scoring_runs_policy_check",
+      sql`${table.resultPolicyKey} = 'persisted-synthetic-priority-v1' AND ${table.resultPolicyVersion} = '1.0.0' AND ${table.resultPolicyDigest} = '10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157'`,
+    ),
+  ],
+);
+
+export const competencyScores = pgTable(
+  "competency_scores",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    scoringRunId: uuid("scoring_run_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    competencyVersionId: uuid("competency_version_id").notNull(),
+    targetKind: competencyKind("target_kind").notNull(),
+    earnedPoints: integer("earned_points").notNull(),
+    availablePoints: integer("available_points").notNull(),
+    evidenceCount: integer("evidence_count").notNull(),
+    normalizedBasisPoints: integer("normalized_basis_points").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("competency_scores_run_competency_unique").on(
+      table.scoringRunId,
+      table.competencyVersionId,
+    ),
+    foreignKey({
+      name: "competency_scores_run_owner_fk",
+      columns: [table.scoringRunId, table.userId],
+      foreignColumns: [scoringRuns.id, scoringRuns.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "competency_scores_run_framework_fk",
+      columns: [table.scoringRunId, table.frameworkVersionId],
+      foreignColumns: [scoringRuns.id, scoringRuns.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "competency_scores_target_framework_kind_fk",
+      columns: [table.competencyVersionId, table.frameworkVersionId, table.targetKind],
+      foreignColumns: [
+        competencyVersions.id,
+        competencyVersions.frameworkVersionId,
+        competencyVersions.kind,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("competency_scores_core_kind_check", sql`${table.targetKind} = 'core'`),
+    check(
+      "competency_scores_points_check",
+      sql`${table.availablePoints} > 0 AND ${table.earnedPoints} BETWEEN 0 AND ${table.availablePoints} AND ${table.evidenceCount} > 0`,
+    ),
+    check(
+      "competency_scores_basis_points_check",
+      sql`${table.normalizedBasisPoints} = floor((${table.earnedPoints}::numeric * 10000) / ${table.availablePoints})::integer`,
+    ),
+  ],
+);
+
+export const multiplierObservations = pgTable(
+  "multiplier_observations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    scoringRunId: uuid("scoring_run_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    competencyVersionId: uuid("competency_version_id").notNull(),
+    targetKind: competencyKind("target_kind").notNull(),
+    earnedRubricPoints: integer("earned_rubric_points").notNull(),
+    availableRubricPoints: integer("available_rubric_points").notNull(),
+    evidenceCount: integer("evidence_count").notNull(),
+    limitationCode: text("limitation_code").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("multiplier_observations_run_competency_unique").on(
+      table.scoringRunId,
+      table.competencyVersionId,
+    ),
+    foreignKey({
+      name: "multiplier_observations_run_owner_fk",
+      columns: [table.scoringRunId, table.userId],
+      foreignColumns: [scoringRuns.id, scoringRuns.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "multiplier_observations_run_framework_fk",
+      columns: [table.scoringRunId, table.frameworkVersionId],
+      foreignColumns: [scoringRuns.id, scoringRuns.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "multiplier_observations_target_framework_kind_fk",
+      columns: [table.competencyVersionId, table.frameworkVersionId, table.targetKind],
+      foreignColumns: [
+        competencyVersions.id,
+        competencyVersions.frameworkVersionId,
+        competencyVersions.kind,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("multiplier_observations_kind_check", sql`${table.targetKind} = 'multiplier'`),
+    check(
+      "multiplier_observations_points_check",
+      sql`${table.availableRubricPoints} > 0 AND ${table.earnedRubricPoints} BETWEEN 0 AND ${table.availableRubricPoints} AND ${table.evidenceCount} = 1`,
+    ),
+    check(
+      "multiplier_observations_limitation_check",
+      sql`${table.limitationCode} = 'single-scenario-not-behavior-pattern'`,
+    ),
+  ],
+);
+
+export const scoreExplanations = pgTable(
+  "score_explanations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    scoringRunId: uuid("scoring_run_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    targetKind: text("target_kind").notNull(),
+    targetCompetencyKind: competencyKind("target_competency_kind"),
+    competencyVersionId: uuid("competency_version_id"),
+    explanationCode: text("explanation_code").notNull(),
+    messageParams: jsonb("message_params").notNull(),
+    supportingItemKeys: text("supporting_item_keys").array().notNull(),
+    limitationCodes: text("limitation_codes").array().notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("score_explanations_run_target_unique").on(
+      table.scoringRunId,
+      table.targetKind,
+      table.competencyVersionId,
+    ),
+    foreignKey({
+      name: "score_explanations_run_owner_fk",
+      columns: [table.scoringRunId, table.userId],
+      foreignColumns: [scoringRuns.id, scoringRuns.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "score_explanations_run_framework_fk",
+      columns: [table.scoringRunId, table.frameworkVersionId],
+      foreignColumns: [scoringRuns.id, scoringRuns.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "score_explanations_target_framework_kind_fk",
+      columns: [table.competencyVersionId, table.frameworkVersionId, table.targetCompetencyKind],
+      foreignColumns: [
+        competencyVersions.id,
+        competencyVersions.frameworkVersionId,
+        competencyVersions.kind,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "score_explanations_target_shape_check",
+      sql`(${table.targetKind} = 'run' AND ${table.competencyVersionId} IS NULL AND ${table.targetCompetencyKind} IS NULL AND ${table.explanationCode} = 'synthetic-partial-result-limitation') OR (${table.targetKind} = 'core' AND ${table.competencyVersionId} IS NOT NULL AND ${table.targetCompetencyKind} = 'core' AND ${table.explanationCode} = 'assessed-core-raw-signal') OR (${table.targetKind} = 'multiplier' AND ${table.competencyVersionId} IS NOT NULL AND ${table.targetCompetencyKind} = 'multiplier' AND ${table.explanationCode} = 'single-scenario-multiplier-observation') OR (${table.targetKind} = 'priority' AND ((${table.competencyVersionId} IS NOT NULL AND ${table.targetCompetencyKind} = 'core' AND ${table.explanationCode} = 'unique-lowest-assessed-core-signal') OR (${table.competencyVersionId} IS NULL AND ${table.targetCompetencyKind} IS NULL AND ${table.explanationCode} = 'no-distinct-priority')))`,
+    ),
+    check(
+      "score_explanations_params_check",
+      sql`jsonb_typeof(${table.messageParams}) = 'object' AND ${table.messageParams} = '{"schemaVersion":"persisted-result-explanation-params-v1"}'::jsonb`,
+    ),
+    check("score_explanations_limitations_check", sql`cardinality(${table.limitationCodes}) > 0`),
+  ],
+);
+
+export const priorityRecommendations = pgTable(
+  "priority_recommendations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    scoringRunId: uuid("scoring_run_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    competencyVersionId: uuid("competency_version_id").notNull(),
+    targetKind: competencyKind("target_kind").notNull(),
+    rank: integer("rank").notNull(),
+    reasonCode: text("reason_code").notNull(),
+    supportingItemKeys: text("supporting_item_keys").array().notNull(),
+    nextAction: jsonb("next_action").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("priority_recommendations_one_per_run").on(table.scoringRunId),
+    foreignKey({
+      name: "priority_recommendations_run_owner_fk",
+      columns: [table.scoringRunId, table.userId],
+      foreignColumns: [scoringRuns.id, scoringRuns.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "priority_recommendations_run_framework_fk",
+      columns: [table.scoringRunId, table.frameworkVersionId],
+      foreignColumns: [scoringRuns.id, scoringRuns.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "priority_recommendations_target_framework_kind_fk",
+      columns: [table.competencyVersionId, table.frameworkVersionId, table.targetKind],
+      foreignColumns: [
+        competencyVersions.id,
+        competencyVersions.frameworkVersionId,
+        competencyVersions.kind,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("priority_recommendations_core_kind_check", sql`${table.targetKind} = 'core'`),
+    check("priority_recommendations_rank_check", sql`${table.rank} = 1`),
+    check(
+      "priority_recommendations_reason_check",
+      sql`${table.reasonCode} = 'unique-lowest-assessed-core-signal'`,
+    ),
+    check(
+      "priority_recommendations_items_check",
+      sql`cardinality(${table.supportingItemKeys}) > 0`,
+    ),
+    check(
+      "priority_recommendations_action_check",
+      sql`jsonb_typeof(${table.nextAction}) = 'object' AND ${table.nextAction}->>'kind' IN ('prototype-lesson', 'practice-unavailable')`,
+    ),
+  ],
+);
+
 export const databaseSchema = {
   userAccounts,
   externalIdentities,
@@ -518,4 +833,9 @@ export const databaseSchema = {
   assessmentItemCompetencies,
   assessmentSessions,
   assessmentResponses,
+  scoringRuns,
+  competencyScores,
+  multiplierObservations,
+  scoreExplanations,
+  priorityRecommendations,
 } as const;

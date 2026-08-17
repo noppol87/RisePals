@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import type { Locale } from "@/lib/i18n/config";
+import { TextLink } from "@/components/primitives/text-link";
 import type { PersistedAssessmentCopy } from "@/modules/assessment/persistence/copy";
 import type {
   PersistedAssessmentPageState,
@@ -19,6 +20,7 @@ type PersistedAssessmentAttemptProps = Readonly<{
   copy: PersistedAssessmentCopy;
   initialState: InProgressState;
   locale: Locale;
+  resultHref: string;
 }>;
 
 function formatTemplate(
@@ -35,6 +37,7 @@ export function PersistedAssessmentAttempt({
   copy,
   initialState,
   locale,
+  resultHref,
 }: PersistedAssessmentAttemptProps) {
   const initialIndex = Math.max(
     0,
@@ -143,6 +146,8 @@ export function PersistedAssessmentAttempt({
         </h2>
         <p>{copy.completionBody}</p>
         <p className="assessment-completion-boundary">{copy.completionBoundary}</p>
+        <p>{copy.resultActionBoundary}</p>
+        <TextLink href={resultHref}>{copy.resultActionLabel}</TextLink>
       </div>
     );
   }
