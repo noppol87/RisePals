@@ -158,13 +158,14 @@ export type SourceVerificationLessonDefinition = Readonly<{
     key: typeof SOURCE_VERIFICATION_LESSON_KEY;
     versionId: typeof SOURCE_VERIFICATION_LESSON_VERSION_ID;
     version: typeof SOURCE_VERIFICATION_LESSON_VERSION;
-    status: "prototype";
+    status: "published";
+    validationStatus: "prototype-unvalidated";
     frameworkVersionId: string;
     targetCompetencyId: "critical-thinking-fact-checking";
     targetWorkingStage: "Practicing";
     primaryRoiPillar: "Intelligent Risk & Governance";
     estimatedActiveMinutes: number;
-    provenance: "git-versioned-local-prototype";
+    provenance: "git-reviewed-content-publication-pipeline";
     locales: readonly ["th", "en"];
     practiceId: typeof SOURCE_VERIFICATION_PRACTICE_ID;
     rubricVersionId: typeof SOURCE_VERIFICATION_RUBRIC_VERSION_ID;

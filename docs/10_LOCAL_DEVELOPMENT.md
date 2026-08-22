@@ -319,13 +319,15 @@ The code-native visualization uses four discrete segments for each raw signal an
 
 One fixed example next practice targets Critical Thinking & Fact-Checking. Its independently defined trace identifies `scoring-integer-rubric-fixture-v1@1.0.0`, item keys `verify-ai-summary-source` and `test-process-assumption`, and exact prototype lesson version `lesson-source-verification-practice-v1@1.0.0`. Both locales preserve the fixed-synthetic and non-personalized boundary while linking to the same-locale lesson route.
 
-## Verified repository-local lesson/practice prototype behavior
+## Verified repository-local lesson/practice and publication behavior
 
-RP-TURN-009 adds statically generated `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` routes. A typed, runtime-validated local content contract fixes lesson key `source-verification-practice`, version ID `lesson-source-verification-practice-v1`, version `1.0.0`, status `prototype`, Critical Thinking & Fact-Checking, working stage `Practicing`, R.O.I. pillar `Intelligent Risk & Governance` and stable practice/rubric/proof identities. Thai and English content share the same validated structure. This is Git-versioned repository content, not published or externally validated learning content; the trusted MDX compilation/publication pipeline remains deferred to RP-TURN-014.
+RP-TURN-009 adds statically generated `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` routes. RP-TURN-014 migrates the exact accepted lesson to `content/lessons/source-verification-practice/1.0.0/`, fixes immutable published identity `source-verification-practice@1.0.0` and generates tracked SHA-256-pinned manifest/registry JSON. Operational status is `published` only for synthetic alpha; separate validation status remains `prototype-unvalidated`. Critical Thinking & Fact-Checking, working stage `Practicing`, R.O.I. pillar `Intelligent Risk & Governance` and stable practice/rubric/proof identities remain unchanged. Thai and English require exact structural parity and no silent fallback.
 
 The entirely synthetic Bright River Operations scenario presents an over-broad AI-generated summary and a source pack with intentionally incomplete evidence. Only the concepts needed to act safely are included. The active practice uses native radio groups and the three visible binary criteria `evidence-traceability`, `claim-source-fit` and `safe-next-action`. Pure evaluation requires all three criteria for the in-memory demonstrated state: passive viewing, incomplete work and below-threshold work produce 0 preview XP; all three met produce exactly 20 preview XP. Retrying or re-evaluating replaces the outcome and never accumulates XP. No XP is saved.
 
 The lesson Client Component receives only the validated locale DTO needed to render the synthetic content and transparent practice. Selections and feedback remain in React memory and refresh starts a new attempt. The lesson never reads assessment-player storage and does not use `sessionStorage`, `localStorage`, cookies, answer-bearing URLs, APIs, server actions, analytics, logs or network transmission for practice data. The source-verification-note proof area lists only future expected fields; it has no text input, upload, file generation or storage. The reflection prompt is also non-collecting.
+
+`npm run content:publish` validates every source before atomically writing deterministic outputs. `npm run content:validate` is read-only and compares current source, manifest, registry and digests. `npm run build` and therefore `npm run check` call that validator first, so stale or invalid publication artifacts fail without rewriting the worktree. Build-only `unified@11.0.5`, `remark-parse@11.0.0` and `remark-mdx@3.1.1` parse AST nodes only. No compiled MDX, `eval`, `new Function`, VM execution, dynamic remote import or `dangerouslySetInnerHTML` exists.
 
 ## Verified day-to-day commands
 
@@ -334,6 +336,8 @@ The scaffold defines and verifies:
 ```powershell
 npm ci
 npm run dev
+npm run content:validate
+npm run content:publish
 npm run format:check
 npm run lint
 npm run typecheck
@@ -738,7 +742,7 @@ The third migration creates only `assessment_sessions` and `assessment_responses
 
 Project Codex Accepted the implementation and deterministic/database/browser/real-provider verification for synthetic alpha only. This acceptance did not itself authorize production use or RP-TURN-013; Turn 013 was subsequently authorized through a separate brief.
 
-## Current boundary after RP-TURN-013 acceptance
+## Current boundary during RP-TURN-014 review
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
@@ -747,12 +751,13 @@ Project Codex Accepted the implementation and deterministic/database/browser/rea
 - RP-TURN-011 is Accepted only for synthetic alpha. It adds Clerk Development authentication, internal identity/profile authorization, a second migration, protected routes and versioned append-only service-data consent. The bounded real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` are unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided; no real user/data or production identity resource exists.
 - RP-TURN-012 owner-scoped raw synthetic assessment start/save/resume/submit is Accepted by Project Codex for synthetic alpha. Its deterministic, disposable-database and final bounded real-provider verification gates pass.
 - RP-TURN-013 owner-scoped reproducible synthetic result and zero-or-one provisional priority contract is Accepted by Project Codex for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`.
-- The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-local lesson prototype, bounded account/profile/consent and raw assessment persistence implementations, and an accepted synthetic persisted-result prototype. It is not a validated real assessment and creates no real-user result, validated recommendation, published/externally validated learning content or production account system.
+- RP-TURN-014 is implemented pending Project Codex review. It operationally publishes one exact repository-local lesson version for synthetic alpha through a deterministic non-executable registry; this is not external validation or production release.
+- The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-published but prototype-unvalidated lesson, bounded account/profile/consent and raw assessment persistence implementations, and an accepted synthetic persisted-result prototype. It is not a validated real assessment and creates no real-user result, validated recommendation, externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage` only in the public player. The persisted path never reads them and uses PostgreSQL only after explicit authenticated start/current consent. Lesson selections/feedback remain only in React memory, refresh resets them and no durable lesson state or saved XP exists.
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
-- Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson publication/efficacy, MDX operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No real profile/data, validated score/result/recommendation, lesson progress, saved XP or proof storage exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority. Retention/export/erasure and production use remain open. RP-TURN-014 is not authorized or started.
+- Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson efficacy/external validation, production content operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
+- No real profile/data, validated score/result/recommendation, lesson progress, saved XP or proof storage exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority. Retention/export/erasure and production use remain open. RP-TURN-015 is not authorized or started.
 
 ## RP-TURN-013 reproducible synthetic result verification
 
@@ -777,4 +782,24 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`. This does not approve validated assessment/proficiency claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-014 is recommended only and was not authorized or started.
+Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`. RP-TURN-014 was separately authorized and is implemented pending review. This does not approve validated assessment/proficiency claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-015 is recommended only and is not authorized or started.
+
+## RP-TURN-014 trusted content publication verification
+
+Status: implemented pending Project Codex review; not Accepted or merged.
+
+| Check | Result |
+|---|---|
+| `npm ci` | PASS — 573 packages installed, 574 audited, 0 vulnerabilities; only the established `@esbuild-kit` deprecation notices appeared |
+| install-script/dependency policy | PASS — no package with an unreviewed install script; `strict-allow-scripts=true`; exact build-only `unified 11.0.5`, `remark-parse 11.0.0` and `remark-mdx 3.1.1`; patched `nanoid 3.3.18`, PostCSS `8.5.25` and Sharp `0.35.3` unchanged |
+| `npm run content:validate` | PASS — one exact `source-verification-practice@1.0.0` version; aggregate SHA-256 `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525` |
+| deterministic publication | PASS — two consecutive `npm run content:publish` operations preserved byte-identical manifest and registry files and the same aggregate digest; focused tests prove stale-output detection and same-version conflicts leave both outputs unchanged |
+| focused publication/lesson tests | PASS — 4 files / 61 tests covering canonical publication, Thai/English parity, local render mapping, idempotency, immutable conflict, missing-output restoration guard, metadata/cross-reference/evidence rejection, non-executable MDX and unchanged lesson state/interaction |
+| formatter/lint/typecheck/unit/build/check | PASS — Prettier, zero-warning ESLint, Next type generation and both strict TypeScript projects; 30 files / 275 tests; production build generated 19 routes/pages and kept both lesson locales static |
+| `npm run test:e2e` | PASS on final full rerun — Chromium 65/65; Thai/English operational and validation statuses, accepted content, keyboard/focus, refresh reset, 320px reflow, reduced motion, axe and loopback-only privacy behavior passed |
+| `npm run db:test:disposable` | PASS after checksum-pinned runtime re-preparation — PostgreSQL 18.4 applied 234 statements across four unchanged migrations and created 17 tables; process/data/logs/credentials removed, zero service/process/listener and zero disposable child remained |
+| production/full npm audits | PASS — both report 0 vulnerabilities |
+| lesson client boundary | PASS — three route client chunks / 416,773 bytes contain zero publication registry/source paths, parser packages, owner/reviewer/source provenance, database/identity/assessment/scoring internals or temporary-player storage markers; the route manifest contains no server registry module |
+| executable-content inspection | PASS — source/generated content contains no ESM statement, `dangerouslySetInnerHTML`, `new Function`, VM import or `javascript:`, `data:` or `file:` marker; rejection tests also cover expressions, spread/expression props, event handlers, raw HTML, images and unknown components |
+
+Operational publication remains limited to the Git-reviewed repository registry for synthetic alpha. It does not create a database migration, lesson attempt/progress, saved XP, proof, real external evidence, production content operation or learning-efficacy claim. The real Clerk Development smoke was not run because this turn changes neither its command nor the shared authentication boundary.

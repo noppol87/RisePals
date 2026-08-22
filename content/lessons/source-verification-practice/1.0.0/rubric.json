@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "rise-pals-rubric-source-v1",
+  "rubric": {
+    "versionId": "source-verification-rubric-v1",
+    "version": "1.0.0",
+    "practiceId": "source-verification-decision-v1",
+    "demonstratedRequires": "all-criteria-met",
+    "criteria": [
+      {
+        "id": "rubric-evidence-traceability",
+        "practiceCriterionId": "evidence-traceability"
+      },
+      {
+        "id": "rubric-claim-source-fit",
+        "practiceCriterionId": "claim-source-fit"
+      },
+      {
+        "id": "rubric-safe-next-action",
+        "practiceCriterionId": "safe-next-action"
+      }
+    ]
+  },
+  "localized": {
+    "th": {
+      "heading": "เกณฑ์การให้ feedback ที่เปิดเผย",
+      "introduction": "แต่ละเกณฑ์มีเพียง ผ่านเกณฑ์ หรือ ยังไม่ผ่านเกณฑ์ ไม่มีคะแนนร้อยละหรือระดับความสามารถ",
+      "demonstratedRule": "ผ่านครบทั้งสามเกณฑ์จึงแสดงตัวอย่าง 20 XP หากยังไม่ครบจะเป็น 0 XP โดยไม่บันทึกหรือสะสม",
+      "criteria": [
+        {
+          "id": "evidence-traceability",
+          "label": "การตามรอยหลักฐาน",
+          "metDescription": "เชื่อมข้ออ้างกับแหล่งข้อมูลเฉพาะและระบุข้อมูลที่ขาด",
+          "notMetDescription": "ยังไม่มีร่องรอยที่ตรวจย้อนกลับจากข้ออ้างไปยังหลักฐานจริง"
+        },
+        {
+          "id": "claim-source-fit",
+          "label": "ความพอดีระหว่างข้ออ้างกับแหล่งข้อมูล",
+          "metDescription": "จำกัดข้อความตามทีม ขนาดตัวอย่าง และข้อมูลที่มีอยู่จริง",
+          "notMetDescription": "ข้อความยังกว้างหรือแรงกว่าขอบเขตที่แหล่งข้อมูลรองรับ"
+        },
+        {
+          "id": "safe-next-action",
+          "label": "ก้าวถัดไปที่ปลอดภัย",
+          "metDescription": "ชะลอข้ออ้างที่ยังไม่ยืนยันและแก้ช่องว่างก่อนนำไปใช้",
+          "notMetDescription": "ก้าวถัดไปยังปล่อยให้ข้ออ้างที่ไม่ครบถ้วนถูกนำไปใช้ตัดสินใจ"
+        }
+      ]
+    },
+    "en": {
+      "heading": "Transparent feedback rubric",
+      "introduction": "Each criterion is only met or not met. There is no proficiency percentage or learner stage judgment.",
+      "demonstratedRule": "Meeting all three criteria previews 20 XP; any other outcome is 0 XP, with nothing saved or accumulated.",
+      "criteria": [
+        {
+          "id": "evidence-traceability",
+          "label": "Evidence traceability",
+          "metDescription": "Links each claim to a specific source and names missing evidence.",
+          "notMetDescription": "Does not yet provide an auditable path from claim to source evidence."
+        },
+        {
+          "id": "claim-source-fit",
+          "label": "Claim-to-source fit",
+          "metDescription": "Limits wording to the teams, sample sizes, and evidence actually available.",
+          "notMetDescription": "Keeps a claim broader or stronger than the source supports."
+        },
+        {
+          "id": "safe-next-action",
+          "label": "Safe next action",
+          "metDescription": "Holds unsupported wording and closes evidence gaps before use.",
+          "notMetDescription": "Still allows incomplete claims to influence a decision."
+        }
+      ]
+    }
+  }
+}

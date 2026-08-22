@@ -193,24 +193,31 @@ Drizzle is recommended because its SQL-like, typed API and generated SQL migrati
 
 ## Lesson content architecture
 
-The pilot source of truth should live in Git:
+The pilot source of truth lives in Git. RP-TURN-014 implements this exact source and generated-output shape:
 
 ```text
 content/
   lessons/
-    critical-thinking-first-check/
-      v1/
-        lesson.mdx
+    source-verification-practice/
+      1.0.0/
         lesson.meta.json
+        practice.json
         rubric.json
+        proof.json
+        sources.json
+        locales/
+          th/lesson.mdx
+          en/lesson.mdx
+  publication-manifest.json
+  published-lessons.json
 ```
 
-The filenames illustrate the planned contract; RP-TURN-001 does not create product content.
+Git-reviewed metadata, practice, rubric, proof, source records and localized MDX are authoritative inputs. The manifest and registry are tracked deterministic outputs. The published identity is the exact lesson key plus semantic version; every strict UTF-8/LF input has a SHA-256, and the sorted path/digest set produces one aggregate lesson digest. Identical source produces byte-identical JSON. An altered digest under an already published identity fails before output mutation and requires a new semantic version.
 
 Each metadata file must validate at build/publish time and include:
 
 - stable lesson ID, semantic content version and publication status
-- locale and fallback locale
+- exact Thai/English locale set and an explicit no-fallback policy
 - framework version, target competencies and target proficiency stage
 - R.O.I. pillar mapping
 - prerequisite and estimated active time
@@ -218,7 +225,11 @@ Each metadata file must validate at build/publish time and include:
 - source/evidence metadata required by `docs/05_BRAND_VISUAL_CONTENT.md`
 - author/reviewer identity references and review timestamps
 
-MDX is allowed only from the trusted repository and only with an explicit component allowlist. Never evaluate arbitrary user or remote CMS MDX. User inputs and proof are data, not executable lesson content. Publishing creates an immutable database record or content digest so every attempt continues to reference the exact lesson and rubric the user saw.
+MDX is allowed only from the trusted repository. Exact-pinned build-only `unified`, `remark-parse` and `remark-mdx` packages create an AST; the pipeline never compiles or evaluates that AST as JavaScript. It emits only a controlled JSON render plan. Paragraphs, headings 2–4, ordered/unordered lists, strong/emphasis, blockquotes, inline code and reviewed HTTPS/same-origin links are the complete Markdown allowlist. `Scenario`, `ConceptList`, `PracticeMount`, `RubricSummary`, `ProofPlaceholder` and `ReflectionPrompt` are the complete local component allowlist for the current bundle. Runtime imports only the validated JSON registry through a server-only boundary and maps those identifiers to fixed local lesson sections.
+
+ESM, expressions, spread or expression-valued attributes, event handlers, raw HTML, images, unknown nodes/components, unsafe URLs, traversal, absolute filesystem paths, symlinks, unsupported files and ambiguous IDs fail closed. User inputs and proof are data, never executable lesson content. No user-supplied, database-supplied, remote-CMS or network-fetched MDX is accepted.
+
+RP-TURN-014 selects a build-time registry and content digest for the pilot rather than a database import. It adds no lesson/practice/rubric/source table or migration. A database mirror, internal CMS, preview service and production publishing operations remain future decisions. Operational status `published` means available through the repository-local registry for synthetic alpha; separate status `prototype-unvalidated` means publication does not claim calibrated outcomes, efficacy, credentials, employability or external validation.
 
 **Alternative — structured block JSON:** safer for a future CMS and non-technical authors, but requires an editor and renderer schema before the lesson grammar has been validated.
 

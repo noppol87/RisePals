@@ -184,7 +184,7 @@ Gate:
 
 Outcome: versioned scoring runs, competency scores, explanation records and recommendations calculated from submitted responses.
 
-Implementation status: Partial, pending Project Codex review and separate rerun authorization. The bounded implementation pins `persisted-synthetic-priority-v1@1.0.0`, adds exactly five forced-RLS append-only derived tables in one fourth migration, implements canonical input/output SHA-256 provenance and a protected explicit-generation Thai/English result route, and keeps core signals, multiplier observations, explanations and zero-or-one priority physically and semantically separate. Deterministic/unit/build/browser/client-boundary/audit gates and disposable PostgreSQL 18.4 verification pass with 17 tables. The one authorized real-provider attempt stopped during disposable bootstrap before identity creation because the smoke bootstrap retained a stale expected table count of 12. All disposable process/data/log/credential resources were removed and no isolated smoke build or synthetic identity was created. Do not correct or rerun without a new Project Codex authorization. RP-TURN-014 is not authorized.
+Implementation status: Accepted by Project Codex for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`. The bounded implementation pins `persisted-synthetic-priority-v1@1.0.0`, adds exactly five forced-RLS append-only derived tables in one fourth migration, implements canonical input/output SHA-256 provenance and a protected explicit-generation Thai/English result route, and keeps core signals, multiplier observations, explanations and zero-or-one priority physically and semantically separate. Deterministic/unit/build/browser/client-boundary/audit gates and disposable PostgreSQL 18.4 verification pass with 17 tables. The final bounded provider smoke verified the exact result shape, logout denial, same-identity restoration and privacy boundaries; the synthetic identity was deleted and re-queried absent and every disposable resource was removed.
 
 Gate:
 
@@ -195,6 +195,8 @@ Gate:
 ### RP-TURN-014 — Content Publication Pipeline
 
 Outcome: validate trusted MDX/metadata/rubric/source files and publish immutable lesson versions without remote code execution.
+
+Implementation status: Implemented pending Project Codex review. Git remains the authoring source, and the pilot uses a deterministic build-time JSON registry rather than a database import. One exact bilingual `source-verification-practice@1.0.0` bundle is operationally `published` for synthetic alpha while separately `prototype-unvalidated`. Exact source and aggregate SHA-256 digests, strict locale/cross-reference/review/source validation, non-executable MDX AST parsing, allowlisted local components, idempotent publication and same-version digest conflict protection are enforced. Build/check run the read-only validator and do not mutate content. RP-TURN-015 is recommended only and is not authorized.
 
 Gate:
 

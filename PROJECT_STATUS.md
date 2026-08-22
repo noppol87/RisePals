@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-17  
-**Current phase:** RP-TURN-013 reproducible synthetic result and priority contract Accepted by Project Codex for synthetic alpha only  
-**Current turn:** RP-TURN-013 is Accepted at reviewed implementation head `b80c1c27902b856aac268eb7b17fbf983a62650e`; RP-TURN-014 is recommended only and is not authorized
+**Status date:** 2026-08-22  
+**Current phase:** RP-TURN-014 trusted content publication pipeline implemented for synthetic alpha, pending Project Codex review  
+**Current turn:** RP-TURN-014 is implemented on `agent/content-publication-pipeline`; it is not Accepted or merged
 
 ## Locked decisions
 
@@ -70,7 +70,7 @@
 - Code-native segmented evidence visualization with complete text equivalents, 320px reflow, reduced-motion compatibility and no overall/proficiency/confidence/employment inference
 - One fixed example next practice traced to scoring model `scoring-integer-rubric-fixture-v1@1.0.0`, two supporting item keys, Critical Thinking & Fact-Checking and exact prototype lesson reference `lesson-source-verification-practice-v1@1.0.0`
 - RP-TURN-008 brief, D-015 synthetic-example-only boundary, exact reviewed-fixture provenance guard and quality gates accepted by Project Codex
-- Schema-validated, Git-versioned Thai/English local lesson content contract for `source-verification-practice`, explicitly `prototype` and not published or externally validated learning content
+- Schema-validated, Git-versioned Thai/English lesson source bundle for `source-verification-practice@1.0.0`, operationally `published` only through the repository-local synthetic-alpha registry and separately `prototype-unvalidated`
 - Static `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` routes with synthetic AI-summary/source-verification content, transparent three-criterion rubric and exact framework/stage/R.O.I. identity
 - Pure deterministic practice evaluation and memory-only state: incomplete or below threshold previews 0 XP, all three criteria preview 20 XP, retry replaces rather than accumulates and refresh resets
 - Proof-artifact placeholder and non-collecting reflection with no free text, upload, artifact generation, storage, response transmission or assessment-player data access
@@ -101,6 +101,9 @@
 - RP-TURN-013 deterministic evidence: 29 test files / 238 tests, 19 generated production pages/routes, Chromium 65/65, PostgreSQL 18.4 integration with 234 statements across four migrations and 17 tables, exact result-route chunk inspection and zero-vulnerability production/full audits
 - RP-TURN-013 accepted real-provider evidence: one normal scoring run from seven historical/six active responses, two assessed core rows/cards, six unassessed cores, two separate multiplier observations, six explanations and one Critical Thinking priority; logout denial, same-identity restoration and privacy checks passed, the synthetic identity was deleted and re-queried absent, and every disposable resource was removed
 - RP-TURN-013 reproducible synthetic result implementation and quality gates accepted by Project Codex for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`
+- RP-TURN-014 trusted local MDX/JSON source bundle, deterministic SHA-256 manifest and generated JSON registry, with build-time stale-content enforcement and no MDX execution
+- Strict declarative MDX allowlist for six local lesson section identifiers; ESM, expressions, raw HTML, unsafe links, unknown components, event handlers, spreads, images, traversal, symlinks and unsupported files fail closed
+- Immutable `source-verification-practice@1.0.0` publication identity with exact Thai/English locale parity, synthetic-source provenance, explicit content-owner/reviewer references and source-supplied review/publication timestamps
 
 ## Open decisions
 
@@ -114,8 +117,8 @@
 - Analytics/monitoring vendors, privacy consent implementation and retention periods
 - Assessment question methodology and validation process
 - Validated result UX, personalized priority logic, proficiency/confidence semantics and real learner recommendation rules
-- Lesson publication/validation, additional lesson availability, trusted MDX publication workflow, authorship/review and learning-efficacy evidence
-- Future content-operations workflow beyond the accepted pilot Git-versioned MDX/metadata baseline
+- Additional lesson availability, learning-efficacy evidence and external validation
+- Future content-operations workflow beyond the implemented pilot Git-reviewed registry, including a database mirror, internal CMS, preview service and production publishing operations
 - Exact visual identity, color, typography and Pal character system
 - Localization library and translation operations beyond the native Thai-first typed route/catalog contract
 - Pilot audience and recruitment method
@@ -141,11 +144,11 @@
 
 ## Next recommended action
 
-**RP-TURN-014 — Content Publication Pipeline (recommended, not authorized)**
+**RP-TURN-015 — Persisted Lesson, Practice and Progress (recommended, not authorized)**
 
-RP-TURN-013 is Accepted by Project Codex for synthetic alpha only at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`. A future turn may establish the trusted content publication pipeline, but RP-TURN-014 requires separate authorization.
+RP-TURN-014 is implemented pending Project Codex review. A future turn may add resumable lesson/practice/progress persistence, but RP-TURN-015 requires separate authorization.
 
-RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. No real account/data, production identity resource, production database, validated assessment/proficiency claim or real recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-014 is not authorized or started.
+RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-014 remains pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication in RP-TURN-014 means availability through the reviewed repository-local registry for synthetic alpha only; it is not learning-efficacy validation or production release. No real account/data, production identity resource, production database, validated assessment/proficiency claim or real recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-015 is not authorized or started.
 
 ## Turn history
 
@@ -165,3 +168,4 @@ RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prot
 | 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only |
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
+| 014 | Pending review | Git-reviewed trusted local MDX/JSON source bundle, deterministic non-executable publication registry and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |

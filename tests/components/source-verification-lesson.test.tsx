@@ -1,10 +1,13 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SourceVerificationLesson } from "@/components/source-verification-lesson";
+import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
 import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification";
 
+vi.mock("server-only", () => ({}));
+
 function renderLesson(locale: "th" | "en" = "en") {
-  const view = createSourceVerificationLessonView(locale);
+  const view = createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition);
   const rendered = render(
     <SourceVerificationLesson
       exampleResultHref={`/${locale}/assessment/example-result`}
@@ -36,6 +39,8 @@ describe("source-verification lesson prototype", () => {
 
       expect(screen.getByRole("heading", { level: 1, name: view.hero.heading })).toBeVisible();
       expect(screen.getByText("lesson-source-verification-practice-v1")).toBeVisible();
+      expect(screen.getByText("published", { exact: true })).toBeVisible();
+      expect(screen.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
       expect(screen.getByText("Practicing")).toBeVisible();
       expect(screen.getByText("Intelligent Risk & Governance")).toBeVisible();
       expect(screen.getAllByRole("radio")).toHaveLength(9);

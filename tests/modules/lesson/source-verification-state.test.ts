@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
 import {
   createInitialSourceVerificationPracticeState,
   createSourceVerificationLessonView,
@@ -12,7 +13,9 @@ import {
   type SourceVerificationPracticeState,
 } from "@/modules/lesson/source-verification";
 
-const view = createSourceVerificationLessonView("en");
+vi.mock("server-only", () => ({}));
+
+const view = createSourceVerificationLessonView("en", sourceVerificationLessonDefinition);
 
 function answerAll(
   lessonView: SourceVerificationLessonView,

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "rise-pals-sources-v1",
+  "sourceSet": {
+    "id": "bright-river-operations-synthetic-source-pack-v1",
+    "classification": "synthetic",
+    "externalEvidence": false,
+    "limitation": "All organization, document, source-record and numeric details are synthetic prototype data; they are not external evidence."
+  },
+  "localized": {
+    "th": {
+      "heading": "สถานการณ์สมมติ: สรุปผลโครงการที่กว้างกว่าหลักฐาน",
+      "introduction": "ทีมของคุณได้รับร่างสรุปจาก AI เพื่อใช้ในการประชุมผู้บริหาร คุณต้องตัดสินใจก่อนว่าข้อความใดใช้ได้และต้องทำอะไรต่อ",
+      "syntheticLabel": "ข้อมูลทั้งหมดในกรณีนี้สร้างขึ้นเพื่อการทดสอบต้นแบบเท่านั้น",
+      "organizationLabel": "องค์กรสมมติ",
+      "organization": "Bright River Operations",
+      "documentLabel": "เอกสารสมมติ",
+      "document": "ร่างทบทวนโครงการบริการ รุ่น 0.3",
+      "aiSummaryLabel": "ข้อความจากสรุปของ AI",
+      "aiSummary": "“ทั้งสามทีมลดเวลาปิดงานได้ 30% และโครงการไม่พบความเสี่ยงด้านการยกระดับปัญหา”",
+      "sourceHeading": "ข้อมูลในชุดเอกสารต้นฉบับสมมติ",
+      "sourceRecords": [
+        {
+          "id": "pilot-table",
+          "label": "ตารางผลโครงการ",
+          "detail": "ทีม A เร็วขึ้น 30% จากกรณีจำลอง 12 รายการ; ทีม B เร็วขึ้น 8% จาก 40 รายการ; ทีม C ไม่มีข้อมูลเพราะการส่งออกข้อมูลไม่สมบูรณ์"
+        },
+        {
+          "id": "scope-note",
+          "label": "หมายเหตุขอบเขต",
+          "detail": "ร่างนี้ครอบคลุมช่วงทดลอง 60 วัน และระบุว่าไม่ควรสรุปผลเกินกลุ่มทดลอง"
+        },
+        {
+          "id": "risk-log",
+          "label": "บันทึกความเสี่ยง",
+          "detail": "มีปัญหาเร่งด่วนของทีม C ที่ยังไม่ปิดอยู่ 2 รายการ"
+        }
+      ]
+    },
+    "en": {
+      "heading": "Synthetic situation: a project summary that overreaches its sources",
+      "introduction": "Your team receives an AI-generated draft for an executive review. You must decide what the evidence supports and what should happen before circulation.",
+      "syntheticLabel": "All details in this case were invented only for prototype review",
+      "organizationLabel": "Synthetic organization",
+      "organization": "Bright River Operations",
+      "documentLabel": "Synthetic document",
+      "document": "Service pilot review, draft 0.3",
+      "aiSummaryLabel": "AI-summary claim",
+      "aiSummary": "“All three teams reduced resolution time by 30%, and the pilot found no escalation risk.”",
+      "sourceHeading": "What the synthetic source pack actually says",
+      "sourceRecords": [
+        {
+          "id": "pilot-table",
+          "label": "Pilot outcome table",
+          "detail": "Team A was 30% faster across 12 synthetic cases; Team B was 8% faster across 40; Team C has no result because its export is incomplete."
+        },
+        {
+          "id": "scope-note",
+          "label": "Scope note",
+          "detail": "The draft covers a 60-day pilot and says findings should not be generalized beyond the pilot group."
+        },
+        {
+          "id": "risk-log",
+          "label": "Risk log",
+          "detail": "Two priority escalations for Team C remain unresolved."
+        }
+      ]
+    }
+  }
+}
