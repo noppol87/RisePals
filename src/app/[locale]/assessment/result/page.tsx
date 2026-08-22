@@ -10,7 +10,7 @@ import {
   onboardingPath,
   persistedAssessmentPath,
   persistedAssessmentResultPath,
-  sourceVerificationLessonPath,
+  persistedLessonAttemptPath,
 } from "@/lib/i18n/config";
 import { persistedResultCopy } from "@/modules/assessment/persisted-result/copy";
 import { loadPersistedResultPageState } from "@/modules/assessment/persisted-result/dal";
@@ -55,7 +55,7 @@ export default async function PersistedAssessmentResultPage({ params }: ResultPa
         attemptHref={persistedAssessmentPath(locale)}
         copy={copy}
         homeHref={localePath(locale)}
-        lessonHref={sourceVerificationLessonPath(locale)}
+        lessonHref={persistedLessonAttemptPath(locale)}
         view={state.view}
       />
     );

@@ -196,7 +196,7 @@ Gate:
 
 Outcome: validate trusted MDX/metadata/rubric/source files and publish immutable lesson versions without remote code execution.
 
-Implementation status: Accepted by Project Codex for synthetic alpha at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. Git remains the authoring source, and the pilot uses a deterministic build-time JSON registry rather than a database import. One exact bilingual `source-verification-practice@1.0.0` bundle is operationally `published` while separately `prototype-unvalidated`. Exact source and aggregate SHA-256 digests, an independently reviewed immutable publication seal, strict locale/cross-reference/source validation, calendar-exact `publicationDate <= lastVerifiedDate < reviewExpiryDate` chronology, current-UTC expiry, non-executable MDX AST parsing, allowlisted local components and idempotent publication are enforced. Failed validation/publication leaves both generated outputs byte-identical. Build/check run the read-only validator and do not mutate content. RP-TURN-015 is recommended only and is not authorized or started.
+Implementation status: Accepted by Project Codex for synthetic alpha at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. Git remains the authoring source, and the pilot uses a deterministic build-time JSON registry rather than a database import. One exact bilingual `source-verification-practice@1.0.0` bundle is operationally `published` while separately `prototype-unvalidated`. Exact source and aggregate SHA-256 digests, an independently reviewed immutable publication seal, strict locale/cross-reference/source validation, calendar-exact `publicationDate <= lastVerifiedDate < reviewExpiryDate` chronology, current-UTC expiry, non-executable MDX AST parsing, allowlisted local components and idempotent publication are enforced. Failed validation/publication leaves both generated outputs byte-identical. Build/check run the read-only validator and do not mutate content. RP-TURN-015 subsequently implemented the separate bounded persisted path and is pending Project Codex review.
 
 Gate:
 
@@ -206,12 +206,14 @@ Gate:
 
 ### RP-TURN-015 — Persisted Lesson, Practice and Progress
 
-Outcome: resumeable lesson attempts, versioned practice submissions, rubric results, progress events/snapshots and idempotent XP ledger.
+Outcome: resumable owner-scoped lesson attempts, immutable practice revisions, deterministic rubric feedback and meaningful progress events. Saved XP, progress snapshots and proof remain excluded.
+
+Implementation status: Complete pending Project Codex review. One fifth migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Separate protected localized learning/attempt routes use explicit actions, current consent, server-authoritative evaluation and forced owner RLS while the public lesson remains static and memory-only. RP-TURN-016 remains recommended only and unauthorized.
 
 Gate:
 
 - Page viewing and demonstrated practice remain distinct
-- Retried mutations cannot duplicate XP
+- Retried mutations cannot overwrite history or create duplicate progress events
 - Historical attempts render against the original lesson/rubric version
 
 ### RP-TURN-016 — Private Evidence Artifact

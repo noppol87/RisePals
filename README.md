@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-014 trusted content publication pipeline Accepted for synthetic alpha / no real users or production service  
+**Project status:** RP-TURN-015 persisted lesson/practice/progress complete pending Project Codex review / no real users or production service  
 **Last updated:** 2026-08-22
 
 ## Product thesis
@@ -58,7 +58,7 @@ Rise Pals จึงไม่ใช่เพียง course marketplace แต�
 
 ## Application foundation
 
-RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first, server-rendered locale boundary, semantic responsive app shell, provisional semantic design tokens and the small accessible primitives required by that shell. RP-TURN-005 replaced the structural verification panel with a bounded public narrative. RP-TURN-007 adds a usability-only player for the accepted synthetic scenarios. RP-TURN-008 adds a fixed synthetic example-result page that is not the current user's result. RP-TURN-009 adds one repository-local lesson/practice prototype. RP-TURN-010 adds the accepted bounded database baseline. RP-TURN-011 adds the accepted synthetic-alpha authentication, controlled-profile and service-data-consent boundary. RP-TURN-012 adds the accepted synthetic-alpha owner-scoped raw-response persistence boundary. RP-TURN-013 adds the accepted owner-scoped synthetic derived-result prototype. RP-TURN-014 operationally publishes one reviewed lesson version only through the deterministic repository-local synthetic-alpha registry; none of these turns creates a real account, production identity/database resource, validated assessment result, externally validated learning content or production launch.
+RP-TURN-003 established one minimal Next.js App Router application at the repository root. RP-TURN-004 established a Thai-first localized shell. RP-TURN-005 through RP-TURN-014 established the bounded public narrative, synthetic assessment/player/result, lesson prototype, database/authentication/persistence boundaries and trusted content publication. RP-TURN-015 adds a separate authenticated synthetic-alpha lesson/practice/progress path with explicit server writes; it does not change the public memory-only lesson or create a real account, production resource, validated learning outcome or production launch.
 
 Locale routes:
 
@@ -69,6 +69,8 @@ Locale routes:
 - `/th/assessment/attempt` and `/en/assessment/attempt` are dynamic protected synthetic-alpha paths for explicit PostgreSQL start/save/resume/submit; no session identifier appears in the URL
 - `/th/assessment/example-result` and `/en/assessment/example-result` render the matching static synthetic example result
 - `/th/lessons/source-verification-practice` and `/en/lessons/source-verification-practice` render the matching local lesson/practice prototype
+- `/th/learning` and `/en/learning` are dynamic protected controlled-progress summaries
+- `/th/lessons/source-verification-practice/attempt` and `/en/lessons/source-verification-practice/attempt` are dynamic protected explicit start/save/evaluate/retry paths; no attempt identifier appears in the URL
 - `/th/sign-in`, `/en/sign-in`, `/th/sign-up` and `/en/sign-up` expose dedicated Clerk Development email-code routes and an explicit unavailable state when ignored Development keys are absent
 - `/th/onboarding`, `/en/onboarding`, `/th/profile` and `/en/profile` are dynamic protected routes for controlled profile and service-data consent
 - unsupported locale segments return not found
@@ -116,6 +118,8 @@ RP-TURN-011 adds a second forward migration and a tenth table, `user_profiles`. 
 RP-TURN-012 adds exactly one third forward migration and only `assessment_sessions` and `assessment_responses`, bringing the disposable schema to 12 tables. Sessions use internal owner UUIDs, exact published assessment/version references, the granted consent receipt used at start, database-owned timestamps, a validated item-version resume marker and only `in_progress → submitted`. Responses use an exact `{schemaVersion, selectedOptionId}` JSON payload plus monotonic revision, explicit supersession, client-mutation idempotency and one-active-revision constraints. Both tables use ENABLE/FORCE RLS; application DELETE is absent, submitted history is immutable and scoring/results remain absent.
 
 RP-TURN-013 adds one fourth forward migration and exactly five derived tables, bringing the disposable schema to 17 tables: `scoring_runs`, `competency_scores`, `multiplier_observations`, `score_explanations` and `priority_recommendations`. The immutable `persisted-synthetic-priority-v1@1.0.0` policy pins canonical JSON and digest `10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157`. Server-only derivation canonicalizes exact content identities/digests and response item/revision/option evidence, excludes owner/session/time/locale from semantics, and records reproducible input/output SHA-256 digests. Normal replay/concurrency converges on one run; only an explicit server-only operation creates an immutable next rescore run.
+
+RP-TURN-015 adds one fifth forward migration and exactly three tables, bringing the disposable schema to 20 tables: `lesson_attempts`, `practice_attempts` and `learning_progress_events`. The model anchors exact accepted lesson/practice/rubric/evaluation identities and current consent, keeps response/evaluation history append-only, uses only meaningful start/evaluated/demonstrated events and forces owner RLS. Evaluation remains the accepted deterministic rubric; no XP, proof, page-view analytics or assessment/scoring data is stored or coupled to lesson availability.
 
 The protected `/th/assessment/result` and `/en/assessment/result` routes never score on GET. After an explicit action, they display earned/available fractions for exactly two assessed cores, all six unassessed cores, and two separate one-scenario multiplier observations. A unique lowest assessed-core ratio, compared by integer cross multiplication without weights/profile/multipliers, yields at most one provisional next-practice priority; a tie yields none. Critical Thinking links only to the existing prototype lesson, while Systematic Thinking reports that a matching practice is unavailable. Raw responses, selected options, database IDs, digests, policy internals and RLS context remain server-only.
 
@@ -172,4 +176,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 through RP-TURN-014 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-014 was Accepted by Project Codex at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f` and publishes only `source-verification-practice@1.0.0` through a Git-reviewed deterministic local registry for synthetic alpha. The public player still produces no result, and the accepted persisted result remains synthetic, provisional and limited to two cores—not a validated assessment, proficiency claim, employment inference or real recommendation. The published lesson remains `prototype-unvalidated`; operational publication is not external validation, efficacy evidence or production release. No real user/data, production identity/database resource, retention/export/erasure operation, externally validated lesson, durable lesson progress, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-015 is recommended only and is not authorized or started.
+RP-TURN-006 through RP-TURN-014 are Accepted for their documented synthetic/prototype boundaries, and RP-TURN-015 is complete pending Project Codex review. The public player and public lesson preserve their temporary/memory-only contracts. The protected lesson state is owner/current-consent scoped and synthetic-only; `prototype-unvalidated` remains unchanged. No real user/data, production identity/database resource, retention/export/erasure operation, externally validated lesson, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-016 is recommended only and is not authorized or started.

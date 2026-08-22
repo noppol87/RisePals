@@ -30,6 +30,8 @@ const persistedUserB = "20000000-0000-4000-8000-000000000002";
 const derivedUserA = "20000000-0000-4000-8000-000000000003";
 const derivedUserB = "20000000-0000-4000-8000-000000000004";
 const derivedUserC = "20000000-0000-4000-8000-000000000005";
+const lessonUserA = "20000000-0000-4000-8000-000000000006";
+const lessonUserB = "20000000-0000-4000-8000-000000000007";
 const resultPolicyDigest = "10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157";
 const persistedDefinition = JSON.parse(
   await readFile(
@@ -343,11 +345,7 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
-  assert.equal(
-    tables.rows[0].count,
-    17,
-    "the four fresh migrations create exactly seventeen tables",
-  );
+  assert.equal(tables.rows[0].count, 20, "the five fresh migrations create exactly twenty tables");
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -431,7 +429,10 @@ async function verifyRoleAndSchemaBaseline(client) {
         "competency_scores",
         "consent_records",
         "external_identities",
+        "learning_progress_events",
+        "lesson_attempts",
         "multiplier_observations",
+        "practice_attempts",
         "priority_recommendations",
         "score_explanations",
         "scoring_runs",
@@ -440,7 +441,7 @@ async function verifyRoleAndSchemaBaseline(client) {
       ],
     ],
   );
-  assert.equal(forcedRls.rowCount, 11);
+  assert.equal(forcedRls.rowCount, 14);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 }
 
@@ -2270,6 +2271,287 @@ async function verifyPersistedAssessmentContract() {
   await verifyDerivedScoringContract(definition);
 }
 
+async function verifyPersistedLessonContract() {
+  const consentA = await provisionPersistedTestUser(lessonUserA);
+  await provisionPersistedTestUser(lessonUserB);
+  const startMutation = "70000000-0000-4000-8000-000000000001";
+  const lessonId = await withApplicationUser(lessonUserA, async (client) => {
+    const lesson = await client.query(
+      `INSERT INTO lesson_attempts
+        (user_id, consent_record_id, lesson_key, lesson_version_id, lesson_version,
+         lesson_digest, practice_id, practice_version, rubric_version_id, rubric_version,
+         evaluation_contract_version_id, start_mutation_id)
+       VALUES ($1,$2,'source-verification-practice','lesson-source-verification-practice-v1',
+         '1.0.0','51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91',
+         'source-verification-decision-v1','1.0.0','source-verification-rubric-v1','1.0.0',
+         'source-verification-evaluation-v1',$3) RETURNING id`,
+      [lessonUserA, consentA, startMutation],
+    );
+    await client.query(
+      `INSERT INTO learning_progress_events
+        (user_id, lesson_attempt_id, event_kind, event_schema_version, source_mutation_id)
+       VALUES ($1,$2,'lesson_started','learning-progress-event-v1',$3)`,
+      [lessonUserA, lesson.rows[0].id, startMutation],
+    );
+    return lesson.rows[0].id;
+  });
+
+  const payloads = {
+    partial: {
+      schemaVersion: "source-verification-practice-response-v1",
+      selections: [{ criterionId: "evidence-traceability", optionId: "trace-claim-to-source-map" }],
+    },
+    failing: {
+      schemaVersion: "source-verification-practice-response-v1",
+      selections: [
+        { criterionId: "evidence-traceability", optionId: "trace-claim-to-source-map" },
+        { criterionId: "claim-source-fit", optionId: "fit-keep-all-team-claim" },
+        { criterionId: "safe-next-action", optionId: "safe-hold-and-resolve-gaps" },
+      ],
+    },
+    passing: {
+      schemaVersion: "source-verification-practice-response-v1",
+      selections: [
+        { criterionId: "evidence-traceability", optionId: "trace-claim-to-source-map" },
+        { criterionId: "claim-source-fit", optionId: "fit-narrow-to-supported-teams" },
+        { criterionId: "safe-next-action", optionId: "safe-hold-and-resolve-gaps" },
+      ],
+    },
+  };
+  const evaluation = (payload, statuses) => ({
+    schemaVersion: "source-verification-evaluation-v1",
+    criteria: payload.selections.map((selection, index) => ({
+      criterionId: selection.criterionId,
+      selectedOptionId: selection.optionId,
+      status: statuses[index],
+    })),
+  });
+
+  const insertPractice = async ({
+    revision,
+    previousId,
+    status,
+    payload,
+    results,
+    demonstrated,
+    mutationId,
+  }) =>
+    withApplicationUser(lessonUserA, async (client) => {
+      const practice = await client.query(
+        `INSERT INTO practice_attempts
+          (user_id, lesson_attempt_id, revision, supersedes_practice_attempt_id, status,
+           response_payload, practice_id, practice_version, rubric_version_id, rubric_version,
+           evaluation_contract_version_id, criterion_results, demonstrated, client_mutation_id)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,'source-verification-decision-v1','1.0.0',
+           'source-verification-rubric-v1','1.0.0','source-verification-evaluation-v1',
+           $7::jsonb,$8,$9) RETURNING id`,
+        [
+          lessonUserA,
+          lessonId,
+          revision,
+          previousId,
+          status,
+          JSON.stringify(payload),
+          results ? JSON.stringify(results) : null,
+          demonstrated,
+          mutationId,
+        ],
+      );
+      if (status === "evaluated") {
+        await client.query(
+          `INSERT INTO learning_progress_events
+            (user_id, lesson_attempt_id, practice_attempt_id, event_kind,
+             event_schema_version, source_mutation_id)
+           VALUES ($1,$2,$3,'practice_evaluated','learning-progress-event-v1',$4)`,
+          [lessonUserA, lessonId, practice.rows[0].id, mutationId],
+        );
+        if (demonstrated) {
+          await client.query(
+            `INSERT INTO learning_progress_events
+              (user_id, lesson_attempt_id, practice_attempt_id, event_kind,
+               event_schema_version, source_mutation_id)
+             VALUES ($1,$2,$3,'practice_demonstrated','learning-progress-event-v1',$4)`,
+            [lessonUserA, lessonId, practice.rows[0].id, mutationId],
+          );
+          await client.query(
+            `UPDATE lesson_attempts SET status='demonstrated',
+               last_meaningful_activity_at=clock_timestamp(), demonstrated_at=clock_timestamp()
+             WHERE id=$1`,
+            [lessonId],
+          );
+        } else {
+          await client.query(
+            `UPDATE lesson_attempts SET last_meaningful_activity_at=clock_timestamp() WHERE id=$1`,
+            [lessonId],
+          );
+        }
+      }
+      return practice.rows[0].id;
+    });
+
+  const draftId = await insertPractice({
+    revision: 1,
+    previousId: null,
+    status: "draft",
+    payload: payloads.partial,
+    results: null,
+    demonstrated: null,
+    mutationId: "70000000-0000-4000-8000-000000000002",
+  });
+  const failedId = await insertPractice({
+    revision: 2,
+    previousId: draftId,
+    status: "evaluated",
+    payload: payloads.failing,
+    results: evaluation(payloads.failing, ["met", "not-met", "met"]),
+    demonstrated: false,
+    mutationId: "70000000-0000-4000-8000-000000000003",
+  });
+  const retryId = await insertPractice({
+    revision: 3,
+    previousId: failedId,
+    status: "draft",
+    payload: payloads.failing,
+    results: null,
+    demonstrated: null,
+    mutationId: "70000000-0000-4000-8000-000000000004",
+  });
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 5,
+        previousId: retryId,
+        status: "draft",
+        payload: payloads.passing,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000005",
+      }),
+    "a stale or skipped practice revision",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 4,
+        previousId: retryId,
+        status: "evaluated",
+        payload: payloads.passing,
+        results: evaluation(payloads.passing, ["not-met", "met", "met"]),
+        demonstrated: true,
+        mutationId: "70000000-0000-4000-8000-000000000006",
+      }),
+    "a forged server evaluation",
+  );
+  await insertPractice({
+    revision: 4,
+    previousId: retryId,
+    status: "evaluated",
+    payload: payloads.passing,
+    results: evaluation(payloads.passing, ["met", "met", "met"]),
+    demonstrated: true,
+    mutationId: "70000000-0000-4000-8000-000000000007",
+  });
+
+  const final = await withApplicationUser(lessonUserA, async (client) => {
+    const lesson = await client.query(`SELECT status FROM lesson_attempts WHERE id=$1`, [lessonId]);
+    const practices = await client.query(
+      `SELECT revision, status, demonstrated FROM practice_attempts WHERE lesson_attempt_id=$1 ORDER BY revision`,
+      [lessonId],
+    );
+    const events = await client.query(
+      `SELECT event_kind FROM learning_progress_events WHERE lesson_attempt_id=$1 ORDER BY occurred_at, event_kind`,
+      [lessonId],
+    );
+    return { lesson: lesson.rows, practices: practices.rows, events: events.rows };
+  });
+  assert.equal(final.lesson[0].status, "demonstrated");
+  assert.equal(final.practices.length, 4, "append-only history retains four exact revisions");
+  assert.deepEqual(final.events.map((row) => row.event_kind).sort(), [
+    "lesson_started",
+    "practice_demonstrated",
+    "practice_evaluated",
+    "practice_evaluated",
+  ]);
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(lessonUserA, (client) =>
+        client.query(`UPDATE practice_attempts SET revision=9 WHERE lesson_attempt_id=$1`, [
+          lessonId,
+        ]),
+      ),
+    "an in-place practice history update",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(lessonUserA, (client) =>
+        client.query(`DELETE FROM learning_progress_events WHERE lesson_attempt_id=$1`, [lessonId]),
+      ),
+    "a progress-event delete",
+    "42501",
+  );
+  const hidden = await withApplicationUser(lessonUserB, async (client) => ({
+    lessons: (await client.query(`SELECT id FROM lesson_attempts WHERE id=$1`, [lessonId]))
+      .rowCount,
+    practices: (
+      await client.query(`SELECT id FROM practice_attempts WHERE lesson_attempt_id=$1`, [lessonId])
+    ).rowCount,
+    events: (
+      await client.query(`SELECT id FROM learning_progress_events WHERE lesson_attempt_id=$1`, [
+        lessonId,
+      ])
+    ).rowCount,
+  }));
+  assert.deepEqual(
+    hidden,
+    { lessons: 0, practices: 0, events: 0 },
+    "forced RLS hides every learning row from another user",
+  );
+
+  for (const table of ["lesson_attempts", "practice_attempts", "learning_progress_events"]) {
+    const missing = await applicationPool.query(`SELECT id FROM ${table}`);
+    assert.equal(missing.rowCount, 0, `${table} fails closed without trusted context`);
+    await expectDatabaseRejection(
+      () => withApplicationUser("not-a-uuid", (client) => client.query(`SELECT id FROM ${table}`)),
+      `${table} rejects malformed trusted context`,
+      "22P02",
+    );
+  }
+
+  await withApplicationUser(lessonUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+      (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+     VALUES ($1,'service-profile-learning-state','alpha-privacy-v1','withdrawn',clock_timestamp(),'en','synthetic-test',$2)`,
+      [lessonUserA, proofDigest],
+    ),
+  );
+  const hiddenAfterWithdrawal = await withApplicationUser(lessonUserA, (client) =>
+    client.query(`SELECT id FROM lesson_attempts WHERE id=$1`, [lessonId]),
+  );
+  assert.equal(
+    hiddenAfterWithdrawal.rowCount,
+    0,
+    "current consent withdrawal hides persisted lesson state",
+  );
+
+  const privileges = await ownerPool.query(
+    `SELECT has_table_privilege('rise_pals_app','lesson_attempts','DELETE') AS lesson_delete,
+            has_table_privilege('rise_pals_app','practice_attempts','UPDATE') AS practice_update,
+            has_table_privilege('rise_pals_app','practice_attempts','DELETE') AS practice_delete,
+            has_table_privilege('rise_pals_app','learning_progress_events','UPDATE') AS event_update,
+            has_table_privilege('rise_pals_app','learning_progress_events','DELETE') AS event_delete`,
+  );
+  assert.deepEqual(privileges.rows[0], {
+    lesson_delete: false,
+    practice_update: false,
+    practice_delete: false,
+    event_update: false,
+    event_delete: false,
+  });
+}
+
 let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
@@ -2281,8 +2563,9 @@ try {
   await verifyRowLevelSecurity();
   await verifySerializedConsentReceipts();
   await verifyPersistedAssessmentContract();
+  await verifyPersistedLessonContract();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 17 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, and complete cross-user forced-RLS evidence).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 20 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice schema controls, and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);

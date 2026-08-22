@@ -31,6 +31,13 @@ export const assessmentSessionStatus = pgEnum("assessment_session_status", [
   "in_progress",
   "submitted",
 ]);
+export const lessonAttemptStatus = pgEnum("lesson_attempt_status", ["in_progress", "demonstrated"]);
+export const practiceAttemptStatus = pgEnum("practice_attempt_status", ["draft", "evaluated"]);
+export const learningProgressEventKind = pgEnum("learning_progress_event_kind", [
+  "lesson_started",
+  "practice_evaluated",
+  "practice_demonstrated",
+]);
 
 const utcTimestamp = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const versionedJsonCheck = (column: { name: string }) =>
@@ -820,6 +827,192 @@ export const priorityRecommendations = pgTable(
   ],
 );
 
+export const lessonAttempts = pgTable(
+  "lesson_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    consentRecordId: uuid("consent_record_id").notNull(),
+    lessonKey: text("lesson_key").notNull(),
+    lessonVersionId: text("lesson_version_id").notNull(),
+    lessonVersion: text("lesson_version").notNull(),
+    lessonDigest: text("lesson_digest").notNull(),
+    practiceId: text("practice_id").notNull(),
+    practiceVersion: text("practice_version").notNull(),
+    rubricVersionId: text("rubric_version_id").notNull(),
+    rubricVersion: text("rubric_version").notNull(),
+    evaluationContractVersionId: text("evaluation_contract_version_id").notNull(),
+    startMutationId: uuid("start_mutation_id").notNull(),
+    status: lessonAttemptStatus("status").notNull().default("in_progress"),
+    startedAt: utcTimestamp("started_at").notNull().defaultNow(),
+    lastMeaningfulActivityAt: utcTimestamp("last_meaningful_activity_at").notNull().defaultNow(),
+    demonstratedAt: utcTimestamp("demonstrated_at"),
+  },
+  (table) => [
+    unique("lesson_attempts_id_user_unique").on(table.id, table.userId),
+    uniqueIndex("lesson_attempts_owner_lesson_identity_unique").on(
+      table.userId,
+      table.lessonKey,
+      table.lessonVersion,
+    ),
+    uniqueIndex("lesson_attempts_owner_start_mutation_unique").on(
+      table.userId,
+      table.startMutationId,
+    ),
+    index("lesson_attempts_user_activity_idx").on(table.userId, table.lastMeaningfulActivityAt),
+    foreignKey({
+      name: "lesson_attempts_user_fk",
+      columns: [table.userId],
+      foreignColumns: [userAccounts.id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "lesson_attempts_consent_owner_fk",
+      columns: [table.consentRecordId, table.userId],
+      foreignColumns: [consentRecords.id, consentRecords.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "lesson_attempts_identity_check",
+      sql`${table.lessonKey} = 'source-verification-practice' AND ${table.lessonVersionId} = 'lesson-source-verification-practice-v1' AND ${table.lessonVersion} = '1.0.0' AND ${table.lessonDigest} = '51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91'`,
+    ),
+    check(
+      "lesson_attempts_compatibility_check",
+      sql`${table.practiceId} = 'source-verification-decision-v1' AND ${table.practiceVersion} = '1.0.0' AND ${table.rubricVersionId} = 'source-verification-rubric-v1' AND ${table.rubricVersion} = '1.0.0' AND ${table.evaluationContractVersionId} = 'source-verification-evaluation-v1'`,
+    ),
+    check(
+      "lesson_attempts_status_timestamp_check",
+      sql`(${table.status} = 'in_progress' AND ${table.demonstratedAt} IS NULL) OR (${table.status} = 'demonstrated' AND ${table.demonstratedAt} IS NOT NULL)`,
+    ),
+    check(
+      "lesson_attempts_activity_time_check",
+      sql`${table.lastMeaningfulActivityAt} >= ${table.startedAt} AND (${table.demonstratedAt} IS NULL OR ${table.demonstratedAt} >= ${table.startedAt})`,
+    ),
+  ],
+);
+
+export const practiceAttempts = pgTable(
+  "practice_attempts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    lessonAttemptId: uuid("lesson_attempt_id").notNull(),
+    revision: integer("revision").notNull(),
+    supersedesPracticeAttemptId: uuid("supersedes_practice_attempt_id"),
+    status: practiceAttemptStatus("status").notNull(),
+    responsePayload: jsonb("response_payload").notNull(),
+    practiceId: text("practice_id").notNull(),
+    practiceVersion: text("practice_version").notNull(),
+    rubricVersionId: text("rubric_version_id").notNull(),
+    rubricVersion: text("rubric_version").notNull(),
+    evaluationContractVersionId: text("evaluation_contract_version_id").notNull(),
+    criterionResults: jsonb("criterion_results"),
+    demonstrated: boolean("demonstrated"),
+    clientMutationId: uuid("client_mutation_id").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("practice_attempts_id_owner_lesson_unique").on(
+      table.id,
+      table.userId,
+      table.lessonAttemptId,
+    ),
+    uniqueIndex("practice_attempts_lesson_revision_unique").on(
+      table.lessonAttemptId,
+      table.revision,
+    ),
+    uniqueIndex("practice_attempts_lesson_mutation_unique").on(
+      table.lessonAttemptId,
+      table.clientMutationId,
+    ),
+    index("practice_attempts_owner_created_idx").on(table.userId, table.createdAt),
+    foreignKey({
+      name: "practice_attempts_lesson_owner_fk",
+      columns: [table.lessonAttemptId, table.userId],
+      foreignColumns: [lessonAttempts.id, lessonAttempts.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "practice_attempts_supersedes_owner_lesson_fk",
+      columns: [table.supersedesPracticeAttemptId, table.userId, table.lessonAttemptId],
+      foreignColumns: [table.id, table.userId, table.lessonAttemptId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("practice_attempts_revision_positive", sql`${table.revision} > 0`),
+    check(
+      "practice_attempts_supersession_shape_check",
+      sql`(${table.revision} = 1 AND ${table.supersedesPracticeAttemptId} IS NULL) OR (${table.revision} > 1 AND ${table.supersedesPracticeAttemptId} IS NOT NULL)`,
+    ),
+    check("practice_attempts_response_json_check", versionedJsonCheck(table.responsePayload)),
+    check(
+      "practice_attempts_compatibility_check",
+      sql`${table.practiceId} = 'source-verification-decision-v1' AND ${table.practiceVersion} = '1.0.0' AND ${table.rubricVersionId} = 'source-verification-rubric-v1' AND ${table.rubricVersion} = '1.0.0' AND ${table.evaluationContractVersionId} = 'source-verification-evaluation-v1'`,
+    ),
+    check(
+      "practice_attempts_evaluation_shape_check",
+      sql`(${table.status} = 'draft' AND ${table.criterionResults} IS NULL AND ${table.demonstrated} IS NULL) OR (${table.status} = 'evaluated' AND ${table.criterionResults} IS NOT NULL AND ${table.demonstrated} IS NOT NULL AND rise_pals_private.is_versioned_json_object(${table.criterionResults}))`,
+    ),
+  ],
+);
+
+export const learningProgressEvents = pgTable(
+  "learning_progress_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    lessonAttemptId: uuid("lesson_attempt_id").notNull(),
+    practiceAttemptId: uuid("practice_attempt_id"),
+    eventKind: learningProgressEventKind("event_kind").notNull(),
+    eventSchemaVersion: text("event_schema_version").notNull(),
+    sourceMutationId: uuid("source_mutation_id").notNull(),
+    occurredAt: utcTimestamp("occurred_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("learning_progress_events_source_unique").on(
+      table.lessonAttemptId,
+      table.eventKind,
+      table.sourceMutationId,
+    ),
+    uniqueIndex("learning_progress_events_one_started_per_lesson")
+      .on(table.lessonAttemptId, table.eventKind)
+      .where(sql`${table.eventKind} = 'lesson_started'`),
+    uniqueIndex("learning_progress_events_practice_kind_unique")
+      .on(table.practiceAttemptId, table.eventKind)
+      .where(sql`${table.practiceAttemptId} IS NOT NULL`),
+    index("learning_progress_events_owner_occurred_idx").on(table.userId, table.occurredAt),
+    foreignKey({
+      name: "learning_progress_events_lesson_owner_fk",
+      columns: [table.lessonAttemptId, table.userId],
+      foreignColumns: [lessonAttempts.id, lessonAttempts.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "learning_progress_events_practice_owner_lesson_fk",
+      columns: [table.practiceAttemptId, table.userId, table.lessonAttemptId],
+      foreignColumns: [
+        practiceAttempts.id,
+        practiceAttempts.userId,
+        practiceAttempts.lessonAttemptId,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "learning_progress_events_schema_check",
+      sql`${table.eventSchemaVersion} = 'learning-progress-event-v1'`,
+    ),
+    check(
+      "learning_progress_events_relationship_check",
+      sql`(${table.eventKind} = 'lesson_started' AND ${table.practiceAttemptId} IS NULL) OR (${table.eventKind} IN ('practice_evaluated', 'practice_demonstrated') AND ${table.practiceAttemptId} IS NOT NULL)`,
+    ),
+  ],
+);
+
 export const databaseSchema = {
   userAccounts,
   externalIdentities,
@@ -838,4 +1031,7 @@ export const databaseSchema = {
   multiplierObservations,
   scoreExplanations,
   priorityRecommendations,
+  lessonAttempts,
+  practiceAttempts,
+  learningProgressEvents,
 } as const;
