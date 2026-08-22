@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { FRAMEWORK_VERSION_ID } from "@/modules/assessment/framework";
+import {
+  getSourceVerificationPublicationDigest,
+  getSourceVerificationRenderSections,
+  sourceVerificationLessonDefinition,
+} from "@/modules/lesson/publication/registry";
 import {
   SOURCE_VERIFICATION_LESSON_KEY,
   SOURCE_VERIFICATION_LESSON_VERSION,
@@ -9,10 +14,11 @@ import {
   SOURCE_VERIFICATION_RUBRIC_VERSION_ID,
   createSourceVerificationLessonView,
   sourceVerificationCriterionIds,
-  sourceVerificationLessonDefinition,
   sourceVerificationProofFieldIds,
   validateSourceVerificationLessonDefinition,
 } from "@/modules/lesson/source-verification";
+
+vi.mock("server-only", () => ({}));
 
 function structuralKeys(value: unknown, prefix = ""): string[] {
   if (typeof value === "string") {
@@ -48,7 +54,8 @@ describe("source-verification lesson content contract", () => {
       key: SOURCE_VERIFICATION_LESSON_KEY,
       versionId: SOURCE_VERIFICATION_LESSON_VERSION_ID,
       version: SOURCE_VERIFICATION_LESSON_VERSION,
-      status: "prototype",
+      status: "published",
+      validationStatus: "prototype-unvalidated",
       frameworkVersionId: FRAMEWORK_VERSION_ID,
       targetCompetencyId: "critical-thinking-fact-checking",
       targetWorkingStage: "Practicing",
@@ -56,7 +63,7 @@ describe("source-verification lesson content contract", () => {
       practiceId: SOURCE_VERIFICATION_PRACTICE_ID,
       rubricVersionId: SOURCE_VERIFICATION_RUBRIC_VERSION_ID,
       proofId: SOURCE_VERIFICATION_PROOF_ID,
-      provenance: "git-versioned-local-prototype",
+      provenance: "git-reviewed-content-publication-pipeline",
     });
     expect(sourceVerificationLessonDefinition.practice.criterionIds).toEqual(
       sourceVerificationCriterionIds,
@@ -80,8 +87,27 @@ describe("source-verification lesson content contract", () => {
     );
     expect(thai.locale).toBe("th");
     expect(english.locale).toBe("en");
-    expect(createSourceVerificationLessonView("th").lesson.locale).toBe("th");
-    expect(createSourceVerificationLessonView("en").lesson.locale).toBe("en");
+    expect(
+      createSourceVerificationLessonView("th", sourceVerificationLessonDefinition).lesson.locale,
+    ).toBe("th");
+    expect(
+      createSourceVerificationLessonView("en", sourceVerificationLessonDefinition).lesson.locale,
+    ).toBe("en");
+  });
+
+  it("maps the validated publication plan to fixed local lesson sections", () => {
+    expect(getSourceVerificationRenderSections("th")).toEqual([
+      expect.objectContaining({ component: "Scenario", localSection: "scenario" }),
+      expect.objectContaining({ component: "ConceptList", localSection: "concepts" }),
+      expect.objectContaining({ component: "RubricSummary", localSection: "rubric" }),
+      expect.objectContaining({ component: "PracticeMount", localSection: "practice" }),
+      expect.objectContaining({ component: "ProofPlaceholder", localSection: "proof" }),
+      expect.objectContaining({ component: "ReflectionPrompt", localSection: "reflection" }),
+    ]);
+    expect(getSourceVerificationRenderSections("en")).toEqual(
+      getSourceVerificationRenderSections("th"),
+    );
+    expect(getSourceVerificationPublicationDigest()).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("rejects malformed localized content and raw HTML", () => {
@@ -195,9 +221,10 @@ describe("source-verification lesson content contract", () => {
     expect(() => validateSourceVerificationLessonDefinition(invalid)).toThrow(message);
   });
 
-  it("contains only synthetic prototype provenance and no publication or reviewer claim", () => {
+  it("records synthetic-alpha publication separately from external validation", () => {
     const serialized = JSON.stringify(sourceVerificationLessonDefinition);
-    expect(serialized).toContain("git-versioned-local-prototype");
+    expect(serialized).toContain("git-reviewed-content-publication-pipeline");
+    expect(serialized).toContain("prototype-unvalidated");
     expect(serialized).toContain("Bright River Operations");
     for (const forbidden of [
       "publishedAt",

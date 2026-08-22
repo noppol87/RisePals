@@ -1,4 +1,3 @@
-export { sourceVerificationLessonDefinition } from "@/modules/lesson/source-verification/definition";
 export { evaluateSourceVerificationPractice } from "@/modules/lesson/source-verification/evaluate";
 export {
   createInitialSourceVerificationPracticeState,

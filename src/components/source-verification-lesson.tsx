@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { TextLink } from "@/components/primitives/text-link";
+import type { SourceVerificationLessonView } from "@/modules/lesson/source-verification/types";
 import {
   createInitialSourceVerificationPracticeState,
   getSourceVerificationPracticeOutcome,
@@ -9,8 +10,7 @@ import {
   retrySourceVerificationPractice,
   selectSourceVerificationOption,
   submitSourceVerificationPractice,
-  type SourceVerificationLessonView,
-} from "@/modules/lesson/source-verification";
+} from "@/modules/lesson/source-verification/state";
 
 type SourceVerificationLessonProps = Readonly<{
   exampleResultHref: string;
@@ -110,7 +110,7 @@ export function SourceVerificationLesson({
         </dl>
         <p className="lesson-version-line">
           <code>{view.lesson.versionId}</code> · <code>{view.lesson.version}</code> ·{" "}
-          <code>{view.lesson.status}</code>
+          <code>{view.lesson.status}</code> · <code>{view.lesson.validationStatus}</code>
         </p>
       </section>
 

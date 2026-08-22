@@ -7,7 +7,8 @@ import {
   sourceVerificationLessonPath,
 } from "@/lib/i18n/config";
 import { getCatalogForSegment } from "@/lib/i18n/server";
-import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification";
+import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
+import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification/view";
 
 type SourceVerificationLessonPageProps = Readonly<{
   params: Promise<{ locale: string }>;
@@ -23,7 +24,10 @@ export async function generateMetadata({
     notFound();
   }
 
-  const view = createSourceVerificationLessonView(resolved.locale);
+  const view = createSourceVerificationLessonView(
+    resolved.locale,
+    sourceVerificationLessonDefinition,
+  );
   return {
     title: view.metadata.title,
     description: view.metadata.description,
@@ -51,7 +55,7 @@ export default async function SourceVerificationLessonPage({
     <SourceVerificationLesson
       exampleResultHref={assessmentExampleResultPath(resolved.locale)}
       homeHref={localePath(resolved.locale)}
-      view={createSourceVerificationLessonView(resolved.locale)}
+      view={createSourceVerificationLessonView(resolved.locale, sourceVerificationLessonDefinition)}
     />
   );
 }

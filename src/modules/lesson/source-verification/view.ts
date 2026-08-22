@@ -1,4 +1,3 @@
-import { sourceVerificationLessonDefinition } from "@/modules/lesson/source-verification/definition";
 import type {
   SourceVerificationCriterionId,
   SourceVerificationLessonDefinition,
@@ -9,7 +8,7 @@ import type { Locale } from "@/lib/i18n/config";
 
 export function createSourceVerificationLessonView(
   locale: Locale,
-  definition: SourceVerificationLessonDefinition = sourceVerificationLessonDefinition,
+  definition: SourceVerificationLessonDefinition,
 ): SourceVerificationLessonView {
   validateSourceVerificationLessonDefinition(definition);
   const content = definition.content[locale];

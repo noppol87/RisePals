@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "rise-pals-practice-source-v1",
+  "practice": {
+    "id": "source-verification-decision-v1",
+    "version": "1.0.0",
+    "rubricVersionId": "source-verification-rubric-v1",
+    "criterionIds": [
+      "evidence-traceability",
+      "claim-source-fit",
+      "safe-next-action"
+    ],
+    "options": [
+      {
+        "id": "trace-claim-to-source-map",
+        "criterionId": "evidence-traceability",
+        "meetsCriterion": true
+      },
+      {
+        "id": "trace-trust-ai-link-list",
+        "criterionId": "evidence-traceability",
+        "meetsCriterion": false
+      },
+      {
+        "id": "trace-remove-source-notes",
+        "criterionId": "evidence-traceability",
+        "meetsCriterion": false
+      },
+      {
+        "id": "fit-narrow-to-supported-teams",
+        "criterionId": "claim-source-fit",
+        "meetsCriterion": true
+      },
+      {
+        "id": "fit-keep-all-team-claim",
+        "criterionId": "claim-source-fit",
+        "meetsCriterion": false
+      },
+      {
+        "id": "fit-convert-to-broad-average",
+        "criterionId": "claim-source-fit",
+        "meetsCriterion": false
+      },
+      {
+        "id": "safe-hold-and-resolve-gaps",
+        "criterionId": "safe-next-action",
+        "meetsCriterion": true
+      },
+      {
+        "id": "safe-publish-with-small-note",
+        "criterionId": "safe-next-action",
+        "meetsCriterion": false
+      },
+      {
+        "id": "safe-ask-ai-for-confidence",
+        "criterionId": "safe-next-action",
+        "meetsCriterion": false
+      }
+    ]
+  },
+  "localized": {
+    "th": {
+      "practice": {
+        "eyebrow": "Structured decision practice",
+        "heading": "เลือกการตรวจสอบที่ปลอดภัยที่สุด",
+        "introduction": "ตอบทั้งสามส่วน ระบบจะเทียบตัวเลือกกับเกณฑ์ที่แสดงไว้โดยตรง ไม่มี AI หรือผู้ประเมินภายนอกเข้ามาตัดสิน",
+        "instruction": "เลือกหนึ่งตัวเลือกต่อเกณฑ์ แล้วกดดู feedback",
+        "criteria": [
+          {
+            "id": "evidence-traceability",
+            "label": "การตามรอยหลักฐาน",
+            "prompt": "คุณควรสร้างร่องรอยการตรวจสอบแบบใดก่อน",
+            "options": [
+              {
+                "id": "trace-claim-to-source-map",
+                "label": "ทำตารางเชื่อมแต่ละข้ออ้างกับส่วนของแหล่งข้อมูล และระบุจุดที่ข้อมูลขาด"
+              },
+              {
+                "id": "trace-trust-ai-link-list",
+                "label": "ใช้รายชื่อลิงก์ที่ AI ให้มาโดยไม่เปิดตรวจเนื้อหาแต่ละแหล่ง"
+              },
+              {
+                "id": "trace-remove-source-notes",
+                "label": "ลบหมายเหตุแหล่งข้อมูลเพื่อให้สรุปอ่านง่ายขึ้น"
+              }
+            ]
+          },
+          {
+            "id": "claim-source-fit",
+            "label": "ความพอดีระหว่างข้ออ้างกับแหล่งข้อมูล",
+            "prompt": "ข้อความใดแทนสรุปเดิมได้ตรงกับหลักฐานมากที่สุด",
+            "options": [
+              {
+                "id": "fit-narrow-to-supported-teams",
+                "label": "ทีม A เร็วขึ้น 30% และทีม B เร็วขึ้น 8% ในข้อมูลทดลอง ส่วนทีม C ยังสรุปไม่ได้เพราะข้อมูลไม่ครบ"
+              },
+              {
+                "id": "fit-keep-all-team-claim",
+                "label": "ทั้งสามทีมเร็วขึ้นประมาณ 30% เพราะแนวโน้มโดยรวมเป็นบวก"
+              },
+              {
+                "id": "fit-convert-to-broad-average",
+                "label": "โครงการลดเวลาปิดงานได้มาก โดยไม่ต้องแยกทีมและขนาดตัวอย่าง"
+              }
+            ]
+          },
+          {
+            "id": "safe-next-action",
+            "label": "ก้าวถัดไปที่ปลอดภัย",
+            "prompt": "ทีมควรทำอะไรก่อนส่งสรุปให้ผู้บริหาร",
+            "options": [
+              {
+                "id": "safe-hold-and-resolve-gaps",
+                "label": "พักข้ออ้างรวม ขอข้อมูลทีม C ตรวจปัญหาเร่งด่วน และส่งเฉพาะข้อความที่ตามรอยหลักฐานได้"
+              },
+              {
+                "id": "safe-publish-with-small-note",
+                "label": "ส่งสรุปเดิมพร้อมหมายเหตุสั้น ๆ ว่าตัวเลขอาจเปลี่ยนภายหลัง"
+              },
+              {
+                "id": "safe-ask-ai-for-confidence",
+                "label": "ขอให้ AI เพิ่มค่าความมั่นใจ แล้วใช้สรุปเดิมหากค่าดูสูงพอ"
+              }
+            ]
+          }
+        ]
+      },
+      "feedback": {
+        "incompleteError": "เลือกคำตอบให้ครบทั้งสามเกณฑ์ก่อนดู feedback",
+        "heading": "Feedback จากเกณฑ์ที่เปิดเผย",
+        "demonstratedHeading": "ผ่านครบทั้งสามเกณฑ์ในแบบฝึกจำลองนี้",
+        "partialHeading": "ยังมีเกณฑ์ที่ควรทบทวนก่อนใช้สรุป",
+        "demonstratedSummary": "ตัวเลือกชุดนี้แสดงการตามรอยหลักฐาน จำกัดข้ออ้างให้พอดี และเลือกก้าวถัดไปที่ลดความเสี่ยง",
+        "partialSummary": "ดูผลรายเกณฑ์ด้านล่าง แล้วลองปรับการตัดสินใจได้ แบบฝึกนี้ไม่ตีความเป็นระดับความสามารถของคุณ",
+        "metLabel": "ผ่านเกณฑ์",
+        "notMetLabel": "ยังไม่ผ่านเกณฑ์",
+        "previewXpTemplate": "ตัวอย่างกติกา XP: {xp} XP",
+        "unsavedXpBoundary": "XP เป็นเพียงตัวอย่างกติกาและไม่ได้ถูกบันทึก การประเมินซ้ำไม่สะสม XP เพิ่ม",
+        "evaluateLabel": "ดู feedback ตามเกณฑ์",
+        "retryLabel": "ปรับคำตอบแล้วลองอีกครั้ง",
+        "resetLabel": "ล้างตัวเลือกในหน้านี้",
+        "demonstratedAnnouncement": "ผ่านครบทั้งสามเกณฑ์ ได้ตัวอย่าง 20 XP ซึ่งไม่ได้ถูกบันทึก",
+        "partialAnnouncement": "ยังไม่ผ่านครบทั้งสามเกณฑ์ ตัวอย่าง XP เท่ากับ 0 และไม่ได้ถูกบันทึก"
+      }
+    },
+    "en": {
+      "practice": {
+        "eyebrow": "Structured decision practice",
+        "heading": "Choose the safest verification response",
+        "introduction": "Answer all three parts. The prototype compares your choices directly with the visible rubric; no AI or external reviewer evaluates them.",
+        "instruction": "Choose one option for each criterion, then review the feedback.",
+        "criteria": [
+          {
+            "id": "evidence-traceability",
+            "label": "Evidence traceability",
+            "prompt": "What verification record should you create first?",
+            "options": [
+              {
+                "id": "trace-claim-to-source-map",
+                "label": "Map every material claim to a specific source section and mark missing evidence."
+              },
+              {
+                "id": "trace-trust-ai-link-list",
+                "label": "Trust the AI summary's list of links without opening each source."
+              },
+              {
+                "id": "trace-remove-source-notes",
+                "label": "Remove source notes so the summary is easier to read."
+              }
+            ]
+          },
+          {
+            "id": "claim-source-fit",
+            "label": "Claim-to-source fit",
+            "prompt": "Which replacement statement best fits the source pack?",
+            "options": [
+              {
+                "id": "fit-narrow-to-supported-teams",
+                "label": "Team A was 30% faster and Team B 8% faster in the pilot data; Team C cannot yet be summarized because its data is incomplete."
+              },
+              {
+                "id": "fit-keep-all-team-claim",
+                "label": "All three teams were about 30% faster because the overall trend is positive."
+              },
+              {
+                "id": "fit-convert-to-broad-average",
+                "label": "The pilot greatly reduced resolution time, without separating teams or sample sizes."
+              }
+            ]
+          },
+          {
+            "id": "safe-next-action",
+            "label": "Safe next action",
+            "prompt": "What should the team do before sending the summary to executives?",
+            "options": [
+              {
+                "id": "safe-hold-and-resolve-gaps",
+                "label": "Hold the broad claim, obtain Team C data, resolve the escalations, and circulate only traceable wording."
+              },
+              {
+                "id": "safe-publish-with-small-note",
+                "label": "Send the original summary with a short note that figures may change later."
+              },
+              {
+                "id": "safe-ask-ai-for-confidence",
+                "label": "Ask the AI for a confidence value and keep the claim if the value appears high."
+              }
+            ]
+          }
+        ]
+      },
+      "feedback": {
+        "incompleteError": "Choose one response for all three criteria before reviewing feedback.",
+        "heading": "Feedback from the visible rubric",
+        "demonstratedHeading": "All three criteria are met in this synthetic practice",
+        "partialHeading": "Review at least one criterion before using the summary",
+        "demonstratedSummary": "These choices trace the evidence, keep claims within scope, and choose a next action that reduces risk.",
+        "partialSummary": "Review the criterion-level feedback and revise the decision. This prototype does not infer your proficiency.",
+        "metLabel": "Criterion met",
+        "notMetLabel": "Criterion not met",
+        "previewXpTemplate": "XP rule preview: {xp} XP",
+        "unsavedXpBoundary": "XP is a preview rule only and is not saved. Re-evaluating never accumulates additional XP.",
+        "evaluateLabel": "Review rubric feedback",
+        "retryLabel": "Revise choices and try again",
+        "resetLabel": "Clear choices on this page",
+        "demonstratedAnnouncement": "All three criteria are met. The preview is 20 XP, and nothing is saved.",
+        "partialAnnouncement": "Not all three criteria are met. The preview is 0 XP, and nothing is saved."
+      }
+    }
+  }
+}

@@ -424,6 +424,10 @@ All five tables use ENABLE/FORCE RLS and owner/session composite foreign keys. T
 
 ## Learning content and practice
 
+RP-TURN-014 selects the tracked deterministic build-time registry as the pilot publication mechanism. `source-verification-practice@1.0.0` is identified by its Git source paths and aggregate SHA-256 and is available only for synthetic alpha. No `lesson_version`, `practice_version`, rubric, source-claim or publication table is added to the accepted four-migration/17-table database. The relational structures below remain the future persisted-learning model for a separately authorized turn; a database mirror/import job, CMS and production content operations are still undecided.
+
+Operational content status and validation status remain separate: the pilot version is `published` through the repository registry while remaining `prototype-unvalidated`. This does not create a learner attempt, progress, XP, proof or efficacy record.
+
 ### `lesson_version`
 
 Published mirror of validated Git content.

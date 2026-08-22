@@ -92,6 +92,7 @@ function validateLessonIdentity(lesson: Record<string, unknown>): void {
       "status",
       "targetCompetencyId",
       "targetWorkingStage",
+      "validationStatus",
       "version",
       "versionId",
     ],
@@ -100,13 +101,14 @@ function validateLessonIdentity(lesson: Record<string, unknown>): void {
   requireEqual(lesson.key, SOURCE_VERIFICATION_LESSON_KEY, "lesson key");
   requireEqual(lesson.versionId, SOURCE_VERIFICATION_LESSON_VERSION_ID, "lesson version ID");
   requireEqual(lesson.version, SOURCE_VERIFICATION_LESSON_VERSION, "lesson version");
-  requireEqual(lesson.status, "prototype", "lesson status");
+  requireEqual(lesson.status, "published", "lesson status");
+  requireEqual(lesson.validationStatus, "prototype-unvalidated", "lesson validation status");
   requireEqual(lesson.frameworkVersionId, FRAMEWORK_VERSION_ID, "framework version ID");
   requireEqual(lesson.targetCompetencyId, "critical-thinking-fact-checking", "target competency");
   requireEqual(lesson.targetWorkingStage, "Practicing", "target working stage");
   requireEqual(lesson.primaryRoiPillar, "Intelligent Risk & Governance", "primary R.O.I. pillar");
   requireEqual(lesson.estimatedActiveMinutes, 8, "estimated active minutes");
-  requireEqual(lesson.provenance, "git-versioned-local-prototype", "lesson provenance");
+  requireEqual(lesson.provenance, "git-reviewed-content-publication-pipeline", "lesson provenance");
   requireSequence(lesson.locales, ["th", "en"], "lesson locales");
   requireEqual(lesson.practiceId, SOURCE_VERIFICATION_PRACTICE_ID, "lesson practice link");
   requireEqual(lesson.rubricVersionId, SOURCE_VERIFICATION_RUBRIC_VERSION_ID, "lesson rubric link");

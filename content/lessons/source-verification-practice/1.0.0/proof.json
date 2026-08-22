@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "rise-pals-proof-source-v1",
+  "proof": {
+    "id": "source-verification-note-placeholder-v1",
+    "version": "1.0.0",
+    "status": "placeholder",
+    "artifactType": "source-verification-note",
+    "fieldIds": [
+      "claim",
+      "source-reference",
+      "fit-check",
+      "corrected-wording",
+      "safe-next-action"
+    ],
+    "capturesInput": false
+  },
+  "localized": {
+    "th": {
+      "proof": {
+        "eyebrow": "Proof placeholder",
+        "heading": "หลักฐานในอนาคต: บันทึกการตรวจสอบแหล่งข้อมูล",
+        "introduction": "ในผลิตภัณฑ์อนาคต การฝึกนี้อาจนำไปสู่บันทึกที่ตรวจสอบย้อนกลับได้ แต่ต้นแบบนี้แสดงเฉพาะโครงสร้างเท่านั้น",
+        "placeholderLabel": "ตัวอย่างโครงสร้างหลักฐาน — ยังสร้างหรือบันทึกไม่ได้",
+        "fieldsHeading": "ช่องข้อมูลที่คาดว่าจะมี",
+        "fields": [
+          {
+            "id": "claim",
+            "label": "ข้ออ้างที่ตรวจ"
+          },
+          {
+            "id": "source-reference",
+            "label": "แหล่งและตำแหน่งอ้างอิง"
+          },
+          {
+            "id": "fit-check",
+            "label": "ผลตรวจความพอดีของข้ออ้าง"
+          },
+          {
+            "id": "corrected-wording",
+            "label": "ข้อความที่แก้ตามหลักฐาน"
+          },
+          {
+            "id": "safe-next-action",
+            "label": "ก้าวถัดไปที่ปลอดภัย"
+          }
+        ],
+        "boundary": "ไม่มีช่องข้อความ การอัปโหลด การสร้างไฟล์ หรือการจัดเก็บหลักฐานใน RP-TURN-009"
+      },
+      "reflection": {
+        "heading": "ทบทวนกับตนเองโดยไม่ส่งคำตอบ",
+        "prompt": "ในงานของคุณ จุดตรวจใดควรเกิดขึ้นก่อนนำสรุปจาก AI ไปใช้ตัดสินใจ",
+        "boundary": "คิดหรือจดไว้กับตนเองเท่านั้น หน้านี้ไม่มีช่องให้กรอกและไม่เก็บหรือส่ง reflection"
+      },
+      "actions": {
+        "backToExampleLabel": "กลับไปดูผลลัพธ์ตัวอย่างคงที่",
+        "homeLabel": "กลับหน้าหลัก"
+      }
+    },
+    "en": {
+      "proof": {
+        "eyebrow": "Proof placeholder",
+        "heading": "Future evidence: a source verification note",
+        "introduction": "A future product could turn this practice into a traceable note. This prototype displays only the expected structure.",
+        "placeholderLabel": "Evidence structure preview — creation and saving are unavailable",
+        "fieldsHeading": "Expected fields",
+        "fields": [
+          {
+            "id": "claim",
+            "label": "Claim reviewed"
+          },
+          {
+            "id": "source-reference",
+            "label": "Source and location reference"
+          },
+          {
+            "id": "fit-check",
+            "label": "Claim-fit finding"
+          },
+          {
+            "id": "corrected-wording",
+            "label": "Evidence-supported correction"
+          },
+          {
+            "id": "safe-next-action",
+            "label": "Safe next action"
+          }
+        ],
+        "boundary": "RP-TURN-009 provides no text field, upload, artifact creation, or storage."
+      },
+      "reflection": {
+        "heading": "Reflect privately without submitting an answer",
+        "prompt": "Where should a verification checkpoint sit before an AI summary informs your work?",
+        "boundary": "Think or write privately. This page provides no input and does not collect or transmit a reflection."
+      },
+      "actions": {
+        "backToExampleLabel": "Return to the fixed synthetic result",
+        "homeLabel": "Return home"
+      }
+    }
+  }
+}

@@ -28,7 +28,8 @@ for (const locale of ["th", "en"] as const) {
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
     await expect(page.getByText("1.0.0")).toBeVisible();
-    await expect(page.getByText("prototype", { exact: true })).toBeVisible();
+    await expect(page.getByText("published", { exact: true })).toBeVisible();
+    await expect(page.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
     await expect(page.getByText("Practicing")).toBeVisible();
     await expect(page.getByText("Intelligent Risk & Governance")).toBeVisible();
     await expect(page.getByText("Bright River Operations")).toBeVisible();

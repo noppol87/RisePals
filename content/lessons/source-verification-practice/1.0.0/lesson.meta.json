@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "rise-pals-lesson-source-v1",
+  "contractVersionId": "lesson-local-prototype-contract-v1",
+  "lesson": {
+    "key": "source-verification-practice",
+    "versionId": "lesson-source-verification-practice-v1",
+    "version": "1.0.0",
+    "status": "published",
+    "frameworkVersionId": "framework-rise-pals-8-plus-2-v2",
+    "targetCompetencyId": "critical-thinking-fact-checking",
+    "targetWorkingStage": "Practicing",
+    "primaryRoiPillar": "Intelligent Risk & Governance",
+    "estimatedActiveMinutes": 8,
+    "provenance": "git-reviewed-content-publication-pipeline",
+    "locales": [
+      "th",
+      "en"
+    ],
+    "practiceId": "source-verification-decision-v1",
+    "rubricVersionId": "source-verification-rubric-v1",
+    "proofId": "source-verification-note-placeholder-v1",
+    "validationStatus": "prototype-unvalidated",
+    "localePolicy": {
+      "requiredLocales": [
+        "th",
+        "en"
+      ],
+      "fallback": "none"
+    },
+    "prerequisites": [],
+    "contentOwnerRef": "jeff-product-owner",
+    "reviewerRef": "project-codex-content-contract-review",
+    "contentReviewedAt": "2026-08-03T18:38:24+02:00",
+    "publicationRecordedAt": "2026-08-22T00:00:00Z"
+  },
+  "xpRule": {
+    "versionId": "source-verification-xp-preview-v1",
+    "viewingPreviewXp": 0,
+    "incompletePreviewXp": 0,
+    "demonstratedPreviewXp": 20,
+    "accumulation": "replace-not-add",
+    "persisted": false
+  },
+  "localized": {
+    "th": {
+      "metadata": {
+        "title": "ต้นแบบบทเรียนตรวจสอบแหล่งข้อมูล | Rise Pals",
+        "description": "บทเรียนและแบบฝึกจำลองเพื่อฝึกเชื่อมข้ออ้างจากสรุปของ AI กับแหล่งข้อมูล โดยไม่เก็บคำตอบหรือความก้าวหน้า"
+      },
+      "hero": {
+        "eyebrow": "Learn → Practice → Feedback → Proof placeholder",
+        "heading": "ตรวจข้ออ้างจากสรุปของ AI ก่อนนำไปใช้ตัดสินใจ",
+        "introduction": "บทเรียนสั้นนี้สาธิตการเปลี่ยนจากการอ่านเนื้อหาไปสู่การตัดสินใจ ตรวจด้วยเกณฑ์ที่เปิดเผย และเห็นรูปแบบหลักฐานที่อาจสร้างในอนาคต",
+        "prototypeLabel": "เผยแพร่ผ่าน registry ใน repository สำหรับ synthetic alpha — ยังเป็นต้นแบบและยังไม่ผ่านการตรวจสอบผลการเรียนรู้จากภายนอก",
+        "boundary": "สถานการณ์ องค์กร เอกสาร และตัวเลขทั้งหมดเป็นข้อมูลสมมติ บทเรียนไม่อ่านคำตอบจากแบบประเมิน และลิงก์นี้ไม่ใช่คำแนะนำเฉพาะบุคคล"
+      },
+      "overview": {
+        "heading": "ขอบเขตของบทเรียนต้นแบบ",
+        "targetLabel": "ทักษะเป้าหมาย",
+        "stageLabel": "ระดับฝึกใช้งานที่ตั้งใจ",
+        "roiLabel": "เสาหลัก R.O.I.",
+        "timeLabel": "เวลาลงมือโดยประมาณ",
+        "timeValue": "ประมาณ 8 นาที"
+      },
+      "concepts": {
+        "heading": "แนวคิดที่จำเป็นก่อนตัดสินใจ",
+        "introduction": "ใช้เพียงสามคำถามเพื่อหยุดข้ออ้างที่หลักฐานยังรองรับไม่พอ",
+        "items": [
+          {
+            "id": "evidence-traceability",
+            "heading": "1. ตามรอยหลักฐานได้หรือไม่",
+            "body": "แยกข้ออ้างสำคัญ แล้วชี้ไปยังตาราง หมายเหตุ หรือบันทึกที่รองรับแต่ละข้ออย่างชัดเจน"
+          },
+          {
+            "id": "claim-source-fit",
+            "heading": "2. ความแรงและขอบเขตของข้ออ้างพอดีกับแหล่งข้อมูลหรือไม่",
+            "body": "อย่าขยายผลจากหนึ่งทีมไปทุกทีม และอย่าเปลี่ยนข้อมูลที่หายไปให้กลายเป็นผลลัพธ์เชิงบวก"
+          },
+          {
+            "id": "safe-next-action",
+            "heading": "3. ก้าวถัดไปลดความเสี่ยงได้จริงหรือไม่",
+            "body": "ชะลอข้อความที่ยังยืนยันไม่ได้ ขอข้อมูลที่ขาด และแก้ข้ออ้างก่อนนำไปใช้ในการตัดสินใจ"
+          }
+        ]
+      }
+    },
+    "en": {
+      "metadata": {
+        "title": "Source-verification lesson prototype | Rise Pals",
+        "description": "A synthetic lesson and practice for tracing AI-summary claims to sources without saving responses or progress."
+      },
+      "hero": {
+        "eyebrow": "Learn → Practice → Feedback → Proof placeholder",
+        "heading": "Verify claims in an AI summary before using them in a decision",
+        "introduction": "This micro-lesson demonstrates a path from concise content to an active decision, transparent feedback, and the shape of future evidence.",
+        "prototypeLabel": "Published through the repository registry for synthetic alpha — still a prototype and not externally validated for learning outcomes",
+        "boundary": "Every organization, document, person, and value in this scenario is synthetic. The lesson reads no assessment response, and this link is not a personalized recommendation."
+      },
+      "overview": {
+        "heading": "Prototype lesson boundary",
+        "targetLabel": "Target competency",
+        "stageLabel": "Intended working stage",
+        "roiLabel": "R.O.I. pillar",
+        "timeLabel": "Estimated active time",
+        "timeValue": "About 8 minutes"
+      },
+      "concepts": {
+        "heading": "The concepts needed for this decision",
+        "introduction": "Use three checks to stop a claim when its evidence is not ready.",
+        "items": [
+          {
+            "id": "evidence-traceability",
+            "heading": "1. Can you trace the evidence?",
+            "body": "Separate each material claim and point to the exact table, note, or record that supports it."
+          },
+          {
+            "id": "claim-source-fit",
+            "heading": "2. Does the claim fit the source?",
+            "body": "Do not generalize one team's outcome to every team or turn missing data into a positive result."
+          },
+          {
+            "id": "safe-next-action",
+            "heading": "3. Does the next action reduce risk?",
+            "body": "Hold unsupported wording, request missing evidence, and correct the claim before it informs a decision."
+          }
+        ]
+      }
+    }
+  }
+}
