@@ -742,7 +742,7 @@ The third migration creates only `assessment_sessions` and `assessment_responses
 
 Project Codex Accepted the implementation and deterministic/database/browser/real-provider verification for synthetic alpha only. This acceptance did not itself authorize production use or RP-TURN-013; Turn 013 was subsequently authorized through a separate brief.
 
-## Current boundary during RP-TURN-014 review
+## Current boundary after RP-TURN-014 acceptance
 
 - RP-TURN-006 and RP-TURN-007 are Accepted by Project Codex.
 - RP-TURN-008 is Accepted by Project Codex and contains one static Thai/English example result derived only after exact `synthetic-mixed-review` identity and content validation against the canonical reviewed registry.
@@ -751,7 +751,7 @@ Project Codex Accepted the implementation and deterministic/database/browser/rea
 - RP-TURN-011 is Accepted only for synthetic alpha. It adds Clerk Development authentication, internal identity/profile authorization, a second migration, protected routes and versioned append-only service-data consent. The bounded real-provider smoke and required R3 rerun passed; each synthetic identity was deleted and verified absent. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` are unchanged, and both npm audits report zero vulnerabilities. Production identity-provider suitability, privacy/legal review and data residency remain undecided; no real user/data or production identity resource exists.
 - RP-TURN-012 owner-scoped raw synthetic assessment start/save/resume/submit is Accepted by Project Codex for synthetic alpha. Its deterministic, disposable-database and final bounded real-provider verification gates pass.
 - RP-TURN-013 owner-scoped reproducible synthetic result and zero-or-one provisional priority contract is Accepted by Project Codex for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`.
-- RP-TURN-014 is implemented pending Project Codex review. It operationally publishes one exact repository-local lesson version for synthetic alpha through a deterministic non-executable registry; this is not external validation or production release.
+- RP-TURN-014 is Accepted by Project Codex at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. It operationally publishes one exact repository-local lesson version for synthetic alpha through an independently sealed, deterministic non-executable registry; this is not external validation or production release.
 - The repository contains a static public narrative, synthetic assessment-domain definitions/tests, a Thai/English six-scenario usability player, the separate fixed example result, one repository-published but prototype-unvalidated lesson, bounded account/profile/consent and raw assessment persistence implementations, and an accepted synthetic persisted-result prototype. It is not a validated real assessment and creates no real-user result, validated recommendation, externally validated learning content or production account system.
 - Selected assessment item/option IDs may exist temporarily in same-tab `sessionStorage` only in the public player. The persisted path never reads them and uses PostgreSQL only after explicit authenticated start/current consent. Lesson selections/feedback remain only in React memory, refresh resets them and no durable lesson state or saved XP exists.
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
@@ -782,11 +782,11 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`. RP-TURN-014 was separately authorized and is implemented pending review. This does not approve validated assessment/proficiency claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-015 is recommended only and is not authorized or started.
+Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e` and RP-TURN-014 at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. This does not approve validated assessment/proficiency claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-015 is recommended only and is not authorized or started.
 
 ## RP-TURN-014 trusted content publication verification
 
-Status: RP-TURN-014-R2 implemented pending Project Codex review; not Accepted or merged.
+Status: Accepted by Project Codex for the documented synthetic-alpha boundary at implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`.
 
 | Check | Result |
 |---|---|

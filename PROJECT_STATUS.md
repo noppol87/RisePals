@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-22  
-**Current phase:** RP-TURN-014-R2 calendar-exact evidence-date and chronology correction implemented for synthetic alpha, pending Project Codex review  
-**Current turn:** RP-TURN-014-R2 is implemented on `agent/content-publication-pipeline`; it is not Accepted or merged
+**Current phase:** RP-TURN-014 trusted content publication pipeline Accepted by Project Codex for synthetic alpha  
+**Current turn:** RP-TURN-014 is Accepted at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`; RP-TURN-015 is recommended only and remains unauthorized
 
 ## Locked decisions
 
@@ -147,9 +147,9 @@
 
 **RP-TURN-015 — Persisted Lesson, Practice and Progress (recommended, not authorized)**
 
-RP-TURN-014 is implemented pending Project Codex review. A future turn may add resumable lesson/practice/progress persistence, but RP-TURN-015 requires separate authorization.
+RP-TURN-014 is Accepted by Project Codex for its documented synthetic-alpha publication boundary. A future turn may add resumable lesson/practice/progress persistence, but RP-TURN-015 requires separate authorization.
 
-RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-014 remains pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication in RP-TURN-014 means availability through the reviewed repository-local registry for synthetic alpha only; it is not learning-efficacy validation or production release. No real account/data, production identity resource, production database, validated assessment/proficiency claim or real recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-015 is not authorized or started.
+RP-TURN-007 through RP-TURN-014 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication in RP-TURN-014 means availability through the reviewed repository-local registry for synthetic alpha only; it is not learning-efficacy validation or production release. No real account/data, production identity resource, production database, validated assessment/proficiency claim or real recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-015 is not authorized or started.
 
 ## Turn history
 
@@ -169,4 +169,4 @@ RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prot
 | 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only |
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
-| 014 | Pending R2 review | Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
+| 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
