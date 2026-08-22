@@ -362,3 +362,13 @@ Project Codex required two bounded corrections after reviewing the initial imple
 - Evaluate external-evidence expiry against the current UTC instant. The validation instant must be injectable for deterministic tests immediately before, exactly at and after expiry, without adding current-time fields to generated output. Expired evidence must block validation and publication before output mutation.
 
 The correction preserves the canonical source, generated manifest, generated registry, aggregate digest, declarative MDX model, lesson behavior and all existing scope boundaries. PR #12 remains Draft and unmerged; RP-TURN-015 remains unauthorized.
+
+## RP-TURN-014-R2 authorized correction
+
+Project Codex required external-evidence date validation to match the established repository contract:
+
+- Parse every `YYYY-MM-DD` value as a calendar-exact UTC date, rejecting normalized impossible dates such as non-leap February 29, February 30, month 13 and day 00 while accepting valid leap-year February 29.
+- Enforce `publicationDate <= lastVerifiedDate < reviewExpiryDate` before the existing current-UTC expiry decision.
+- Preserve deterministic immediately-before, exactly-at and immediately-after expiry behavior, and prove failed validation/publication leaves both generated outputs byte-identical.
+
+This correction does not change the canonical synthetic content, publication seal, manifest, registry, digest, MDX behavior or any non-content contract. PR #12 remains Draft and unmerged; RP-TURN-015 remains unauthorized.

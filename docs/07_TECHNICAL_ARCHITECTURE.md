@@ -230,7 +230,7 @@ MDX is allowed only from the trusted repository. Exact-pinned build-only `unifie
 
 ESM, expressions, spread or expression-valued attributes, event handlers, raw HTML, images, unknown nodes/components, unsafe URLs, traversal, absolute filesystem paths, symlinks, unsupported files and ambiguous IDs fail closed. User inputs and proof are data, never executable lesson content. No user-supplied, database-supplied, remote-CMS or network-fetched MDX is accepted.
 
-External-evidence expiry is checked against the current UTC instant for every compile/validate/publish operation. The validation instant is injectable only for deterministic boundary tests and is never written to the manifest or registry; evidence is invalid exactly at or after its `reviewExpiryDate` UTC boundary.
+External-evidence dates use calendar-exact `YYYY-MM-DD` parsing and must satisfy `publicationDate <= lastVerifiedDate < reviewExpiryDate`. Expiry is checked against the current UTC instant for every compile/validate/publish operation. The validation instant is injectable only for deterministic boundary tests and is never written to the manifest or registry; evidence is invalid exactly at or after its `reviewExpiryDate` UTC boundary.
 
 RP-TURN-014 selects a build-time registry and content digest for the pilot rather than a database import. It adds no lesson/practice/rubric/source table or migration. A database mirror, internal CMS, preview service and production publishing operations remain future decisions. Operational status `published` means available through the repository-local registry for synthetic alpha; separate status `prototype-unvalidated` means publication does not claim calibrated outcomes, efficacy, credentials, employability or external validation.
 

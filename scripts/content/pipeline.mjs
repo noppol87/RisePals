@@ -486,6 +486,9 @@ function assertExternalEvidence(sourceSet, validationInstant) {
   const publication = parseDate(sourceSet.publicationDate, "external evidence publication date");
   const verified = parseDate(sourceSet.lastVerifiedDate, "external evidence verification date");
   if (verified < publication) fail("external evidence verification cannot predate publication.");
+  if (expiry <= verified) {
+    fail("external evidence review expiry date must be later than verification date.");
+  }
   if (expiry <= validationInstant) fail("external evidence is expired.");
 }
 
@@ -868,8 +871,18 @@ function assertTimestamp(value, label) {
 function parseDate(value, label) {
   assertString(value, label);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) fail(`${label} must use YYYY-MM-DD.`);
-  const parsed = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(parsed.valueOf())) fail(`${label} must be a valid date.`);
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() + 1 !== month ||
+    parsed.getUTCDate() !== day
+  ) {
+    fail(`${label} must be a valid calendar date.`);
+  }
   return parsed;
 }
 

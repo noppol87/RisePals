@@ -79,9 +79,30 @@ async function expectPublicationRejectionPreservesOutputs(
   expect(await publishedOutputBytes(contentRoot)).toEqual(before);
 }
 
+async function expectValidationAndPublicationRejectionsPreserveOutputs(
+  contentRoot: string,
+  expectedMessage: string,
+  options: Readonly<{ validationDate?: Date }> = {},
+): Promise<void> {
+  const before = await publishedOutputBytes(contentRoot);
+  await expect(validatePublishedContent({ contentRoot, ...options })).rejects.toThrow(
+    expectedMessage,
+  );
+  expect(await publishedOutputBytes(contentRoot)).toEqual(before);
+  await expectPublicationRejectionPreservesOutputs(contentRoot, expectedMessage, options);
+}
+
 async function useSyntheticExternalEvidence(
   contentRoot: string,
-  reviewExpiryDate: string,
+  {
+    publicationDate = "2026-01-01",
+    lastVerifiedDate = "2026-01-02",
+    reviewExpiryDate,
+  }: Readonly<{
+    publicationDate?: string;
+    lastVerifiedDate?: string;
+    reviewExpiryDate: string;
+  }>,
 ): Promise<void> {
   await updateJson(contentRoot, "sources.json", (value) => {
     const sourceSet = objectAt(value, ["sourceSet"]);
@@ -90,10 +111,10 @@ async function useSyntheticExternalEvidence(
       classification: "external",
       directUrl: "https://example.test/direct-source",
       publisher: "Synthetic publisher for expiry-boundary testing",
-      publicationDate: "2026-01-01",
+      publicationDate,
       geographyContext: "Synthetic test context",
       limitation: "Synthetic test record only",
-      lastVerifiedDate: "2026-01-02",
+      lastVerifiedDate,
       reviewExpiryDate,
     };
   });
@@ -405,7 +426,7 @@ describe("trusted content publication pipeline", () => {
     ["immediately after", new Date("2026-08-23T00:00:00.001Z"), true],
   ] as const)("evaluates external-evidence expiry %s the UTC boundary", async (_label, validationDate, expired) => {
     const contentRoot = await copyContent();
-    await useSyntheticExternalEvidence(contentRoot, "2026-08-23");
+    await useSyntheticExternalEvidence(contentRoot, { reviewExpiryDate: "2026-08-23" });
     const result = compileContent({ contentRoot, validationDate });
 
     if (expired) await expect(result).rejects.toThrow("external evidence is expired");
@@ -415,14 +436,75 @@ describe("trusted content publication pipeline", () => {
   it("blocks validation and publication of expired evidence without modifying outputs", async () => {
     const contentRoot = await copyContent();
     const validationDate = new Date("2026-08-23T00:00:00.001Z");
-    await useSyntheticExternalEvidence(contentRoot, "2026-08-23");
-    const before = await publishedOutputBytes(contentRoot);
-
-    await expect(validatePublishedContent({ contentRoot, validationDate })).rejects.toThrow(
+    await useSyntheticExternalEvidence(contentRoot, { reviewExpiryDate: "2026-08-23" });
+    await expectValidationAndPublicationRejectionsPreserveOutputs(
+      contentRoot,
       "external evidence is expired",
+      { validationDate },
     );
-    expect(await publishedOutputBytes(contentRoot)).toEqual(before);
-    await expectPublicationRejectionPreservesOutputs(contentRoot, "external evidence is expired", {
+  });
+
+  it.each([
+    [
+      "non-leap-year February 29",
+      { publicationDate: "2026-02-29", lastVerifiedDate: "2026-03-01", reviewExpiryDate: "2027-01-01" },
+    ],
+    [
+      "February 30",
+      { publicationDate: "2026-02-30", lastVerifiedDate: "2026-03-01", reviewExpiryDate: "2027-01-01" },
+    ],
+    [
+      "month 13",
+      { publicationDate: "2026-01-01", lastVerifiedDate: "2026-01-02", reviewExpiryDate: "2026-13-01" },
+    ],
+    [
+      "day 00",
+      { publicationDate: "2026-01-01", lastVerifiedDate: "2026-01-00", reviewExpiryDate: "2027-01-01" },
+    ],
+  ] as const)("rejects invalid external-evidence calendar date: %s", async (_label, dates) => {
+    const contentRoot = await copyContent();
+    const validationDate = new Date("2025-01-01T00:00:00.000Z");
+    await useSyntheticExternalEvidence(contentRoot, dates);
+    await expectValidationAndPublicationRejectionsPreserveOutputs(
+      contentRoot,
+      "valid calendar date",
+      { validationDate },
+    );
+  });
+
+  it("accepts a valid leap-year February 29", async () => {
+    const contentRoot = await copyContent();
+    await useSyntheticExternalEvidence(contentRoot, {
+      publicationDate: "2024-02-29",
+      lastVerifiedDate: "2024-03-01",
+      reviewExpiryDate: "2027-01-01",
+    });
+    await expect(
+      compileContent({ contentRoot, validationDate: new Date("2024-02-28T00:00:00.000Z") }),
+    ).resolves.toMatchObject({ lessonCount: 1 });
+  });
+
+  it.each([
+    [
+      "last verification before publication",
+      { publicationDate: "2026-03-01", lastVerifiedDate: "2026-02-28", reviewExpiryDate: "2027-01-01" },
+      "verification cannot predate publication",
+    ],
+    [
+      "expiry equal to last verification",
+      { publicationDate: "2026-01-01", lastVerifiedDate: "2026-06-01", reviewExpiryDate: "2026-06-01" },
+      "review expiry date must be later than verification date",
+    ],
+    [
+      "expiry before last verification",
+      { publicationDate: "2026-01-01", lastVerifiedDate: "2026-06-01", reviewExpiryDate: "2026-05-31" },
+      "review expiry date must be later than verification date",
+    ],
+  ] as const)("rejects incoherent external-evidence chronology: %s", async (_label, dates, message) => {
+    const contentRoot = await copyContent();
+    const validationDate = new Date("2025-01-01T00:00:00.000Z");
+    await useSyntheticExternalEvidence(contentRoot, dates);
+    await expectValidationAndPublicationRejectionsPreserveOutputs(contentRoot, message, {
       validationDate,
     });
   });

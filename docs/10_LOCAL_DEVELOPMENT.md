@@ -786,7 +786,7 @@ Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c2
 
 ## RP-TURN-014 trusted content publication verification
 
-Status: RP-TURN-014-R1 implemented pending Project Codex review; not Accepted or merged.
+Status: RP-TURN-014-R2 implemented pending Project Codex review; not Accepted or merged.
 
 | Check | Result |
 |---|---|
@@ -795,8 +795,8 @@ Status: RP-TURN-014-R1 implemented pending Project Codex review; not Accepted or
 | `npm run content:validate` | PASS — one exact `source-verification-practice@1.0.0` version; canonical aggregate SHA-256 remains `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525` |
 | independent publication seal | PASS — Git-reviewed `publication-seal.json` authorizes only canonical lesson digest `51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91`; `content:publish` reads but never rewrites the seal, whose file SHA-256 remained `122453362FDE63C3940FFFE190D454F18D270670F1C89C4D4569D412893A33A9` |
 | deterministic publication | PASS — two consecutive `npm run content:publish` operations preserved byte-identical manifest and registry files and the same aggregate digest; manifest SHA-256 remained `73A4AA24E29D8F67AC8E93530A76267E4FAC73EAB564006A640FFE603274A5D3` and registry SHA-256 remained `4DAB8A29B95011D2F5E2C12A2F17388DCD653321C11A913B7B61B19FB1EB5163` |
-| focused publication/lesson tests | PASS — 4 files / 69 tests; R1 cases reject source mutation, removal from only manifest, only registry or both, and altered digests in both while preserving pre-call output bytes; identical republishing stays idempotent; UTC expiry passes immediately before and rejects exactly at/after expiry, and expired validation/publication leave outputs unchanged |
-| formatter/lint/typecheck/unit/build/check | PASS — Prettier, zero-warning ESLint, Next type generation and both strict TypeScript projects; 30 files / 283 tests; production build generated 19 routes/pages and kept both lesson locales static |
+| focused publication/lesson tests | PASS — 4 files / 77 tests; R1 seal cases remain green; R2 rejects non-leap February 29, February 30, month 13, day 00, verification before publication and expiry equal to/before verification, accepts valid leap-year February 29, preserves exact UTC expiry boundaries and proves failed validation/publication leave both outputs byte-identical |
+| formatter/lint/typecheck/unit/build/check | PASS — Prettier, zero-warning ESLint, Next type generation and both strict TypeScript projects; 30 files / 291 tests; production build generated 19 routes/pages and kept both lesson locales static |
 | `npm run test:e2e` | PASS on final full rerun — Chromium 65/65; Thai/English operational and validation statuses, accepted content, keyboard/focus, refresh reset, 320px reflow, reduced motion, axe and loopback-only privacy behavior passed |
 | `npm run db:test:disposable` | PASS after checksum-pinned runtime re-preparation — PostgreSQL 18.4 applied 234 statements across four unchanged migrations and created 17 tables; process/data/logs/credentials removed, zero service/process/listener and zero disposable child remained |
 | production/full npm audits | PASS — both report 0 vulnerabilities |
