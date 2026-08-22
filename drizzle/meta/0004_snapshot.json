@@ -2124,6 +2124,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "mutation_intent": {
+          "name": "mutation_intent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mutation_locale": {
+          "name": "mutation_locale",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mutation_expected_revision": {
+          "name": "mutation_expected_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2230,6 +2248,18 @@
         "practice_attempts_revision_positive": {
           "name": "practice_attempts_revision_positive",
           "value": "\"practice_attempts\".\"revision\" > 0"
+        },
+        "practice_attempts_mutation_revision_check": {
+          "name": "practice_attempts_mutation_revision_check",
+          "value": "\"practice_attempts\".\"mutation_expected_revision\" >= 0 AND \"practice_attempts\".\"revision\" = \"practice_attempts\".\"mutation_expected_revision\" + 1"
+        },
+        "practice_attempts_mutation_provenance_check": {
+          "name": "practice_attempts_mutation_provenance_check",
+          "value": "\"practice_attempts\".\"mutation_intent\" IN ('save', 'evaluate', 'retry') AND \"practice_attempts\".\"mutation_locale\" IN ('th', 'en')"
+        },
+        "practice_attempts_mutation_status_check": {
+          "name": "practice_attempts_mutation_status_check",
+          "value": "(\"practice_attempts\".\"mutation_intent\" IN ('save', 'retry') AND \"practice_attempts\".\"status\" = 'draft') OR (\"practice_attempts\".\"mutation_intent\" = 'evaluate' AND \"practice_attempts\".\"status\" = 'evaluated')"
         },
         "practice_attempts_supersession_shape_check": {
           "name": "practice_attempts_supersession_shape_check",

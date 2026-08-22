@@ -55,9 +55,15 @@ CREATE TABLE "practice_attempts" (
 	"criterion_results" jsonb,
 	"demonstrated" boolean,
 	"client_mutation_id" uuid NOT NULL,
+	"mutation_intent" text NOT NULL,
+	"mutation_locale" text NOT NULL,
+	"mutation_expected_revision" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "practice_attempts_id_owner_lesson_unique" UNIQUE("id","user_id","lesson_attempt_id"),
 	CONSTRAINT "practice_attempts_revision_positive" CHECK ("practice_attempts"."revision" > 0),
+	CONSTRAINT "practice_attempts_mutation_revision_check" CHECK ("practice_attempts"."mutation_expected_revision" >= 0 AND "practice_attempts"."revision" = "practice_attempts"."mutation_expected_revision" + 1),
+	CONSTRAINT "practice_attempts_mutation_provenance_check" CHECK ("practice_attempts"."mutation_intent" IN ('save', 'evaluate', 'retry') AND "practice_attempts"."mutation_locale" IN ('th', 'en')),
+	CONSTRAINT "practice_attempts_mutation_status_check" CHECK (("practice_attempts"."mutation_intent" IN ('save', 'retry') AND "practice_attempts"."status" = 'draft') OR ("practice_attempts"."mutation_intent" = 'evaluate' AND "practice_attempts"."status" = 'evaluated')),
 	CONSTRAINT "practice_attempts_supersession_shape_check" CHECK (("practice_attempts"."revision" = 1 AND "practice_attempts"."supersedes_practice_attempt_id" IS NULL) OR ("practice_attempts"."revision" > 1 AND "practice_attempts"."supersedes_practice_attempt_id" IS NOT NULL)),
 	CONSTRAINT "practice_attempts_response_json_check" CHECK (rise_pals_private.is_versioned_json_object("response_payload")),
 	CONSTRAINT "practice_attempts_compatibility_check" CHECK ("practice_attempts"."practice_id" = 'source-verification-decision-v1' AND "practice_attempts"."practice_version" = '1.0.0' AND "practice_attempts"."rubric_version_id" = 'source-verification-rubric-v1' AND "practice_attempts"."rubric_version" = '1.0.0' AND "practice_attempts"."evaluation_contract_version_id" = 'source-verification-evaluation-v1'),
@@ -394,8 +400,7 @@ SET search_path = pg_catalog, public
 AS $$
 DECLARE
   parent lesson_attempts%ROWTYPE;
-  prior_id uuid;
-  prior_revision integer;
+  prior practice_attempts%ROWTYPE;
 BEGIN
   IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION 'Practice attempt history is immutable.';
@@ -418,19 +423,35 @@ BEGIN
     RAISE EXCEPTION 'Practice compatibility metadata does not match the lesson attempt.';
   END IF;
 
-  SELECT id, revision INTO prior_id, prior_revision
+  SELECT * INTO prior
   FROM practice_attempts
   WHERE lesson_attempt_id = NEW.lesson_attempt_id AND user_id = NEW.user_id
   ORDER BY revision DESC
   LIMIT 1;
 
-  IF prior_id IS NULL THEN
-    IF NEW.revision <> 1 OR NEW.supersedes_practice_attempt_id IS NOT NULL THEN
+  IF prior.id IS NULL THEN
+    IF NEW.revision <> 1
+      OR NEW.mutation_expected_revision <> 0
+      OR NEW.supersedes_practice_attempt_id IS NOT NULL THEN
       RAISE EXCEPTION 'The first practice revision has invalid provenance.';
     END IF;
-  ELSIF NEW.revision <> prior_revision + 1
-    OR NEW.supersedes_practice_attempt_id IS DISTINCT FROM prior_id THEN
+  ELSIF NEW.revision <> prior.revision + 1
+    OR NEW.mutation_expected_revision <> prior.revision
+    OR NEW.supersedes_practice_attempt_id IS DISTINCT FROM prior.id THEN
     RAISE EXCEPTION 'Practice revision must append to the current owner revision.';
+  END IF;
+
+  IF NEW.revision <> NEW.mutation_expected_revision + 1 THEN
+    RAISE EXCEPTION 'Practice revision does not match mutation provenance.';
+  END IF;
+  IF NEW.mutation_intent = 'retry'
+    AND (
+      prior.id IS NULL
+      OR prior.status <> 'evaluated'
+      OR prior.demonstrated
+      OR NEW.response_payload IS DISTINCT FROM prior.response_payload
+    ) THEN
+    RAISE EXCEPTION 'Practice retry requires the exact eligible predecessor.';
   END IF;
 
   PERFORM "rise_pals_private"."assert_source_verification_practice_payload"(

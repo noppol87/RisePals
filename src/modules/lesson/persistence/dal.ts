@@ -60,6 +60,9 @@ type PracticeRow = {
   criterion_results: unknown;
   demonstrated: unknown;
   client_mutation_id: unknown;
+  mutation_intent: unknown;
+  mutation_locale: unknown;
+  mutation_expected_revision: unknown;
 };
 
 function requireString(value: unknown, label: string): string {
@@ -103,7 +106,15 @@ function parseResults(value: unknown): readonly PersistedCriterionResult[] | nul
 
 function parsePractice(row: PracticeRow | undefined) {
   if (!row) return null;
-  if (!Number.isInteger(row.revision) || (row.status !== "draft" && row.status !== "evaluated")) {
+  if (
+    !Number.isInteger(row.revision) ||
+    !Number.isInteger(row.mutation_expected_revision) ||
+    (row.status !== "draft" && row.status !== "evaluated") ||
+    (row.mutation_intent !== "save" &&
+      row.mutation_intent !== "evaluate" &&
+      row.mutation_intent !== "retry") ||
+    (row.mutation_locale !== "th" && row.mutation_locale !== "en")
+  ) {
     throw new Error("Persisted practice revision is invalid.");
   }
   const payload = row.response_payload as Readonly<Record<string, unknown>> | null;
@@ -118,7 +129,41 @@ function parsePractice(row: PracticeRow | undefined) {
     results: parseResults(row.criterion_results),
     demonstrated: row.demonstrated === true,
     clientMutationId: requireString(row.client_mutation_id, "mutation ID"),
+    mutationIntent: row.mutation_intent,
+    mutationLocale: row.mutation_locale,
+    mutationExpectedRevision: row.mutation_expected_revision as number,
   } as const;
+}
+
+function selectionsMatch(
+  left: readonly PersistedPracticeSelection[],
+  right: readonly PersistedPracticeSelection[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (selection, index) =>
+        selection.criterionId === right[index]?.criterionId &&
+        selection.optionId === right[index]?.optionId,
+    )
+  );
+}
+
+function isExactMutationReplay(
+  input: PersistedLessonMutationInput,
+  replay: NonNullable<ReturnType<typeof parsePractice>>,
+): boolean {
+  if (
+    replay.mutationIntent !== input.intent ||
+    replay.mutationLocale !== input.locale ||
+    replay.mutationExpectedRevision !== input.expectedRevision ||
+    replay.revision !== input.expectedRevision + 1
+  ) {
+    return false;
+  }
+  return input.intent === "retry"
+    ? input.selections === undefined
+    : input.selections !== undefined && selectionsMatch(replay.selections, input.selections);
 }
 
 async function currentConsent(client: PoolClient, userId: string): Promise<string | null> {
@@ -152,7 +197,7 @@ async function findLesson(client: PoolClient, userId: string, lock = false) {
 async function latestPractice(client: PoolClient, lessonId: string) {
   const result = await client.query<PracticeRow>(
     `SELECT id, revision, status, response_payload, criterion_results, demonstrated,
-            client_mutation_id
+            client_mutation_id, mutation_intent, mutation_locale, mutation_expected_revision
      FROM practice_attempts WHERE lesson_attempt_id = $1
      ORDER BY revision DESC LIMIT 1`,
     [lessonId],
@@ -263,16 +308,18 @@ export async function mutatePersistedLesson(
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     if (!(await currentConsent(client, userId))) return { state: "not-ready" } as const;
     const lesson = await findLesson(client, userId, true);
-    if (!lesson || lesson.status === "demonstrated") return { state: "not-ready" } as const;
+    if (!lesson) return { state: "not-ready" } as const;
 
     const replayResult = await client.query<PracticeRow>(
       `SELECT id, revision, status, response_payload, criterion_results, demonstrated,
-              client_mutation_id FROM practice_attempts
+              client_mutation_id, mutation_intent, mutation_locale, mutation_expected_revision
+       FROM practice_attempts
        WHERE lesson_attempt_id = $1 AND client_mutation_id = $2`,
       [lesson.id, input.clientMutationId],
     );
     const replay = parsePractice(replayResult.rows[0]);
     if (replay) {
+      if (!isExactMutationReplay(input, replay)) return { state: "conflict" } as const;
       return {
         state: replay.demonstrated
           ? "demonstrated"
@@ -284,6 +331,7 @@ export async function mutatePersistedLesson(
         results: replay.results,
       } as const;
     }
+    if (lesson.status === "demonstrated") return { state: "not-ready" } as const;
 
     const previous = await latestPractice(client, lesson.id);
     if ((previous?.revision ?? 0) !== input.expectedRevision) return { state: "conflict" } as const;
@@ -322,8 +370,9 @@ export async function mutatePersistedLesson(
       `INSERT INTO practice_attempts
         (user_id, lesson_attempt_id, revision, supersedes_practice_attempt_id, status,
          response_payload, practice_id, practice_version, rubric_version_id, rubric_version,
-         evaluation_contract_version_id, criterion_results, demonstrated, client_mutation_id)
-       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::jsonb,$13,$14)
+         evaluation_contract_version_id, criterion_results, demonstrated, client_mutation_id,
+         mutation_intent, mutation_locale, mutation_expected_revision)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17)
        RETURNING id`,
       [
         userId,
@@ -340,6 +389,9 @@ export async function mutatePersistedLesson(
         resultJson ? JSON.stringify(resultJson) : null,
         demonstrated,
         input.clientMutationId,
+        input.intent,
+        input.locale,
+        input.expectedRevision,
       ],
     );
 

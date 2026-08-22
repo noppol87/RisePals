@@ -107,7 +107,7 @@
 - Calendar-exact external-evidence dates constrained to `publicationDate <= lastVerifiedDate < reviewExpiryDate`, plus current-UTC expiry with an injectable deterministic test instant; invalid, exact-expiry and later evidence fail before any generated-output write
 - Fifth forward migration adding exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`; the fresh disposable schema has 20 tables and all three new tables use forced owner RLS, current-consent enforcement and append-only history
 - Separate dynamic `/th|en/learning` and `/th|en/lessons/source-verification-practice/attempt` paths with explicit start/save/evaluate/retry actions, while both public lesson routes remain statically generated and memory-only
-- Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; no page-view event, saved XP, proof input or assessment/scoring coupling
+- Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; normalized intent/locale/expected-revision provenance makes only an exact mutation replay idempotent and rejects conflicting UUID reuse without another row, event or lesson transition; no page-view event, saved XP, proof input or assessment/scoring coupling
 - RP-TURN-015 deterministic/unit/build/browser/database/security evidence complete pending Project Codex review; no real Clerk smoke or external resource was used
 
 ## Open decisions

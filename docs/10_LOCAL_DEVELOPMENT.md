@@ -802,14 +802,14 @@ Status: Accepted by Project Codex for the documented synthetic-alpha boundary at
 
 ## RP-TURN-015 persisted lesson/practice/progress verification
 
-The fifth forward migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Public lesson routes remain static and memory-only. Protected `/[locale]/learning` and `/[locale]/lessons/source-verification-practice/attempt` routes are dynamic, noindex/noarchive and use explicit start/save/evaluate/retry actions. Current consent and forced owner RLS govern reads and writes. The server resolves exact content identity and performs deterministic evaluation; the client receives no evaluator mapping, internal UUID, provider/email, consent internals, digest map or assessment/scoring data. XP stays preview-only and proof remains unavailable.
+The fifth forward migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Public lesson routes remain static and memory-only. Protected `/[locale]/learning` and `/[locale]/lessons/source-verification-practice/attempt` routes are dynamic, noindex/noarchive and use explicit start/save/evaluate/retry actions. Current consent and forced owner RLS govern reads and writes. Practice revisions persist normalized mutation intent, locale and expected revision; replay requires every provenance field and canonical save/evaluate selection to match, while retry is tied to the exact eligible predecessor. The server resolves exact content identity and performs deterministic evaluation; the client receives no evaluator mapping, internal UUID, provider/email, consent internals, digest map or assessment/scoring data. XP stays preview-only and proof remains unavailable.
 
 | Verification | Result |
 |---|---|
-| focused persisted lesson tests | PASS — 2 files / 7 tests |
-| `npm run check` | PASS — 32 files / 298 tests plus a 23-page/route production build; public lesson routes static and both protected route families dynamic |
+| focused persisted lesson replay/contract tests | PASS — 2 files / 14 tests; exact save/evaluate/retry replay, six collision variations and both concurrency outcomes passed |
+| `npm run check` | PASS — 33 files / 307 tests plus a 23-page/route production build; public lesson routes static and both protected route families dynamic |
 | `npm run test:e2e` | PASS — Chromium 71/71, including Thai/English protected fail-closed states, loopback-only requests, language switching, 320px/axe and public memory-only regression |
-| `npm run db:test:disposable` | PASS — PostgreSQL 18.4 applied 294 statements across 5 migrations and created exactly 20 tables; lesson lifecycle, canonical evaluation, immutable revisions/events, withdrawal and cross-user RLS checks passed; process/data/logs/credentials removed |
+| `npm run db:test:disposable` | PASS — PostgreSQL 18.4 applied 294 statements across 5 migrations and created exactly 20 tables; lesson lifecycle, canonical evaluation, exact mutation revision/status/locale/retry provenance, immutable revisions/events, withdrawal and cross-user RLS checks passed; process/data/logs/credentials removed |
 | publication preservation | PASS — aggregate digest remains `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525`; content publish was not run |
 | dependency/install policy | PASS — `npm ci` added 573 packages / audited 574 with zero vulnerabilities and no unreviewed install script; `strict-allow-scripts=true`; `npm ls --all` exited 0 |
 | production/full audits | PASS — both report zero vulnerabilities |

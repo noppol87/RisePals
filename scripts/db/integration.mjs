@@ -2335,16 +2335,20 @@ async function verifyPersistedLessonContract() {
     results,
     demonstrated,
     mutationId,
+    intent,
+    locale = "en",
+    expectedRevision = revision - 1,
   }) =>
     withApplicationUser(lessonUserA, async (client) => {
       const practice = await client.query(
         `INSERT INTO practice_attempts
           (user_id, lesson_attempt_id, revision, supersedes_practice_attempt_id, status,
            response_payload, practice_id, practice_version, rubric_version_id, rubric_version,
-           evaluation_contract_version_id, criterion_results, demonstrated, client_mutation_id)
+           evaluation_contract_version_id, criterion_results, demonstrated, client_mutation_id,
+           mutation_intent, mutation_locale, mutation_expected_revision)
          VALUES ($1,$2,$3,$4,$5,$6::jsonb,'source-verification-decision-v1','1.0.0',
            'source-verification-rubric-v1','1.0.0','source-verification-evaluation-v1',
-           $7::jsonb,$8,$9) RETURNING id`,
+           $7::jsonb,$8,$9,$10,$11,$12) RETURNING id`,
         [
           lessonUserA,
           lessonId,
@@ -2355,6 +2359,9 @@ async function verifyPersistedLessonContract() {
           results ? JSON.stringify(results) : null,
           demonstrated,
           mutationId,
+          intent,
+          locale,
+          expectedRevision,
         ],
       );
       if (status === "evaluated") {
@@ -2397,7 +2404,95 @@ async function verifyPersistedLessonContract() {
     results: null,
     demonstrated: null,
     mutationId: "70000000-0000-4000-8000-000000000002",
+    intent: "save",
   });
+
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "draft",
+        payload: payloads.partial,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000020",
+        intent: "evaluate",
+      }),
+    "evaluate intent attached to a draft row",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "evaluated",
+        payload: payloads.failing,
+        results: evaluation(payloads.failing, ["met", "not-met", "met"]),
+        demonstrated: false,
+        mutationId: "70000000-0000-4000-8000-000000000021",
+        intent: "save",
+      }),
+    "save intent attached to an evaluated row",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "draft",
+        payload: payloads.partial,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000022",
+        intent: "retry",
+      }),
+    "retry without an eligible evaluated predecessor",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "draft",
+        payload: payloads.partial,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000023",
+        intent: "archive",
+      }),
+    "an unsupported mutation intent",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "draft",
+        payload: payloads.partial,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000024",
+        intent: "save",
+        locale: "fr",
+      }),
+    "an unsupported mutation locale",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 2,
+        previousId: draftId,
+        status: "draft",
+        payload: payloads.partial,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000025",
+        intent: "save",
+        expectedRevision: 0,
+      }),
+    "a revision that does not equal expected revision plus one",
+  );
   const failedId = await insertPractice({
     revision: 2,
     previousId: draftId,
@@ -2406,7 +2501,22 @@ async function verifyPersistedLessonContract() {
     results: evaluation(payloads.failing, ["met", "not-met", "met"]),
     demonstrated: false,
     mutationId: "70000000-0000-4000-8000-000000000003",
+    intent: "evaluate",
   });
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 3,
+        previousId: failedId,
+        status: "draft",
+        payload: payloads.passing,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000026",
+        intent: "retry",
+      }),
+    "a retry whose payload differs from its predecessor",
+  );
   const retryId = await insertPractice({
     revision: 3,
     previousId: failedId,
@@ -2415,6 +2525,7 @@ async function verifyPersistedLessonContract() {
     results: null,
     demonstrated: null,
     mutationId: "70000000-0000-4000-8000-000000000004",
+    intent: "retry",
   });
   await expectDatabaseRejection(
     () =>
@@ -2426,6 +2537,8 @@ async function verifyPersistedLessonContract() {
         results: null,
         demonstrated: null,
         mutationId: "70000000-0000-4000-8000-000000000005",
+        intent: "save",
+        expectedRevision: 3,
       }),
     "a stale or skipped practice revision",
   );
@@ -2439,6 +2552,7 @@ async function verifyPersistedLessonContract() {
         results: evaluation(payloads.passing, ["not-met", "met", "met"]),
         demonstrated: true,
         mutationId: "70000000-0000-4000-8000-000000000006",
+        intent: "evaluate",
       }),
     "a forged server evaluation",
   );
@@ -2450,6 +2564,7 @@ async function verifyPersistedLessonContract() {
     results: evaluation(payloads.passing, ["met", "met", "met"]),
     demonstrated: true,
     mutationId: "70000000-0000-4000-8000-000000000007",
+    intent: "evaluate",
   });
 
   const final = await withApplicationUser(lessonUserA, async (client) => {
@@ -2481,6 +2596,17 @@ async function verifyPersistedLessonContract() {
         ]),
       ),
     "an in-place practice history update",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(lessonUserA, (client) =>
+        client.query(
+          `UPDATE practice_attempts SET mutation_locale='th' WHERE lesson_attempt_id=$1`,
+          [lessonId],
+        ),
+      ),
+    "an in-place mutation provenance update",
     "42501",
   );
   await expectDatabaseRejection(
@@ -2540,6 +2666,12 @@ async function verifyPersistedLessonContract() {
     `SELECT has_table_privilege('rise_pals_app','lesson_attempts','DELETE') AS lesson_delete,
             has_table_privilege('rise_pals_app','practice_attempts','UPDATE') AS practice_update,
             has_table_privilege('rise_pals_app','practice_attempts','DELETE') AS practice_delete,
+            has_column_privilege('rise_pals_app','practice_attempts','mutation_intent','UPDATE')
+              AS mutation_intent_update,
+            has_column_privilege('rise_pals_app','practice_attempts','mutation_locale','UPDATE')
+              AS mutation_locale_update,
+            has_column_privilege('rise_pals_app','practice_attempts','mutation_expected_revision','UPDATE')
+              AS mutation_expected_revision_update,
             has_table_privilege('rise_pals_app','learning_progress_events','UPDATE') AS event_update,
             has_table_privilege('rise_pals_app','learning_progress_events','DELETE') AS event_delete`,
   );
@@ -2547,6 +2679,9 @@ async function verifyPersistedLessonContract() {
     lesson_delete: false,
     practice_update: false,
     practice_delete: false,
+    mutation_intent_update: false,
+    mutation_locale_update: false,
+    mutation_expected_revision_update: false,
     event_update: false,
     event_delete: false,
   });

@@ -527,7 +527,7 @@ Append-only entries include `user_id`, positive or reversing points, reason code
 The implemented synthetic-alpha subset intentionally uses exactly three pluralized tables rather than the broader future model above:
 
 - `lesson_attempts` anchors one owner/current-consent attempt to exact `source-verification-practice@1.0.0`, its lesson digest, practice, rubric and evaluation contract. Status is only `in_progress` or `demonstrated`; database-owned timestamps and triggers permit only the forward transition and prohibit reopen/delete.
-- `practice_attempts` stores immutable monotonic `draft` or `evaluated` response snapshots. Payloads contain only a schema version and ordered allowlisted criterion/option pairs. Evaluated rows carry deterministic criterion results and the demonstrated flag; PostgreSQL independently re-evaluates their exact shape and canonical mapping.
+- `practice_attempts` stores immutable monotonic `draft` or `evaluated` response snapshots. Payloads contain only a schema version and ordered allowlisted criterion/option pairs. Each row also records normalized mutation intent, locale and expected revision so UUID replay is accepted only when the full request provenance and canonical selections match. Evaluated rows carry deterministic criterion results and the demonstrated flag; PostgreSQL independently re-evaluates their exact shape and canonical mapping. Retry rows must copy the exact eligible non-demonstrated evaluated predecessor and use its revision as the expected revision.
 - `learning_progress_events` is an append-only meaningful-event ledger restricted to `lesson_started`, `practice_evaluated` and `practice_demonstrated`. It records no page view, refresh, arbitrary click, email, provider identity, free text or analytics payload.
 
 The fifth migration brings the fresh schema to exactly twenty tables. All three new tables enable and force RLS, use composite owner foreign keys, require the current exact service-data grant and deny application DELETE. Practice/event UPDATE is absent; lesson UPDATE is limited to exact lifecycle timestamp/status columns and protected by triggers. There is no `progress_snapshot`, `rubric_result`, `xp_ledger_entry` or proof table in this turn.
@@ -605,7 +605,7 @@ The RP-TURN-011 extension persists a controlled profile and append-only service-
 ## Key invariants and indexes
 
 - Unique provider identity mapping and unique published business version keys
-- One bounded alpha assessment session per owner/version, one active response revision per answered item and unique client mutation/revision/supersession provenance
+- One bounded alpha assessment session per owner/version, one active response revision per answered item and unique client mutation/revision/supersession provenance; persisted lesson mutations additionally require exact intent/locale/expected-revision and selection replay provenance
 - Foreign keys prevent answers/scores/attempts from referencing mismatched framework/content versions
 - Published versions reject content/provenance mutation, allow only status-only retirement and become fully immutable when retired; corrections create a new version
 - Only submitted sessions can produce completed scoring runs

@@ -911,6 +911,9 @@ export const practiceAttempts = pgTable(
     criterionResults: jsonb("criterion_results"),
     demonstrated: boolean("demonstrated"),
     clientMutationId: uuid("client_mutation_id").notNull(),
+    mutationIntent: text("mutation_intent").notNull(),
+    mutationLocale: text("mutation_locale").notNull(),
+    mutationExpectedRevision: integer("mutation_expected_revision").notNull(),
     createdAt: utcTimestamp("created_at").notNull().defaultNow(),
   },
   (table) => [
@@ -943,6 +946,18 @@ export const practiceAttempts = pgTable(
       .onDelete("restrict")
       .onUpdate("restrict"),
     check("practice_attempts_revision_positive", sql`${table.revision} > 0`),
+    check(
+      "practice_attempts_mutation_revision_check",
+      sql`${table.mutationExpectedRevision} >= 0 AND ${table.revision} = ${table.mutationExpectedRevision} + 1`,
+    ),
+    check(
+      "practice_attempts_mutation_provenance_check",
+      sql`${table.mutationIntent} IN ('save', 'evaluate', 'retry') AND ${table.mutationLocale} IN ('th', 'en')`,
+    ),
+    check(
+      "practice_attempts_mutation_status_check",
+      sql`(${table.mutationIntent} IN ('save', 'retry') AND ${table.status} = 'draft') OR (${table.mutationIntent} = 'evaluate' AND ${table.status} = 'evaluated')`,
+    ),
     check(
       "practice_attempts_supersession_shape_check",
       sql`(${table.revision} = 1 AND ${table.supersedesPracticeAttemptId} IS NULL) OR (${table.revision} > 1 AND ${table.supersedesPracticeAttemptId} IS NOT NULL)`,
