@@ -7,12 +7,14 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 
 export const CONTENT_SOURCE_SCHEMA_VERSION = "rise-pals-lesson-source-v1";
+export const PUBLICATION_SEAL_SCHEMA_VERSION = "rise-pals-publication-seal-v1";
 export const PUBLICATION_MANIFEST_SCHEMA_VERSION = "rise-pals-publication-manifest-v1";
 export const PUBLISHED_REGISTRY_SCHEMA_VERSION = "rise-pals-published-lessons-v1";
 export const PUBLISHED_LESSON_IDENTITY = "source-verification-practice@1.0.0";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const defaultContentRoot = join(repositoryRoot, "content");
+const sealFileName = "publication-seal.json";
 const manifestFileName = "publication-manifest.json";
 const registryFileName = "published-lessons.json";
 const sourceFileNames = [
@@ -64,14 +66,15 @@ const rawHtmlPattern = /<\/?(?:script|style|iframe|object|embed|img|[a-z][\w-]*)
 const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const stableReferencePattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export async function compileContent({ contentRoot = defaultContentRoot } = {}) {
+export async function compileContent({ contentRoot = defaultContentRoot, validationDate = new Date() } = {}) {
   const root = resolve(contentRoot);
+  const validationInstant = parseValidationInstant(validationDate);
   const bundleDirectories = await discoverBundleDirectories(root);
   const identities = new Set();
   const compiledLessons = [];
 
   for (const bundleDirectory of bundleDirectories) {
-    const compiled = await compileBundle(root, bundleDirectory);
+    const compiled = await compileBundle(root, bundleDirectory, validationInstant);
     if (identities.has(compiled.identity)) {
       fail(`duplicate published lesson identity: ${compiled.identity}.`);
     }
@@ -119,19 +122,32 @@ export async function compileContent({ contentRoot = defaultContentRoot } = {}) 
   };
 }
 
-export async function validatePublishedContent({ contentRoot = defaultContentRoot } = {}) {
+export async function validatePublishedContent({
+  contentRoot = defaultContentRoot,
+  validationDate = new Date(),
+} = {}) {
   const root = resolve(contentRoot);
-  const compiled = await compileContent({ contentRoot: root });
+  const compiled = await compileContent({ contentRoot: root, validationDate });
+  const seal = await readPublicationSeal(root);
   const manifestPath = join(root, manifestFileName);
   const registryPath = join(root, registryFileName);
   const currentManifest = await readTrackedOutput(manifestPath, manifestFileName);
   const currentRegistry = await readTrackedOutput(registryPath, registryFileName);
 
-  assertPublishedIdentityIntegrity(
+  assertPublicationSealMatchesCompiled(seal, compiled.manifest);
+  assertPublishedOutputIntegrity(
     currentManifest,
     compiled.manifest,
+    seal,
     PUBLICATION_MANIFEST_SCHEMA_VERSION,
     manifestFileName,
+  );
+  assertPublishedOutputIntegrity(
+    currentRegistry,
+    compiled.registry,
+    seal,
+    PUBLISHED_REGISTRY_SCHEMA_VERSION,
+    registryFileName,
   );
   if (currentManifest !== compiled.manifestBytes) {
     fail(`${manifestFileName} is stale; run npm run content:publish.`);
@@ -143,9 +159,13 @@ export async function validatePublishedContent({ contentRoot = defaultContentRoo
   return compiled;
 }
 
-export async function publishContent({ contentRoot = defaultContentRoot } = {}) {
+export async function publishContent({
+  contentRoot = defaultContentRoot,
+  validationDate = new Date(),
+} = {}) {
   const root = resolve(contentRoot);
-  const compiled = await compileContent({ contentRoot: root });
+  const compiled = await compileContent({ contentRoot: root, validationDate });
+  const seal = await readPublicationSeal(root);
   const manifestPath = join(root, manifestFileName);
   const registryPath = join(root, registryFileName);
   const existingManifest = await readOptionalUtf8(manifestPath);
@@ -154,15 +174,18 @@ export async function publishContent({ contentRoot = defaultContentRoot } = {}) 
   if (existingManifest === null || existingRegistry === null) {
     fail("both tracked publication outputs must exist before publishing; restore them from Git.");
   }
-  assertPublishedIdentityIntegrity(
+  assertPublicationSealMatchesCompiled(seal, compiled.manifest);
+  assertPublishedOutputIntegrity(
     existingManifest,
     compiled.manifest,
+    seal,
     PUBLICATION_MANIFEST_SCHEMA_VERSION,
     manifestFileName,
   );
-  assertPublishedIdentityIntegrity(
+  assertPublishedOutputIntegrity(
     existingRegistry,
-    compiled.manifest,
+    compiled.registry,
+    seal,
     PUBLISHED_REGISTRY_SCHEMA_VERSION,
     registryFileName,
   );
@@ -199,7 +222,7 @@ async function discoverBundleDirectories(contentRoot) {
   return directories;
 }
 
-async function compileBundle(contentRoot, bundleDirectory) {
+async function compileBundle(contentRoot, bundleDirectory, validationInstant) {
   await assertNoSymlinks(contentRoot, bundleDirectory);
   const actualFiles = await listRelativeFiles(bundleDirectory);
   assertExactArray(actualFiles, sourceFileNames, "bundle file inventory");
@@ -228,7 +251,7 @@ async function compileBundle(contentRoot, bundleDirectory) {
   validatePractice(practiceSource);
   validateRubric(rubricSource);
   validateProof(proofSource);
-  validateSources(sourcesSource);
+  validateSources(sourcesSource, validationInstant);
   validateCrossReferences(metadata, practiceSource, rubricSource, proofSource, sourcesSource);
 
   const renderPlans = {};
@@ -411,7 +434,7 @@ function validateProof(value) {
   assertLocalizedParity(value.localized, "proof localized structure");
 }
 
-function validateSources(value) {
+function validateSources(value, validationInstant) {
   assertObject(value, "source records");
   assertEqual(value.schemaVersion, "rise-pals-sources-v1", "source schema");
   assertObject(value.sourceSet, "source set");
@@ -421,7 +444,7 @@ function validateSources(value) {
     assertEqual(value.sourceSet.externalEvidence, false, "synthetic external-evidence flag");
     assertString(value.sourceSet.limitation, "synthetic source limitation");
   } else if (value.sourceSet.classification === "external") {
-    assertExternalEvidence(value.sourceSet);
+    assertExternalEvidence(value.sourceSet, validationInstant);
   } else {
     fail("source classification must be synthetic or external.");
   }
@@ -440,7 +463,7 @@ function validateSources(value) {
   }
 }
 
-function assertExternalEvidence(sourceSet) {
+function assertExternalEvidence(sourceSet, validationInstant) {
   for (const key of [
     "directUrl",
     "publisher",
@@ -463,7 +486,7 @@ function assertExternalEvidence(sourceSet) {
   const publication = parseDate(sourceSet.publicationDate, "external evidence publication date");
   const verified = parseDate(sourceSet.lastVerifiedDate, "external evidence verification date");
   if (verified < publication) fail("external evidence verification cannot predate publication.");
-  if (expiry <= new Date("2026-08-22T00:00:00Z")) fail("external evidence is expired.");
+  if (expiry <= validationInstant) fail("external evidence is expired.");
 }
 
 function validateCrossReferences(metadata, practice, rubric, proof, sources) {
@@ -850,6 +873,13 @@ function parseDate(value, label) {
   return parsed;
 }
 
+function parseValidationInstant(value) {
+  if (!(value instanceof Date) || Number.isNaN(value.valueOf())) {
+    fail("validation date must be a valid Date instance.");
+  }
+  return new Date(value.valueOf());
+}
+
 function assertUnique(values, label) {
   if (values.some((value) => typeof value !== "string" || value.length === 0))
     fail(`${label} must be strings.`);
@@ -910,7 +940,76 @@ async function readTrackedOutput(path, label) {
   return value;
 }
 
-function assertPublishedIdentityIntegrity(existingText, nextManifest, schemaVersion, label) {
+async function readPublicationSeal(contentRoot) {
+  const sealText = await readTrackedOutput(join(contentRoot, sealFileName), sealFileName);
+  let seal;
+  try {
+    seal = JSON.parse(sealText);
+  } catch {
+    fail(`${sealFileName} is invalid.`);
+  }
+  assertObject(seal, "publication seal");
+  assertExactArray(
+    Object.keys(seal).sort(),
+    ["lessons", "schemaVersion"],
+    "publication seal fields",
+  );
+  assertEqual(seal.schemaVersion, PUBLICATION_SEAL_SCHEMA_VERSION, "publication seal schema");
+  if (!Array.isArray(seal.lessons) || seal.lessons.length === 0) {
+    fail("publication seal must contain at least one reviewed lesson identity.");
+  }
+  assertUnique(
+    seal.lessons.map((lesson) => lesson?.identity),
+    "publication seal identities",
+  );
+  for (const lesson of seal.lessons) {
+    assertObject(lesson, "publication seal lesson");
+    assertExactArray(
+      Object.keys(lesson).sort(),
+      ["digest", "identity"],
+      "publication seal lesson fields",
+    );
+    assertString(lesson.identity, "publication seal lesson identity");
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*@(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(lesson.identity)) {
+      fail("publication seal lesson identity must use a stable key and semantic version.");
+    }
+    assertString(lesson.digest, "publication seal lesson digest");
+    if (!/^[a-f0-9]{64}$/.test(lesson.digest)) {
+      fail("publication seal lesson digest must be a lowercase SHA-256 value.");
+    }
+  }
+  assertExactArray(
+    seal.lessons.map((lesson) => lesson.identity),
+    seal.lessons.map((lesson) => lesson.identity).toSorted(),
+    "publication seal identity order",
+  );
+  if (sealText !== stableJson(seal)) {
+    fail(`${sealFileName} must use canonical JSON and cannot be rewritten by content:publish.`);
+  }
+  return seal;
+}
+
+function assertPublicationSealMatchesCompiled(seal, compiledManifest) {
+  const sealedIdentities = seal.lessons.map((lesson) => lesson.identity);
+  assertExactArray(
+    compiledManifest.lessons.map((lesson) => lesson.identity),
+    sealedIdentities,
+    "compiled lesson identities authorized by the publication seal",
+  );
+  const compiledByIdentity = new Map(
+    compiledManifest.lessons.map((lesson) => [lesson.identity, lesson]),
+  );
+  for (const sealedLesson of seal.lessons) {
+    const compiled = compiledByIdentity.get(sealedLesson.identity);
+    if (compiled.digest !== sealedLesson.digest) {
+      fail(
+        `digest conflict for published lesson ${sealedLesson.identity}; the independently reviewed publication seal requires a new semantic version for modified source.`,
+      );
+    }
+  }
+}
+
+function assertPublishedOutputIntegrity(existingText, compiledDocument, seal, schemaVersion, label) {
   let existing;
   try {
     existing = JSON.parse(existingText);
@@ -920,19 +1019,34 @@ function assertPublishedIdentityIntegrity(existingText, nextManifest, schemaVers
   if (existing.schemaVersion !== schemaVersion || !Array.isArray(existing.lessons)) {
     fail(`${label} has an unsupported schema.`);
   }
-  const nextByIdentity = new Map(nextManifest.lessons.map((lesson) => [lesson.identity, lesson]));
   assertUnique(
     existing.lessons.map((lesson) => lesson?.identity),
-    "published manifest identities",
+    `${label} identities`,
+  );
+  const sealedIdentities = seal.lessons.map((lesson) => lesson.identity);
+  assertExactArray(
+    existing.lessons.map((lesson) => lesson.identity),
+    sealedIdentities,
+    `${label} identities required by the publication seal`,
+  );
+  const sealedByIdentity = new Map(seal.lessons.map((lesson) => [lesson.identity, lesson]));
+  const compiledByIdentity = new Map(
+    compiledDocument.lessons.map((lesson) => [lesson.identity, lesson]),
   );
   for (const lesson of existing.lessons) {
-    const next = nextByIdentity.get(lesson.identity);
-    if (!next) fail(`published lesson identity cannot be removed: ${lesson.identity}.`);
-    if (lesson.digest !== next.digest) {
+    const sealed = sealedByIdentity.get(lesson.identity);
+    if (lesson.digest !== sealed.digest) {
       fail(
-        `digest conflict for published lesson ${lesson.identity}; change the semantic version before publishing modified source.`,
+        `${label} digest conflicts with the independently reviewed publication seal for ${lesson.identity}.`,
       );
     }
+    const compiled = compiledByIdentity.get(lesson.identity);
+    if (stableJsonValue(lesson) !== stableJsonValue(compiled)) {
+      fail(`${label} entry differs from the sealed compiled lesson ${lesson.identity}.`);
+    }
+  }
+  if (existing.aggregateDigest !== compiledDocument.aggregateDigest) {
+    fail(`${label} aggregate digest differs from the sealed compiled publication.`);
   }
 }
 

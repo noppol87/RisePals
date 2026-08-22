@@ -208,11 +208,12 @@ content/
         locales/
           th/lesson.mdx
           en/lesson.mdx
+  publication-seal.json
   publication-manifest.json
   published-lessons.json
 ```
 
-Git-reviewed metadata, practice, rubric, proof, source records and localized MDX are authoritative inputs. The manifest and registry are tracked deterministic outputs. The published identity is the exact lesson key plus semantic version; every strict UTF-8/LF input has a SHA-256, and the sorted path/digest set produces one aggregate lesson digest. Identical source produces byte-identical JSON. An altered digest under an already published identity fails before output mutation and requires a new semantic version.
+Git-reviewed metadata, practice, rubric, proof, source records and localized MDX are authoritative inputs. `publication-seal.json` is the independently reviewed authorization for the exact published identity and canonical lesson digest; the publisher reads but never rewrites it. The manifest and registry are tracked deterministic outputs, not overwrite authorization. The published identity is the exact lesson key plus semantic version; every strict UTF-8/LF input has a SHA-256, and the sorted path/digest set produces one aggregate lesson digest. Identical source produces byte-identical JSON. Source mutation or removal/alteration of a sealed entry in either or both generated outputs fails before output mutation and requires a new semantic version plus explicit Git review.
 
 Each metadata file must validate at build/publish time and include:
 
@@ -228,6 +229,8 @@ Each metadata file must validate at build/publish time and include:
 MDX is allowed only from the trusted repository. Exact-pinned build-only `unified`, `remark-parse` and `remark-mdx` packages create an AST; the pipeline never compiles or evaluates that AST as JavaScript. It emits only a controlled JSON render plan. Paragraphs, headings 2–4, ordered/unordered lists, strong/emphasis, blockquotes, inline code and reviewed HTTPS/same-origin links are the complete Markdown allowlist. `Scenario`, `ConceptList`, `PracticeMount`, `RubricSummary`, `ProofPlaceholder` and `ReflectionPrompt` are the complete local component allowlist for the current bundle. Runtime imports only the validated JSON registry through a server-only boundary and maps those identifiers to fixed local lesson sections.
 
 ESM, expressions, spread or expression-valued attributes, event handlers, raw HTML, images, unknown nodes/components, unsafe URLs, traversal, absolute filesystem paths, symlinks, unsupported files and ambiguous IDs fail closed. User inputs and proof are data, never executable lesson content. No user-supplied, database-supplied, remote-CMS or network-fetched MDX is accepted.
+
+External-evidence expiry is checked against the current UTC instant for every compile/validate/publish operation. The validation instant is injectable only for deterministic boundary tests and is never written to the manifest or registry; evidence is invalid exactly at or after its `reviewExpiryDate` UTC boundary.
 
 RP-TURN-014 selects a build-time registry and content digest for the pilot rather than a database import. It adds no lesson/practice/rubric/source table or migration. A database mirror, internal CMS, preview service and production publishing operations remain future decisions. Operational status `published` means available through the repository-local registry for synthetic alpha; separate status `prototype-unvalidated` means publication does not claim calibrated outcomes, efficacy, credentials, employability or external validation.
 

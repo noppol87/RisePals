@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-22  
-**Current phase:** RP-TURN-014 trusted content publication pipeline implemented for synthetic alpha, pending Project Codex review  
-**Current turn:** RP-TURN-014 is implemented on `agent/content-publication-pipeline`; it is not Accepted or merged
+**Current phase:** RP-TURN-014-R1 publication immutability and evidence-expiry correction implemented for synthetic alpha, pending Project Codex review  
+**Current turn:** RP-TURN-014-R1 is implemented on `agent/content-publication-pipeline`; it is not Accepted or merged
 
 ## Locked decisions
 
@@ -103,7 +103,8 @@
 - RP-TURN-013 reproducible synthetic result implementation and quality gates accepted by Project Codex for synthetic alpha at reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`
 - RP-TURN-014 trusted local MDX/JSON source bundle, deterministic SHA-256 manifest and generated JSON registry, with build-time stale-content enforcement and no MDX execution
 - Strict declarative MDX allowlist for six local lesson section identifiers; ESM, expressions, raw HTML, unsafe links, unknown components, event handlers, spreads, images, traversal, symlinks and unsupported files fail closed
-- Immutable `source-verification-practice@1.0.0` publication identity with exact Thai/English locale parity, synthetic-source provenance, explicit content-owner/reviewer references and source-supplied review/publication timestamps
+- Immutable `source-verification-practice@1.0.0` publication identity protected by an independently Git-reviewed identity/digest seal that the publisher cannot rewrite, with exact Thai/English locale parity, synthetic-source provenance, explicit content-owner/reviewer references and source-supplied review/publication timestamps
+- Current-UTC external-evidence expiry with an injectable deterministic test instant; exact-expiry and later evidence fail before any generated-output write
 
 ## Open decisions
 
@@ -168,4 +169,4 @@ RP-TURN-007 through RP-TURN-013 are Accepted for their documented synthetic/prot
 | 011 | Accepted | Synthetic-alpha Clerk Development provider boundary, deterministic sign-in/sign-up routing, server-only internal account/profile authorization, dedicated credentialless resolver role, controlled profile/forced-RLS migration and versioned append-only service-data consent accepted by Project Codex; real-provider smoke and R3 rerun passed with every synthetic identity deleted and verified absent, patched `nanoid 3.3.18` and zero-vulnerability audits, while standard build/check/E2E remain explicitly Clerk-disabled and loopback-only |
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only |
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
-| 014 | Pending review | Git-reviewed trusted local MDX/JSON source bundle, deterministic non-executable publication registry and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
+| 014 | Pending R1 review | Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, current-UTC evidence-expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |

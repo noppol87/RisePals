@@ -786,20 +786,21 @@ Project Codex Accepted RP-TURN-013 for synthetic alpha at reviewed head `b80c1c2
 
 ## RP-TURN-014 trusted content publication verification
 
-Status: implemented pending Project Codex review; not Accepted or merged.
+Status: RP-TURN-014-R1 implemented pending Project Codex review; not Accepted or merged.
 
 | Check | Result |
 |---|---|
 | `npm ci` | PASS — 573 packages installed, 574 audited, 0 vulnerabilities; only the established `@esbuild-kit` deprecation notices appeared |
 | install-script/dependency policy | PASS — no package with an unreviewed install script; `strict-allow-scripts=true`; exact build-only `unified 11.0.5`, `remark-parse 11.0.0` and `remark-mdx 3.1.1`; patched `nanoid 3.3.18`, PostCSS `8.5.25` and Sharp `0.35.3` unchanged |
-| `npm run content:validate` | PASS — one exact `source-verification-practice@1.0.0` version; aggregate SHA-256 `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525` |
-| deterministic publication | PASS — two consecutive `npm run content:publish` operations preserved byte-identical manifest and registry files and the same aggregate digest; focused tests prove stale-output detection and same-version conflicts leave both outputs unchanged |
-| focused publication/lesson tests | PASS — 4 files / 61 tests covering canonical publication, Thai/English parity, local render mapping, idempotency, immutable conflict, missing-output restoration guard, metadata/cross-reference/evidence rejection, non-executable MDX and unchanged lesson state/interaction |
-| formatter/lint/typecheck/unit/build/check | PASS — Prettier, zero-warning ESLint, Next type generation and both strict TypeScript projects; 30 files / 275 tests; production build generated 19 routes/pages and kept both lesson locales static |
+| `npm run content:validate` | PASS — one exact `source-verification-practice@1.0.0` version; canonical aggregate SHA-256 remains `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525` |
+| independent publication seal | PASS — Git-reviewed `publication-seal.json` authorizes only canonical lesson digest `51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91`; `content:publish` reads but never rewrites the seal, whose file SHA-256 remained `122453362FDE63C3940FFFE190D454F18D270670F1C89C4D4569D412893A33A9` |
+| deterministic publication | PASS — two consecutive `npm run content:publish` operations preserved byte-identical manifest and registry files and the same aggregate digest; manifest SHA-256 remained `73A4AA24E29D8F67AC8E93530A76267E4FAC73EAB564006A640FFE603274A5D3` and registry SHA-256 remained `4DAB8A29B95011D2F5E2C12A2F17388DCD653321C11A913B7B61B19FB1EB5163` |
+| focused publication/lesson tests | PASS — 4 files / 69 tests; R1 cases reject source mutation, removal from only manifest, only registry or both, and altered digests in both while preserving pre-call output bytes; identical republishing stays idempotent; UTC expiry passes immediately before and rejects exactly at/after expiry, and expired validation/publication leave outputs unchanged |
+| formatter/lint/typecheck/unit/build/check | PASS — Prettier, zero-warning ESLint, Next type generation and both strict TypeScript projects; 30 files / 283 tests; production build generated 19 routes/pages and kept both lesson locales static |
 | `npm run test:e2e` | PASS on final full rerun — Chromium 65/65; Thai/English operational and validation statuses, accepted content, keyboard/focus, refresh reset, 320px reflow, reduced motion, axe and loopback-only privacy behavior passed |
 | `npm run db:test:disposable` | PASS after checksum-pinned runtime re-preparation — PostgreSQL 18.4 applied 234 statements across four unchanged migrations and created 17 tables; process/data/logs/credentials removed, zero service/process/listener and zero disposable child remained |
 | production/full npm audits | PASS — both report 0 vulnerabilities |
-| lesson client boundary | PASS — three route client chunks / 416,773 bytes contain zero publication registry/source paths, parser packages, owner/reviewer/source provenance, database/identity/assessment/scoring internals or temporary-player storage markers; the route manifest contains no server registry module |
+| lesson client boundary | PASS — five referenced route client chunks / 474,796 bytes contain zero publication seal/manifest/registry names, canonical digest, parser-package, database, assessment-fixture or scoring-table markers; the route client manifest contains no server pipeline/registry source path |
 | executable-content inspection | PASS — source/generated content contains no ESM statement, `dangerouslySetInnerHTML`, `new Function`, VM import or `javascript:`, `data:` or `file:` marker; rejection tests also cover expressions, spread/expression props, event handlers, raw HTML, images and unknown components |
 
 Operational publication remains limited to the Git-reviewed repository registry for synthetic alpha. It does not create a database migration, lesson attempt/progress, saved XP, proof, real external evidence, production content operation or learning-efficacy claim. The real Clerk Development smoke was not run because this turn changes neither its command nor the shared authentication boundary.

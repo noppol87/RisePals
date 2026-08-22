@@ -353,3 +353,12 @@ MESSAGE TYPE: TURN HANDOFF
 ```
 
 Use `RP-TURN-014 — Content Publication Pipeline` and follow `prompts/VS_CODE_HANDOFF_TEMPLATE.md`. Include status, implementation commit/parent, unchanged main, Draft PR, exact files and bundle identity, per-file/aggregate SHA-256 evidence, parser/dependency decisions, allowlist/rejections, determinism/conflict results, route/accessibility/privacy/client evidence, disposable cleanup, audits, Gitleaks, hashes, clean worktree, out-of-scope confirmations, and confirmation that RP-TURN-015 was not started. Do not claim Project Codex acceptance before review.
+
+## RP-TURN-014-R1 authorized correction
+
+Project Codex required two bounded corrections after reviewing the initial implementation head:
+
+- Add an independently Git-reviewed publication seal for `source-verification-practice@1.0.0` and canonical digest `51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91`. The publisher must never rewrite the seal. Source mutation, removed entries from either or both generated outputs, and altered recorded digests must fail without changing the existing output bytes; identical republishing remains idempotent.
+- Evaluate external-evidence expiry against the current UTC instant. The validation instant must be injectable for deterministic tests immediately before, exactly at and after expiry, without adding current-time fields to generated output. Expired evidence must block validation and publication before output mutation.
+
+The correction preserves the canonical source, generated manifest, generated registry, aggregate digest, declarative MDX model, lesson behavior and all existing scope boundaries. PR #12 remains Draft and unmerged; RP-TURN-015 remains unauthorized.

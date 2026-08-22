@@ -49,6 +49,56 @@ async function updateJson(
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+async function updatePublishedJson(
+  contentRoot: string,
+  fileName: "publication-manifest.json" | "published-lessons.json",
+  mutate: (value: MutableJsonObject) => void,
+): Promise<void> {
+  const path = join(contentRoot, fileName);
+  const value = JSON.parse(await readFile(path, "utf8")) as MutableJsonObject;
+  mutate(value);
+  await writeFile(path, `${JSON.stringify(value)}\n`, "utf8");
+}
+
+async function publishedOutputBytes(
+  contentRoot: string,
+): Promise<Readonly<{ manifest: string; registry: string }>> {
+  return {
+    manifest: await readFile(join(contentRoot, "publication-manifest.json"), "utf8"),
+    registry: await readFile(join(contentRoot, "published-lessons.json"), "utf8"),
+  };
+}
+
+async function expectPublicationRejectionPreservesOutputs(
+  contentRoot: string,
+  expectedMessage: string,
+  options: Readonly<{ validationDate?: Date }> = {},
+): Promise<void> {
+  const before = await publishedOutputBytes(contentRoot);
+  await expect(publishContent({ contentRoot, ...options })).rejects.toThrow(expectedMessage);
+  expect(await publishedOutputBytes(contentRoot)).toEqual(before);
+}
+
+async function useSyntheticExternalEvidence(
+  contentRoot: string,
+  reviewExpiryDate: string,
+): Promise<void> {
+  await updateJson(contentRoot, "sources.json", (value) => {
+    const sourceSet = objectAt(value, ["sourceSet"]);
+    value.sourceSet = {
+      id: sourceSet.id,
+      classification: "external",
+      directUrl: "https://example.test/direct-source",
+      publisher: "Synthetic publisher for expiry-boundary testing",
+      publicationDate: "2026-01-01",
+      geographyContext: "Synthetic test context",
+      limitation: "Synthetic test record only",
+      lastVerifiedDate: "2026-01-02",
+      reviewExpiryDate,
+    };
+  });
+}
+
 function objectAt(value: unknown, path: readonly string[]): MutableJsonObject {
   let current = value;
   for (const key of path) {
@@ -178,6 +228,32 @@ describe("trusted content publication pipeline", () => {
     );
     expect(await readFile(manifestPath, "utf8")).toBe(manifestBefore);
     expect(await readFile(registryPath, "utf8")).toBe(registryBefore);
+  });
+
+  it.each([
+    ["only the manifest", ["publication-manifest.json"]],
+    ["only the registry", ["published-lessons.json"]],
+    ["both generated outputs", ["publication-manifest.json", "published-lessons.json"]],
+  ] as const)("rejects removal of a sealed identity from %s without rewriting outputs", async (_label, files) => {
+    const contentRoot = await copyContent();
+    for (const fileName of files) {
+      await updatePublishedJson(contentRoot, fileName, (value) => {
+        value.lessons = [];
+      });
+    }
+
+    await expectPublicationRejectionPreservesOutputs(contentRoot, "publication seal");
+  });
+
+  it("rejects altered sealed digests in both generated outputs without rewriting them", async () => {
+    const contentRoot = await copyContent();
+    for (const fileName of ["publication-manifest.json", "published-lessons.json"] as const) {
+      await updatePublishedJson(contentRoot, fileName, (value) => {
+        objectAt(arrayAt(value, ["lessons"])[0], []).digest = "0".repeat(64);
+      });
+    }
+
+    await expectPublicationRejectionPreservesOutputs(contentRoot, "publication seal");
   });
 
   it.each([
@@ -321,6 +397,34 @@ describe("trusted content publication pipeline", () => {
     await expect(compileContent({ contentRoot: expiredRoot })).rejects.toThrow(
       "external evidence is expired",
     );
+  });
+
+  it.each([
+    ["immediately before", new Date("2026-08-22T23:59:59.999Z"), false],
+    ["exactly at", new Date("2026-08-23T00:00:00.000Z"), true],
+    ["immediately after", new Date("2026-08-23T00:00:00.001Z"), true],
+  ] as const)("evaluates external-evidence expiry %s the UTC boundary", async (_label, validationDate, expired) => {
+    const contentRoot = await copyContent();
+    await useSyntheticExternalEvidence(contentRoot, "2026-08-23");
+    const result = compileContent({ contentRoot, validationDate });
+
+    if (expired) await expect(result).rejects.toThrow("external evidence is expired");
+    else await expect(result).resolves.toMatchObject({ lessonCount: 1 });
+  });
+
+  it("blocks validation and publication of expired evidence without modifying outputs", async () => {
+    const contentRoot = await copyContent();
+    const validationDate = new Date("2026-08-23T00:00:00.001Z");
+    await useSyntheticExternalEvidence(contentRoot, "2026-08-23");
+    const before = await publishedOutputBytes(contentRoot);
+
+    await expect(validatePublishedContent({ contentRoot, validationDate })).rejects.toThrow(
+      "external evidence is expired",
+    );
+    expect(await publishedOutputBytes(contentRoot)).toEqual(before);
+    await expectPublicationRejectionPreservesOutputs(contentRoot, "external evidence is expired", {
+      validationDate,
+    });
   });
 
   it.each([
