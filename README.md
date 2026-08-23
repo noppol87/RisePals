@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-016-R2 historical exact-replay correction complete pending Project Codex review / no real users or production service  
+**Project status:** RP-TURN-016 private structured evidence artifact Accepted for synthetic alpha / no real users or production service  
 **Last updated:** 2026-08-23
 
 ## Product thesis
@@ -178,4 +178,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-016-R2 is complete pending Project Codex review. The public player and public lesson preserve their temporary/memory-only contracts, including the non-collecting proof placeholder. The separate private artifact is owner/current-consent scoped, controlled synthetic P3 state and `prototype-unvalidated`; it is not a validated result, credential or externally verifiable proof. No real user/data, production identity/database resource, retention/export/erasure operation, upload/object storage/share grant, saved XP, payment, analytics, CI, VPS service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.
+RP-TURN-006 through RP-TURN-016 are Accepted for their documented synthetic/prototype boundaries. The public player and public lesson preserve their temporary/memory-only contracts, including the non-collecting proof placeholder. The separate private artifact is owner/current-consent scoped, controlled synthetic P3 state and `prototype-unvalidated`; it is not a validated result, credential or externally verifiable proof. No real user/data, production identity/database resource, retention/export/erasure operation, upload/object storage/share grant, saved XP, payment, analytics, CI, VPS service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.

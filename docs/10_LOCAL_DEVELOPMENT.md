@@ -782,7 +782,7 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 through RP-TURN-015 for their bounded synthetic-alpha contracts. RP-TURN-016 is complete pending review. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment. RP-TURN-017 is recommended only and is not authorized or started.
+Project Codex Accepted RP-TURN-013 through RP-TURN-016 for their bounded synthetic-alpha contracts. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment. RP-TURN-017 is recommended only and is not authorized or started.
 
 ## RP-TURN-014 trusted content publication verification
 
@@ -826,7 +826,7 @@ Operational publication remains limited to the Git-reviewed repository registry 
 
 ## RP-TURN-016 private structured evidence verification
 
-Status: RP-TURN-016-R2 complete pending Project Codex review for the bounded controlled synthetic-alpha and `prototype-unvalidated` contract.
+Status: Accepted by Project Codex at reviewed implementation head `50a31fe910f93f8a8e065f6b58069fa73bdc5475` for the bounded controlled synthetic-alpha and `prototype-unvalidated` contract.
 
 The sixth forward migration adds exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`, producing twenty-three tables. Protected `/[locale]/evidence` and `/[locale]/evidence/source-verification-note` routes are dynamic, noindex/noarchive and read-only on GET. Explicit start requires current consent and the exact demonstrated owner source-verification practice. Saves append an exact controlled six-key payload; ready and withdraw use guarded lifecycle provenance. The browser receives controlled copy/IDs, selections, revision, status and feedback only. It receives no internal UUID, provider/email, consent internal, publication digest, assessment/scoring record, database error/credential or share/storage token and persists nothing in URL, storage, analytics or a custom cookie.
 
