@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { TextLink } from "@/components/primitives/text-link";
 import {
+  evidencePath,
   isLocale,
   learningPath,
   onboardingPath,
   persistedLessonAttemptPath,
 } from "@/lib/i18n/config";
+import { evidenceCopy } from "@/modules/evidence/copy";
 import { persistedLessonCopy } from "@/modules/lesson/persistence/copy";
 import { loadPersistedLessonPageState } from "@/modules/lesson/persistence/dal";
 
@@ -30,6 +32,7 @@ export default async function LearningPage({ params }: LearningPageProps) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const copy = persistedLessonCopy[locale];
+  const privateEvidenceCopy = evidenceCopy[locale];
   const state = await loadPersistedLessonPageState(locale);
   if (state.state === "denied" && ["absent", "invalid", "expired"].includes(state.reason)) {
     redirect(`/${locale}/sign-in?returnTo=${learningPath(locale)}`);
@@ -77,6 +80,15 @@ export default async function LearningPage({ params }: LearningPageProps) {
           <p>{status}</p>
           <TextLink href={persistedLessonAttemptPath(locale)} prefetch={false}>
             {copy.lessonLink}
+          </TextLink>
+        </article>
+      ) : null}
+      {state.state === "demonstrated" ? (
+        <article className="persisted-result__card">
+          <h2>{privateEvidenceCopy.artifactHeading}</h2>
+          <p>{privateEvidenceCopy.privateLabel}</p>
+          <TextLink href={evidencePath(locale)} prefetch={false}>
+            {privateEvidenceCopy.learningEvidenceLink}
           </TextLink>
         </article>
       ) : null}

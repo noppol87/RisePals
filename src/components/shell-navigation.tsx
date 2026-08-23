@@ -7,6 +7,7 @@ import type { ShellCatalog } from "@/lib/i18n/catalogs";
 import {
   assessmentExampleResultPath,
   assessmentPath,
+  evidencePath,
   learningPath,
   localePath,
   onboardingPath,
@@ -17,6 +18,7 @@ import {
   signInPath,
   signUpPath,
   sourceVerificationLessonPath,
+  sourceVerificationEvidencePath,
   type Locale,
 } from "@/lib/i18n/config";
 
@@ -35,6 +37,9 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
   const onExampleResultRoute = pathname === assessmentExampleResultPath(currentLocale);
   const onSourceVerificationLessonRoute = pathname === sourceVerificationLessonPath(currentLocale);
   const onLearningRoute = pathname === learningPath(currentLocale);
+  const onEvidenceRoute = pathname === evidencePath(currentLocale);
+  const onSourceVerificationEvidenceRoute =
+    pathname === sourceVerificationEvidencePath(currentLocale);
   const onPersistedLessonRoute = pathname === persistedLessonAttemptPath(currentLocale);
   const onProfileRoute = pathname === profilePath(currentLocale);
   const onOnboardingRoute = pathname === onboardingPath(currentLocale);
@@ -69,27 +74,31 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
         routeSuffix={
           onPersistedLessonRoute
             ? "/lessons/source-verification-practice/attempt"
-            : onLearningRoute
-              ? "/learning"
-              : onProfileRoute
-                ? "/profile"
-                : onOnboardingRoute
-                  ? "/onboarding"
-                  : onSignInRoute
-                    ? "/sign-in"
-                    : onSignUpRoute
-                      ? "/sign-up"
-                      : onSourceVerificationLessonRoute
-                        ? "/lessons/source-verification-practice"
-                        : onExampleResultRoute
-                          ? "/assessment/example-result"
-                          : onPersistedAssessmentResultRoute
-                            ? "/assessment/result"
-                            : onPersistedAssessmentRoute
-                              ? "/assessment/attempt"
-                              : onAssessmentRoute
-                                ? "/assessment"
-                                : ""
+            : onSourceVerificationEvidenceRoute
+              ? "/evidence/source-verification-note"
+              : onEvidenceRoute
+                ? "/evidence"
+                : onLearningRoute
+                  ? "/learning"
+                  : onProfileRoute
+                    ? "/profile"
+                    : onOnboardingRoute
+                      ? "/onboarding"
+                      : onSignInRoute
+                        ? "/sign-in"
+                        : onSignUpRoute
+                          ? "/sign-up"
+                          : onSourceVerificationLessonRoute
+                            ? "/lessons/source-verification-practice"
+                            : onExampleResultRoute
+                              ? "/assessment/example-result"
+                              : onPersistedAssessmentResultRoute
+                                ? "/assessment/result"
+                                : onPersistedAssessmentRoute
+                                  ? "/assessment/attempt"
+                                  : onAssessmentRoute
+                                    ? "/assessment"
+                                    : ""
         }
       />
     </>
