@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-23  
-**Current phase:** RP-TURN-015 persisted lesson, practice and progress implemented for synthetic alpha  
-**Current turn:** RP-TURN-015 is Accepted by Project Codex; RP-TURN-016 has not been started or authorized
+**Current phase:** RP-TURN-016 private structured evidence artifact implemented for synthetic alpha  
+**Current turn:** RP-TURN-016 is complete pending Project Codex review; RP-TURN-017 is not authorized
 
 ## Locked decisions
 
@@ -109,6 +109,10 @@
 - Separate dynamic `/th|en/learning` and `/th|en/lessons/source-verification-practice/attempt` paths with explicit start/save/evaluate/retry actions, while both public lesson routes remain statically generated and memory-only
 - Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; normalized intent/locale/expected-revision provenance makes only an exact mutation replay idempotent and rejects conflicting UUID reuse without another row, event or lesson transition. After a non-demonstrated evaluation, both DAL and PostgreSQL require an explicit payload-preserving retry draft before another save/evaluate mutation; denied transitions leave rows, events and lesson timestamps unchanged. No page-view event, saved XP, proof input or assessment/scoring coupling exists.
 - RP-TURN-015 deterministic/unit/build/browser/database/security evidence Accepted by Project Codex at reviewed implementation head `962b4422fa21c28b06c362f87ec55466281409e8`; no real Clerk smoke or external resource was used
+- Sixth forward migration adding exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`; the fresh disposable schema has 23 tables and all three new tables use current-consent forced owner RLS, database-enforced provenance and no application DELETE
+- Separate dynamic `/th|en/evidence` and `/th|en/evidence/source-verification-note` routes for one private controlled Bright River source-verification note after exact demonstrated practice, with explicit start/save/ready/withdraw actions and no write on GET
+- Strict `source-verification-note-artifact-v1@1.0.0` payload with fixed claim, ordered allowlisted source references, controlled fit/correction/safe-action selections, immutable revisions, exact replay/conflict behavior and deterministic readiness feedback; no free text, file/upload, URL, share/export, XP, assessment/scoring or employment signal
+- RP-TURN-016 deterministic/unit/build/browser/database/security evidence complete pending Project Codex review; sealed lesson/publication bytes and digests remain unchanged and no real Clerk smoke or external resource was used
 
 ## Open decisions
 
@@ -149,11 +153,11 @@
 
 ## Next recommended action
 
-**RP-TURN-016 — Private Evidence Artifact (recommended, not authorized)**
+**RP-TURN-017 — Consent-Aware Measurement and Error Monitoring (recommended, not authorized)**
 
-RP-TURN-015 is Accepted by Project Codex. RP-TURN-016 is the next recommended turn and requires separate authorization.
+RP-TURN-016 is complete pending Project Codex review. RP-TURN-017 is only the next recommended turn and requires separate authorization.
 
-RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication remains synthetic alpha and not learning-efficacy validation or production release. The new durable lesson state is synthetic-only; no real account/data, production resource, validated proficiency claim, saved XP, proof, CI, production service or deployment exists. RP-TURN-016 is recommended only and is not authorized or started.
+RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-016 is pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The new private artifact is controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.
 
 ## Turn history
 
@@ -175,3 +179,4 @@ RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prot
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
 | 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
 | 015 | Accepted | Reviewed head `962b4422fa21c28b06c362f87ec55466281409e8`: owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |
+| 016 | Complete pending review | One private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI; not Accepted until Project Codex review |

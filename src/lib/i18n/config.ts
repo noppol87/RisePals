@@ -45,6 +45,16 @@ export function learningPath(locale: Locale): `/${Locale}/learning` {
   return `/${locale}/learning`;
 }
 
+export function evidencePath(locale: Locale): `/${Locale}/evidence` {
+  return `/${locale}/evidence`;
+}
+
+export function sourceVerificationEvidencePath(
+  locale: Locale,
+): `/${Locale}/evidence/source-verification-note` {
+  return `/${locale}/evidence/source-verification-note`;
+}
+
 export function persistedLessonAttemptPath(
   locale: Locale,
 ): `/${Locale}/lessons/source-verification-practice/attempt` {

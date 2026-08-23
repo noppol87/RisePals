@@ -38,6 +38,11 @@ export const learningProgressEventKind = pgEnum("learning_progress_event_kind", 
   "practice_evaluated",
   "practice_demonstrated",
 ]);
+export const evidenceArtifactStatus = pgEnum("evidence_artifact_status", [
+  "draft",
+  "ready",
+  "withdrawn",
+]);
 
 const utcTimestamp = (name: string) => timestamp(name, { withTimezone: true, mode: "date" });
 const versionedJsonCheck = (column: { name: string }) =>
@@ -1028,6 +1033,211 @@ export const learningProgressEvents = pgTable(
   ],
 );
 
+export const evidenceArtifacts = pgTable(
+  "evidence_artifacts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    consentRecordId: uuid("consent_record_id").notNull(),
+    sourceLessonAttemptId: uuid("source_lesson_attempt_id").notNull(),
+    sourcePracticeAttemptId: uuid("source_practice_attempt_id").notNull(),
+    artifactContractId: text("artifact_contract_id").notNull(),
+    artifactContractVersion: text("artifact_contract_version").notNull(),
+    artifactType: text("artifact_type").notNull(),
+    sourceProofId: text("source_proof_id").notNull(),
+    sourceProofVersion: text("source_proof_version").notNull(),
+    sourceLessonKey: text("source_lesson_key").notNull(),
+    sourceLessonVersion: text("source_lesson_version").notNull(),
+    sourceLessonDigest: text("source_lesson_digest").notNull(),
+    sourcePackId: text("source_pack_id").notNull(),
+    classification: text("classification").notNull(),
+    validationStatus: text("validation_status").notNull(),
+    startMutationId: uuid("start_mutation_id").notNull(),
+    startMutationLocale: text("start_mutation_locale").notNull(),
+    status: evidenceArtifactStatus("status").notNull().default("draft"),
+    readyMutationId: uuid("ready_mutation_id"),
+    readyMutationLocale: text("ready_mutation_locale"),
+    readyExpectedRevision: integer("ready_expected_revision"),
+    withdrawMutationId: uuid("withdraw_mutation_id"),
+    withdrawMutationLocale: text("withdraw_mutation_locale"),
+    withdrawExpectedRevision: integer("withdraw_expected_revision"),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+    updatedAt: utcTimestamp("updated_at").notNull().defaultNow(),
+    readyAt: utcTimestamp("ready_at"),
+    withdrawnAt: utcTimestamp("withdrawn_at"),
+  },
+  (table) => [
+    unique("evidence_artifacts_id_user_unique").on(table.id, table.userId),
+    uniqueIndex("evidence_artifacts_owner_source_contract_unique").on(
+      table.userId,
+      table.sourcePracticeAttemptId,
+      table.artifactContractId,
+      table.artifactContractVersion,
+    ),
+    uniqueIndex("evidence_artifacts_owner_start_mutation_unique").on(
+      table.userId,
+      table.startMutationId,
+    ),
+    index("evidence_artifacts_owner_updated_idx").on(table.userId, table.updatedAt),
+    foreignKey({
+      name: "evidence_artifacts_user_fk",
+      columns: [table.userId],
+      foreignColumns: [userAccounts.id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "evidence_artifacts_consent_owner_fk",
+      columns: [table.consentRecordId, table.userId],
+      foreignColumns: [consentRecords.id, consentRecords.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "evidence_artifacts_lesson_owner_fk",
+      columns: [table.sourceLessonAttemptId, table.userId],
+      foreignColumns: [lessonAttempts.id, lessonAttempts.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "evidence_artifacts_practice_owner_lesson_fk",
+      columns: [table.sourcePracticeAttemptId, table.userId, table.sourceLessonAttemptId],
+      foreignColumns: [
+        practiceAttempts.id,
+        practiceAttempts.userId,
+        practiceAttempts.lessonAttemptId,
+      ],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "evidence_artifacts_identity_check",
+      sql`${table.artifactContractId} = 'source-verification-note-artifact-v1' AND ${table.artifactContractVersion} = '1.0.0' AND ${table.artifactType} = 'source-verification-note' AND ${table.sourceProofId} = 'source-verification-note-placeholder-v1' AND ${table.sourceProofVersion} = '1.0.0'`,
+    ),
+    check(
+      "evidence_artifacts_source_check",
+      sql`${table.sourceLessonKey} = 'source-verification-practice' AND ${table.sourceLessonVersion} = '1.0.0' AND ${table.sourceLessonDigest} = '51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91' AND ${table.sourcePackId} = 'bright-river-operations-synthetic-source-pack-v1'`,
+    ),
+    check(
+      "evidence_artifacts_classification_check",
+      sql`${table.classification} = 'synthetic-private-evidence' AND ${table.validationStatus} = 'prototype-unvalidated'`,
+    ),
+    check(
+      "evidence_artifacts_locale_check",
+      sql`${table.startMutationLocale} IN ('th', 'en') AND (${table.readyMutationLocale} IS NULL OR ${table.readyMutationLocale} IN ('th', 'en')) AND (${table.withdrawMutationLocale} IS NULL OR ${table.withdrawMutationLocale} IN ('th', 'en'))`,
+    ),
+    check(
+      "evidence_artifacts_lifecycle_shape_check",
+      sql`(${table.status} = 'draft' AND ${table.readyMutationId} IS NULL AND ${table.readyMutationLocale} IS NULL AND ${table.readyExpectedRevision} IS NULL AND ${table.withdrawMutationId} IS NULL AND ${table.withdrawMutationLocale} IS NULL AND ${table.withdrawExpectedRevision} IS NULL AND ${table.readyAt} IS NULL AND ${table.withdrawnAt} IS NULL) OR (${table.status} = 'ready' AND ${table.readyMutationId} IS NOT NULL AND ${table.readyMutationLocale} IS NOT NULL AND ${table.readyExpectedRevision} IS NOT NULL AND ${table.withdrawMutationId} IS NULL AND ${table.withdrawMutationLocale} IS NULL AND ${table.withdrawExpectedRevision} IS NULL AND ${table.readyAt} IS NOT NULL AND ${table.withdrawnAt} IS NULL) OR (${table.status} = 'withdrawn' AND ${table.withdrawMutationId} IS NOT NULL AND ${table.withdrawMutationLocale} IS NOT NULL AND ${table.withdrawExpectedRevision} IS NOT NULL AND ${table.withdrawnAt} IS NOT NULL AND ((${table.readyMutationId} IS NULL AND ${table.readyMutationLocale} IS NULL AND ${table.readyExpectedRevision} IS NULL AND ${table.readyAt} IS NULL) OR (${table.readyMutationId} IS NOT NULL AND ${table.readyMutationLocale} IS NOT NULL AND ${table.readyExpectedRevision} IS NOT NULL AND ${table.readyAt} IS NOT NULL)))`,
+    ),
+    check(
+      "evidence_artifacts_time_check",
+      sql`${table.updatedAt} >= ${table.createdAt} AND (${table.readyAt} IS NULL OR ${table.readyAt} >= ${table.createdAt}) AND (${table.withdrawnAt} IS NULL OR ${table.withdrawnAt} >= ${table.createdAt})`,
+    ),
+  ],
+);
+
+export const evidenceArtifactRevisions = pgTable(
+  "evidence_artifact_revisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    artifactId: uuid("artifact_id").notNull(),
+    revision: integer("revision").notNull(),
+    supersedesRevisionId: uuid("supersedes_revision_id"),
+    artifactContractId: text("artifact_contract_id").notNull(),
+    artifactContractVersion: text("artifact_contract_version").notNull(),
+    sourcePackId: text("source_pack_id").notNull(),
+    payload: jsonb("payload").notNull(),
+    clientMutationId: uuid("client_mutation_id").notNull(),
+    mutationIntent: text("mutation_intent").notNull(),
+    mutationLocale: text("mutation_locale").notNull(),
+    mutationExpectedRevision: integer("mutation_expected_revision").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("evidence_artifact_revisions_id_owner_artifact_unique").on(
+      table.id,
+      table.userId,
+      table.artifactId,
+    ),
+    uniqueIndex("evidence_artifact_revisions_artifact_revision_unique").on(
+      table.artifactId,
+      table.revision,
+    ),
+    uniqueIndex("evidence_artifact_revisions_artifact_mutation_unique").on(
+      table.artifactId,
+      table.clientMutationId,
+    ),
+    index("evidence_artifact_revisions_owner_created_idx").on(table.userId, table.createdAt),
+    foreignKey({
+      name: "evidence_artifact_revisions_artifact_owner_fk",
+      columns: [table.artifactId, table.userId],
+      foreignColumns: [evidenceArtifacts.id, evidenceArtifacts.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "evidence_artifact_revisions_supersedes_owner_artifact_fk",
+      columns: [table.supersedesRevisionId, table.userId, table.artifactId],
+      foreignColumns: [table.id, table.userId, table.artifactId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check("evidence_artifact_revisions_revision_positive", sql`${table.revision} > 0`),
+    check(
+      "evidence_artifact_revisions_mutation_check",
+      sql`${table.mutationIntent} = 'save' AND ${table.mutationLocale} IN ('th', 'en') AND ${table.mutationExpectedRevision} >= 0 AND ${table.revision} = ${table.mutationExpectedRevision} + 1`,
+    ),
+    check(
+      "evidence_artifact_revisions_supersession_check",
+      sql`(${table.revision} = 1 AND ${table.supersedesRevisionId} IS NULL) OR (${table.revision} > 1 AND ${table.supersedesRevisionId} IS NOT NULL)`,
+    ),
+    check(
+      "evidence_artifact_revisions_compatibility_check",
+      sql`${table.artifactContractId} = 'source-verification-note-artifact-v1' AND ${table.artifactContractVersion} = '1.0.0' AND ${table.sourcePackId} = 'bright-river-operations-synthetic-source-pack-v1'`,
+    ),
+    check("evidence_artifact_revisions_payload_json_check", versionedJsonCheck(table.payload)),
+  ],
+);
+
+export const evidenceCompetencyLinks = pgTable(
+  "evidence_competency_links",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    artifactId: uuid("artifact_id").notNull(),
+    frameworkVersionId: uuid("framework_version_id").notNull(),
+    competencyVersionId: uuid("competency_version_id").notNull(),
+    relationshipCode: text("relationship_code").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("evidence_competency_links_id_user_unique").on(table.id, table.userId),
+    uniqueIndex("evidence_competency_links_artifact_unique").on(table.artifactId),
+    index("evidence_competency_links_owner_created_idx").on(table.userId, table.createdAt),
+    foreignKey({
+      name: "evidence_competency_links_artifact_owner_fk",
+      columns: [table.artifactId, table.userId],
+      foreignColumns: [evidenceArtifacts.id, evidenceArtifacts.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "evidence_competency_links_competency_framework_fk",
+      columns: [table.competencyVersionId, table.frameworkVersionId],
+      foreignColumns: [competencyVersions.id, competencyVersions.frameworkVersionId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "evidence_competency_links_relationship_check",
+      sql`${table.relationshipCode} = 'synthetic-practice-evidence'`,
+    ),
+  ],
+);
+
 export const databaseSchema = {
   userAccounts,
   externalIdentities,
@@ -1049,4 +1259,7 @@ export const databaseSchema = {
   lessonAttempts,
   practiceAttempts,
   learningProgressEvents,
+  evidenceArtifacts,
+  evidenceArtifactRevisions,
+  evidenceCompetencyLinks,
 } as const;

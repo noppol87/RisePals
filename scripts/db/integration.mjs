@@ -32,6 +32,8 @@ const derivedUserB = "20000000-0000-4000-8000-000000000004";
 const derivedUserC = "20000000-0000-4000-8000-000000000005";
 const lessonUserA = "20000000-0000-4000-8000-000000000006";
 const lessonUserB = "20000000-0000-4000-8000-000000000007";
+const evidenceUserA = "20000000-0000-4000-8000-000000000008";
+const evidenceUserB = "20000000-0000-4000-8000-000000000009";
 const resultPolicyDigest = "10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157";
 const persistedDefinition = JSON.parse(
   await readFile(
@@ -345,7 +347,11 @@ async function verifyRoleAndSchemaBaseline(client) {
      FROM information_schema.tables
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
   );
-  assert.equal(tables.rows[0].count, 20, "the five fresh migrations create exactly twenty tables");
+  assert.equal(
+    tables.rows[0].count,
+    23,
+    "the six fresh migrations create exactly twenty-three tables",
+  );
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -429,6 +435,9 @@ async function verifyRoleAndSchemaBaseline(client) {
         "competency_scores",
         "consent_records",
         "external_identities",
+        "evidence_artifact_revisions",
+        "evidence_artifacts",
+        "evidence_competency_links",
         "learning_progress_events",
         "lesson_attempts",
         "multiplier_observations",
@@ -441,7 +450,7 @@ async function verifyRoleAndSchemaBaseline(client) {
       ],
     ],
   );
-  assert.equal(forcedRls.rowCount, 14);
+  assert.equal(forcedRls.rowCount, 17);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 }
 
@@ -2759,6 +2768,415 @@ async function verifyPersistedLessonContract() {
   });
 }
 
+async function verifyPrivateEvidenceArtifactContract() {
+  const consentA = await provisionPersistedTestUser(evidenceUserA);
+  await provisionPersistedTestUser(evidenceUserB);
+  const framework = await ownerPool.query(
+    `SELECT fv.id AS framework_id, cv.id AS competency_id
+     FROM framework_versions AS fv
+     JOIN competency_versions AS cv ON cv.framework_version_id = fv.id
+     WHERE fv.framework_key = 'rise-pals-8-plus-2' AND fv.version = '2.0'
+       AND fv.status = 'published'
+       AND cv.competency_key = 'critical-thinking-fact-checking' AND cv.kind = 'core'`,
+  );
+  assert.equal(framework.rowCount, 1, "one exact published Critical Thinking version exists");
+
+  const source = await withApplicationUser(evidenceUserA, async (client) => {
+    const startMutationId = "80000000-0000-4000-8000-000000000001";
+    const lesson = await client.query(
+      `INSERT INTO lesson_attempts
+        (user_id, consent_record_id, lesson_key, lesson_version_id, lesson_version,
+         lesson_digest, practice_id, practice_version, rubric_version_id, rubric_version,
+         evaluation_contract_version_id, start_mutation_id)
+       VALUES ($1,$2,'source-verification-practice','lesson-source-verification-practice-v1',
+         '1.0.0','51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91',
+         'source-verification-decision-v1','1.0.0','source-verification-rubric-v1','1.0.0',
+         'source-verification-evaluation-v1',$3) RETURNING id`,
+      [evidenceUserA, consentA, startMutationId],
+    );
+    await client.query(
+      `INSERT INTO learning_progress_events
+        (user_id, lesson_attempt_id, event_kind, event_schema_version, source_mutation_id)
+       VALUES ($1,$2,'lesson_started','learning-progress-event-v1',$3)`,
+      [evidenceUserA, lesson.rows[0].id, startMutationId],
+    );
+    const responsePayload = {
+      schemaVersion: "source-verification-practice-response-v1",
+      selections: [
+        { criterionId: "evidence-traceability", optionId: "trace-claim-to-source-map" },
+        { criterionId: "claim-source-fit", optionId: "fit-narrow-to-supported-teams" },
+        { criterionId: "safe-next-action", optionId: "safe-hold-and-resolve-gaps" },
+      ],
+    };
+    const criterionResults = {
+      schemaVersion: "source-verification-evaluation-v1",
+      criteria: responsePayload.selections.map((selection) => ({
+        criterionId: selection.criterionId,
+        selectedOptionId: selection.optionId,
+        status: "met",
+      })),
+    };
+    const practice = await client.query(
+      `INSERT INTO practice_attempts
+        (user_id, lesson_attempt_id, revision, status, response_payload, practice_id,
+         practice_version, rubric_version_id, rubric_version, evaluation_contract_version_id,
+         criterion_results, demonstrated, client_mutation_id, mutation_intent,
+         mutation_locale, mutation_expected_revision)
+       VALUES ($1,$2,1,'evaluated',$3::jsonb,'source-verification-decision-v1','1.0.0',
+         'source-verification-rubric-v1','1.0.0','source-verification-evaluation-v1',
+         $4::jsonb,true,$5,'evaluate','en',0) RETURNING id`,
+      [
+        evidenceUserA,
+        lesson.rows[0].id,
+        JSON.stringify(responsePayload),
+        JSON.stringify(criterionResults),
+        "80000000-0000-4000-8000-000000000002",
+      ],
+    );
+    for (const eventKind of ["practice_evaluated", "practice_demonstrated"]) {
+      await client.query(
+        `INSERT INTO learning_progress_events
+          (user_id, lesson_attempt_id, practice_attempt_id, event_kind,
+           event_schema_version, source_mutation_id)
+         VALUES ($1,$2,$3,$4,'learning-progress-event-v1',$5)`,
+        [
+          evidenceUserA,
+          lesson.rows[0].id,
+          practice.rows[0].id,
+          eventKind,
+          "80000000-0000-4000-8000-000000000002",
+        ],
+      );
+    }
+    await client.query(
+      `UPDATE lesson_attempts
+       SET status = 'demonstrated', demonstrated_at = clock_timestamp(),
+           last_meaningful_activity_at = clock_timestamp()
+       WHERE id = $1`,
+      [lesson.rows[0].id],
+    );
+    return { lessonId: lesson.rows[0].id, practiceId: practice.rows[0].id };
+  });
+
+  const artifactId = await withApplicationUser(evidenceUserA, async (client) => {
+    const artifact = await client.query(
+      `INSERT INTO evidence_artifacts
+        (user_id, consent_record_id, source_lesson_attempt_id, source_practice_attempt_id,
+         artifact_contract_id, artifact_contract_version, artifact_type, source_proof_id,
+         source_proof_version, source_lesson_key, source_lesson_version, source_lesson_digest,
+         source_pack_id, classification, validation_status, start_mutation_id,
+         start_mutation_locale)
+       VALUES ($1,$2,$3,$4,'source-verification-note-artifact-v1','1.0.0',
+         'source-verification-note','source-verification-note-placeholder-v1','1.0.0',
+         'source-verification-practice','1.0.0',
+         '51903ea9e6053a1102b4d60ad072c9a1dcde26a90d6a0ca7ae36cba8a6995e91',
+         'bright-river-operations-synthetic-source-pack-v1','synthetic-private-evidence',
+         'prototype-unvalidated',$5,'en') RETURNING id`,
+      [
+        evidenceUserA,
+        consentA,
+        source.lessonId,
+        source.practiceId,
+        "80000000-0000-4000-8000-000000000003",
+      ],
+    );
+    await client.query(
+      `INSERT INTO evidence_competency_links
+        (user_id, artifact_id, framework_version_id, competency_version_id, relationship_code)
+       VALUES ($1,$2,$3,$4,'synthetic-practice-evidence')`,
+      [
+        evidenceUserA,
+        artifact.rows[0].id,
+        framework.rows[0].framework_id,
+        framework.rows[0].competency_id,
+      ],
+    );
+    return artifact.rows[0].id;
+  });
+
+  const partialPayload = {
+    schemaVersion: "source-verification-note-artifact-payload-v1",
+    claimId: "bright-river-ai-summary-claim-v1",
+    sourceReferenceIds: ["pilot-table"],
+    fitCheckId: null,
+    correctedWordingOptionId: null,
+    safeNextActionOptionId: null,
+  };
+  const readyPayload = {
+    ...partialPayload,
+    sourceReferenceIds: ["pilot-table", "scope-note", "risk-log"],
+    fitCheckId: "partially-supported-overgeneralized",
+    correctedWordingOptionId: "fit-narrow-to-supported-teams",
+    safeNextActionOptionId: "safe-hold-and-resolve-gaps",
+  };
+  const insertRevision = ({ revision, previousId, payload, mutationId, expectedRevision }) =>
+    withApplicationUser(evidenceUserA, (client) =>
+      client.query(
+        `INSERT INTO evidence_artifact_revisions
+          (user_id, artifact_id, revision, supersedes_revision_id, artifact_contract_id,
+           artifact_contract_version, source_pack_id, payload, client_mutation_id,
+           mutation_intent, mutation_locale, mutation_expected_revision)
+         VALUES ($1,$2,$3,$4,'source-verification-note-artifact-v1','1.0.0',
+           'bright-river-operations-synthetic-source-pack-v1',$5::jsonb,$6,'save','en',$7)
+         RETURNING id`,
+        [
+          evidenceUserA,
+          artifactId,
+          revision,
+          previousId,
+          JSON.stringify(payload),
+          mutationId,
+          expectedRevision,
+        ],
+      ),
+    );
+  const first = await insertRevision({
+    revision: 1,
+    previousId: null,
+    payload: partialPayload,
+    mutationId: "80000000-0000-4000-8000-000000000004",
+    expectedRevision: 0,
+  });
+  const beforeRejected = await withApplicationUser(evidenceUserA, async (client) => ({
+    artifact: (await client.query(`SELECT * FROM evidence_artifacts WHERE id=$1`, [artifactId]))
+      .rows[0],
+    revisions: (
+      await client.query(
+        `SELECT revision, payload FROM evidence_artifact_revisions
+         WHERE artifact_id=$1 ORDER BY revision`,
+        [artifactId],
+      )
+    ).rows,
+  }));
+  for (const [label, payload] of [
+    ["extra payload key", { ...readyPayload, extra: true }],
+    ["unknown claim", { ...readyPayload, claimId: "unknown" }],
+    ["unknown source", { ...readyPayload, sourceReferenceIds: ["unknown"] }],
+    ["duplicate source", { ...readyPayload, sourceReferenceIds: ["pilot-table", "pilot-table"] }],
+    [
+      "noncanonical source order",
+      { ...readyPayload, sourceReferenceIds: ["risk-log", "pilot-table"] },
+    ],
+    ["unknown option", { ...readyPayload, correctedWordingOptionId: "unknown" }],
+  ]) {
+    await expectDatabaseRejection(
+      () =>
+        insertRevision({
+          revision: 2,
+          previousId: first.rows[0].id,
+          payload,
+          mutationId: "80000000-0000-4000-8000-000000000005",
+          expectedRevision: 1,
+        }),
+      label,
+    );
+  }
+  await expectDatabaseRejection(
+    () =>
+      insertRevision({
+        revision: 3,
+        previousId: first.rows[0].id,
+        payload: readyPayload,
+        mutationId: "80000000-0000-4000-8000-000000000006",
+        expectedRevision: 1,
+      }),
+    "a skipped artifact revision",
+  );
+  assert.deepEqual(
+    await withApplicationUser(evidenceUserA, async (client) => ({
+      artifact: (await client.query(`SELECT * FROM evidence_artifacts WHERE id=$1`, [artifactId]))
+        .rows[0],
+      revisions: (
+        await client.query(
+          `SELECT revision, payload FROM evidence_artifact_revisions
+           WHERE artifact_id=$1 ORDER BY revision`,
+          [artifactId],
+        )
+      ).rows,
+    })),
+    beforeRejected,
+    "rejected evidence mutations preserve content and lifecycle state",
+  );
+
+  const second = await insertRevision({
+    revision: 2,
+    previousId: first.rows[0].id,
+    payload: readyPayload,
+    mutationId: "80000000-0000-4000-8000-000000000007",
+    expectedRevision: 1,
+  });
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(
+          `UPDATE evidence_artifacts SET status='ready', ready_mutation_id=$2,
+             ready_mutation_locale='en', ready_expected_revision=1 WHERE id=$1`,
+          [artifactId, "80000000-0000-4000-8000-000000000008"],
+        ),
+      ),
+    "ready with a stale revision",
+  );
+  await withApplicationUser(evidenceUserA, (client) =>
+    client.query(
+      `UPDATE evidence_artifacts SET status='ready', ready_mutation_id=$2,
+         ready_mutation_locale='en', ready_expected_revision=2 WHERE id=$1`,
+      [artifactId, "80000000-0000-4000-8000-000000000009"],
+    ),
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertRevision({
+        revision: 3,
+        previousId: second.rows[0].id,
+        payload: readyPayload,
+        mutationId: "80000000-0000-4000-8000-000000000010",
+        expectedRevision: 2,
+      }),
+    "content revision after ready",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(`UPDATE evidence_artifact_revisions SET revision=9 WHERE id=$1`, [
+          first.rows[0].id,
+        ]),
+      ),
+    "revision history update",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(`DELETE FROM evidence_artifacts WHERE id=$1`, [artifactId]),
+      ),
+    "application artifact deletion",
+    "42501",
+  );
+
+  const ownerVisible = await withApplicationUser(evidenceUserA, async (client) => ({
+    artifacts: (await client.query(`SELECT id FROM evidence_artifacts WHERE id=$1`, [artifactId]))
+      .rowCount,
+    revisions: (
+      await client.query(`SELECT id FROM evidence_artifact_revisions WHERE artifact_id=$1`, [
+        artifactId,
+      ])
+    ).rowCount,
+    links: (
+      await client.query(`SELECT id FROM evidence_competency_links WHERE artifact_id=$1`, [
+        artifactId,
+      ])
+    ).rowCount,
+  }));
+  assert.deepEqual(ownerVisible, { artifacts: 1, revisions: 2, links: 1 });
+  const crossHidden = await withApplicationUser(evidenceUserB, async (client) => ({
+    artifacts: (await client.query(`SELECT id FROM evidence_artifacts WHERE id=$1`, [artifactId]))
+      .rowCount,
+    revisions: (
+      await client.query(`SELECT id FROM evidence_artifact_revisions WHERE artifact_id=$1`, [
+        artifactId,
+      ])
+    ).rowCount,
+    links: (
+      await client.query(`SELECT id FROM evidence_competency_links WHERE artifact_id=$1`, [
+        artifactId,
+      ])
+    ).rowCount,
+  }));
+  assert.deepEqual(crossHidden, { artifacts: 0, revisions: 0, links: 0 });
+  for (const table of [
+    "evidence_artifacts",
+    "evidence_artifact_revisions",
+    "evidence_competency_links",
+  ]) {
+    assert.equal(
+      (await applicationPool.query(`SELECT id FROM ${table}`)).rowCount,
+      0,
+      `${table} fails closed without trusted context`,
+    );
+    await expectDatabaseRejection(
+      () => withApplicationUser("not-a-uuid", (client) => client.query(`SELECT id FROM ${table}`)),
+      `${table} rejects malformed trusted context`,
+      "22P02",
+    );
+  }
+
+  await withApplicationUser(evidenceUserA, (client) =>
+    client.query(
+      `UPDATE evidence_artifacts SET status='withdrawn', withdraw_mutation_id=$2,
+         withdraw_mutation_locale='th', withdraw_expected_revision=2 WHERE id=$1`,
+      [artifactId, "80000000-0000-4000-8000-000000000011"],
+    ),
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(`UPDATE evidence_artifacts SET status='ready' WHERE id=$1`, [artifactId]),
+      ),
+    "withdrawn artifact reopening",
+  );
+  const finalRows = await withApplicationUser(evidenceUserA, async (client) => ({
+    artifact: (
+      await client.query(
+        `SELECT status, ready_at IS NOT NULL AS ready_recorded,
+                withdrawn_at IS NOT NULL AS withdrawn_recorded
+         FROM evidence_artifacts WHERE id=$1`,
+        [artifactId],
+      )
+    ).rows[0],
+    revisions: (
+      await client.query(`SELECT count(*)::integer AS count FROM evidence_artifact_revisions`)
+    ).rows[0].count,
+    links: (await client.query(`SELECT count(*)::integer AS count FROM evidence_competency_links`))
+      .rows[0].count,
+  }));
+  assert.deepEqual(finalRows, {
+    artifact: { status: "withdrawn", ready_recorded: true, withdrawn_recorded: true },
+    revisions: 2,
+    links: 1,
+  });
+
+  await withApplicationUser(evidenceUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'service-profile-learning-state','alpha-privacy-v1','withdrawn',
+         clock_timestamp(),'en','synthetic-test',$2)`,
+      [evidenceUserA, proofDigest],
+    ),
+  );
+  assert.equal(
+    (
+      await withApplicationUser(evidenceUserA, (client) =>
+        client.query(`SELECT id FROM evidence_artifacts WHERE id=$1`, [artifactId]),
+      )
+    ).rowCount,
+    0,
+    "current consent withdrawal hides private evidence without deleting history",
+  );
+
+  const privileges = await ownerPool.query(
+    `SELECT has_table_privilege('rise_pals_app','evidence_artifacts','DELETE') AS artifact_delete,
+            has_column_privilege('rise_pals_app','evidence_artifacts','source_pack_id','UPDATE')
+              AS artifact_identity_update,
+            has_table_privilege('rise_pals_app','evidence_artifact_revisions','UPDATE')
+              AS revision_update,
+            has_table_privilege('rise_pals_app','evidence_artifact_revisions','DELETE')
+              AS revision_delete,
+            has_table_privilege('rise_pals_app','evidence_competency_links','UPDATE')
+              AS link_update,
+            has_table_privilege('rise_pals_app','evidence_competency_links','DELETE')
+              AS link_delete`,
+  );
+  assert.deepEqual(privileges.rows[0], {
+    artifact_delete: false,
+    artifact_identity_update: false,
+    revision_update: false,
+    revision_delete: false,
+    link_update: false,
+    link_delete: false,
+  });
+}
+
 let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
@@ -2771,8 +3189,9 @@ try {
   await verifySerializedConsentReceipts();
   await verifyPersistedAssessmentContract();
   await verifyPersistedLessonContract();
+  await verifyPrivateEvidenceArtifactContract();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 20 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice schema controls, and complete cross-user forced-RLS evidence).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 23 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice controls, private evidence revision/lifecycle controls, and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);

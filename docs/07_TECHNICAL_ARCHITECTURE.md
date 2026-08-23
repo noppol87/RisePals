@@ -401,6 +401,14 @@ The public source-verification lesson remains statically generated and memory-on
 
 The server resolves the exact sealed lesson identity and reuses the accepted deterministic evaluator. PostgreSQL is authoritative for append-only revisions and meaningful start/evaluated/demonstrated events. All three learning tables force owner RLS and require current consent. No local/session storage, answer-bearing URL, custom cookie, analytics, saved XP or proof operation participates in this path.
 
+### RP-TURN-016 private structured evidence boundary
+
+The dynamic `/[locale]/evidence` and `/[locale]/evidence/source-verification-note` routes are separate from the static public proof placeholder. GET, refresh and locale switch are read-only. The authorization transaction resolves the internal owner, current exact service-data consent, the exact demonstrated owner lesson/practice and the published Critical Thinking & Fact-Checking version. Browser requests never supply those internal identifiers. Only explicit start, save, ready and withdraw Server Actions write.
+
+The client boundary contains controlled bilingual copy, public synthetic field/option IDs, the owner's controlled selections, revision number, lifecycle state and deterministic field feedback. It excludes account, provider, consent, lesson/practice/artifact/revision/competency UUIDs, database errors and credentials, publication digests, assessment responses, scoring/multiplier/priority data and storage/share keys. Nothing is written to browser storage, URLs, analytics or custom cookies.
+
+PostgreSQL is authoritative for the exact `source-verification-note-artifact-v1@1.0.0` identity, append-only content revisions and `draft → ready`, `draft → withdrawn` or `ready → withdrawn` lifecycle. Three tables force owner RLS and current consent. Readiness is a deterministic structural checklist over fixed synthetic Bright River values, not proficiency, a credential or external verification. There is no free text, upload/object storage, download/export/share path, saved XP, scoring or employment coupling.
+
 Assessment and career data are sensitive even if local law does not assign every field a special category. The baseline is:
 
 1. **Minimize:** collect only role context needed for recommendation; no employer name, exact salary, national ID or raw work documents in the MVP unless a later brief explicitly approves them.

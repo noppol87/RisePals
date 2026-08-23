@@ -196,7 +196,7 @@ Gate:
 
 Outcome: validate trusted MDX/metadata/rubric/source files and publish immutable lesson versions without remote code execution.
 
-Implementation status: Accepted by Project Codex for synthetic alpha at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. Git remains the authoring source, and the pilot uses a deterministic build-time JSON registry rather than a database import. One exact bilingual `source-verification-practice@1.0.0` bundle is operationally `published` while separately `prototype-unvalidated`. Exact source and aggregate SHA-256 digests, an independently reviewed immutable publication seal, strict locale/cross-reference/source validation, calendar-exact `publicationDate <= lastVerifiedDate < reviewExpiryDate` chronology, current-UTC expiry, non-executable MDX AST parsing, allowlisted local components and idempotent publication are enforced. Failed validation/publication leaves both generated outputs byte-identical. Build/check run the read-only validator and do not mutate content. RP-TURN-015 subsequently implemented the separate bounded persisted path and is pending Project Codex review.
+Implementation status: Accepted by Project Codex for synthetic alpha at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`. Git remains the authoring source, and the pilot uses a deterministic build-time JSON registry rather than a database import. One exact bilingual `source-verification-practice@1.0.0` bundle is operationally `published` while separately `prototype-unvalidated`. Exact source and aggregate SHA-256 digests, an independently reviewed immutable publication seal, strict locale/cross-reference/source validation, calendar-exact `publicationDate <= lastVerifiedDate < reviewExpiryDate` chronology, current-UTC expiry, non-executable MDX AST parsing, allowlisted local components and idempotent publication are enforced. Failed validation/publication leaves both generated outputs byte-identical. Build/check run the read-only validator and do not mutate content. RP-TURN-015 subsequently implemented the separately Accepted bounded persisted path.
 
 Gate:
 
@@ -208,7 +208,7 @@ Gate:
 
 Outcome: resumable owner-scoped lesson attempts, immutable practice revisions, deterministic rubric feedback and meaningful progress events. Saved XP, progress snapshots and proof remain excluded.
 
-Implementation status: Complete pending Project Codex review. One fifth migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Separate protected localized learning/attempt routes use explicit actions, current consent, server-authoritative evaluation and forced owner RLS while the public lesson remains static and memory-only. RP-TURN-016 remains recommended only and unauthorized.
+Implementation status: Accepted by Project Codex at reviewed implementation head `962b4422fa21c28b06c362f87ec55466281409e8`. One fifth migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Separate protected localized learning/attempt routes use explicit actions, current consent, server-authoritative evaluation and forced owner RLS while the public lesson remains static and memory-only. RP-TURN-016 was authorized separately and is recorded below.
 
 Gate:
 
@@ -218,13 +218,16 @@ Gate:
 
 ### RP-TURN-016 — Private Evidence Artifact
 
-Outcome: one approved proof type with owner-scoped metadata and, if needed, private object storage behind signed operations.
+Outcome: one owner/current-consent controlled synthetic source-verification note after the exact demonstrated persisted practice. Separate protected Thai/English evidence routes support explicit start, partial save, deterministic readiness and irreversible withdrawal. The accepted public lesson/proof placeholder remains static and non-collecting.
+
+Implementation status: Complete pending Project Codex review. One sixth migration adds exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`, producing twenty-three tables. The strict `source-verification-note-artifact-v1@1.0.0` payload contains only fixed controlled Bright River values. Revisions are append-only with exact replay/conflict provenance; all three tables force owner RLS and current consent. Ready is a synthetic structural checklist only. No free text, file/upload, object storage, share/export, XP, scoring, recommendation or employment claim exists. RP-TURN-017 is recommended only and not authorized.
 
 Gate:
 
-- File type/size/checksum, authorization, download headers and delete behavior are tested
-- Artifact is private by default; share grant is explicit, expiring and revocable
-- Vendor cost, scanning and retention decisions are approved before uploads
+- GET creates no row; browser mutations contain no internal identifier
+- Exact demonstrated owner practice, current consent, replay/conflict/concurrency and lifecycle invariants pass at DAL and PostgreSQL boundaries
+- Controlled payload, privacy/client, bilingual accessibility, 320px, reduced motion, audit and forced-RLS gates pass
+- Artifact remains private and non-shareable; upload/object-storage/vendor and retention/export/erasure work stays deferred
 
 ### RP-TURN-017 — Consent-Aware Measurement and Error Monitoring
 
