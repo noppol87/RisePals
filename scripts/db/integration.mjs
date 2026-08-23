@@ -2930,6 +2930,26 @@ async function verifyPrivateEvidenceArtifactContract() {
         ],
       ),
     );
+  const evidenceMutationSnapshot = () =>
+    withApplicationUser(evidenceUserA, async (client) => ({
+      artifact: (
+        await client.query(
+          `SELECT status, start_mutation_id, ready_mutation_id, withdraw_mutation_id,
+                  created_at::text AS created_at, updated_at::text AS updated_at,
+                  ready_at::text AS ready_at, withdrawn_at::text AS withdrawn_at
+           FROM evidence_artifacts WHERE id=$1`,
+          [artifactId],
+        )
+      ).rows[0],
+      revisions: (
+        await client.query(
+          `SELECT id, revision, client_mutation_id, payload, created_at::text AS created_at
+           FROM evidence_artifact_revisions
+           WHERE artifact_id=$1 ORDER BY revision`,
+          [artifactId],
+        )
+      ).rows,
+    }));
   const first = await insertRevision({
     revision: 1,
     previousId: null,
@@ -2937,17 +2957,7 @@ async function verifyPrivateEvidenceArtifactContract() {
     mutationId: "80000000-0000-4000-8000-000000000004",
     expectedRevision: 0,
   });
-  const beforeRejected = await withApplicationUser(evidenceUserA, async (client) => ({
-    artifact: (await client.query(`SELECT * FROM evidence_artifacts WHERE id=$1`, [artifactId]))
-      .rows[0],
-    revisions: (
-      await client.query(
-        `SELECT revision, payload FROM evidence_artifact_revisions
-         WHERE artifact_id=$1 ORDER BY revision`,
-        [artifactId],
-      )
-    ).rows,
-  }));
+  const beforeRejected = await evidenceMutationSnapshot();
   for (const [label, payload] of [
     ["extra payload key", { ...readyPayload, extra: true }],
     ["unknown claim", { ...readyPayload, claimId: "unknown" }],
@@ -2983,17 +2993,7 @@ async function verifyPrivateEvidenceArtifactContract() {
     "a skipped artifact revision",
   );
   assert.deepEqual(
-    await withApplicationUser(evidenceUserA, async (client) => ({
-      artifact: (await client.query(`SELECT * FROM evidence_artifacts WHERE id=$1`, [artifactId]))
-        .rows[0],
-      revisions: (
-        await client.query(
-          `SELECT revision, payload FROM evidence_artifact_revisions
-           WHERE artifact_id=$1 ORDER BY revision`,
-          [artifactId],
-        )
-      ).rows,
-    })),
+    await evidenceMutationSnapshot(),
     beforeRejected,
     "rejected evidence mutations preserve content and lifecycle state",
   );
@@ -3005,6 +3005,18 @@ async function verifyPrivateEvidenceArtifactContract() {
     mutationId: "80000000-0000-4000-8000-000000000007",
     expectedRevision: 1,
   });
+  const draftBeforeCrossIntent = await evidenceMutationSnapshot();
+  await expectDatabaseRejection(
+    () =>
+      insertRevision({
+        revision: 3,
+        previousId: second.rows[0].id,
+        payload: readyPayload,
+        mutationId: "80000000-0000-4000-8000-000000000003",
+        expectedRevision: 2,
+      }),
+    "a save reusing the artifact start mutation UUID",
+  );
   await expectDatabaseRejection(
     () =>
       withApplicationUser(evidenceUserA, (client) =>
@@ -3016,12 +3028,40 @@ async function verifyPrivateEvidenceArtifactContract() {
       ),
     "ready with a stale revision",
   );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(
+          `UPDATE evidence_artifacts SET status='ready', ready_mutation_id=$2,
+             ready_mutation_locale='en', ready_expected_revision=2 WHERE id=$1`,
+          [artifactId, "80000000-0000-4000-8000-000000000007"],
+        ),
+      ),
+    "a ready transition reusing a save mutation UUID",
+  );
+  assert.deepEqual(
+    await evidenceMutationSnapshot(),
+    draftBeforeCrossIntent,
+    "cross-intent save and ready rejection preserves draft rows and timestamps",
+  );
   await withApplicationUser(evidenceUserA, (client) =>
     client.query(
       `UPDATE evidence_artifacts SET status='ready', ready_mutation_id=$2,
          ready_mutation_locale='en', ready_expected_revision=2 WHERE id=$1`,
       [artifactId, "80000000-0000-4000-8000-000000000009"],
     ),
+  );
+  const readyBeforeCrossIntent = await evidenceMutationSnapshot();
+  await expectDatabaseRejection(
+    () =>
+      insertRevision({
+        revision: 3,
+        previousId: second.rows[0].id,
+        payload: readyPayload,
+        mutationId: "80000000-0000-4000-8000-000000000009",
+        expectedRevision: 2,
+      }),
+    "a save reusing the ready mutation UUID",
   );
   await expectDatabaseRejection(
     () =>
@@ -3033,6 +3073,33 @@ async function verifyPrivateEvidenceArtifactContract() {
         expectedRevision: 2,
       }),
     "content revision after ready",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(
+          `UPDATE evidence_artifacts SET status='withdrawn', withdraw_mutation_id=$2,
+             withdraw_mutation_locale='th', withdraw_expected_revision=2 WHERE id=$1`,
+          [artifactId, "80000000-0000-4000-8000-000000000007"],
+        ),
+      ),
+    "a withdraw transition reusing a save mutation UUID",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(evidenceUserA, (client) =>
+        client.query(
+          `UPDATE evidence_artifacts SET status='withdrawn', withdraw_mutation_id=$2,
+             withdraw_mutation_locale='th', withdraw_expected_revision=2 WHERE id=$1`,
+          [artifactId, "80000000-0000-4000-8000-000000000009"],
+        ),
+      ),
+    "a withdraw transition reusing the ready mutation UUID",
+  );
+  assert.deepEqual(
+    await evidenceMutationSnapshot(),
+    readyBeforeCrossIntent,
+    "cross-intent save and withdraw rejection preserves ready rows and timestamps",
   );
   await expectDatabaseRejection(
     () =>

@@ -42,16 +42,6 @@ const feedback = [
   { fieldId: "safe-next-action", status: "complete", message: "action feedback" },
 ] as const;
 const view: EvidenceArtifactView = {
-  contract: {
-    id: "source-verification-note-artifact-v1",
-    version: "1.0.0",
-    artifactType: "source-verification-note",
-    sourceProofIdentity: "source-verification-note-placeholder-v1@1.0.0",
-    sourceLessonIdentity: "source-verification-practice@1.0.0",
-    sourcePackId: "bright-river-operations-synthetic-source-pack-v1",
-    classification: "synthetic-private-evidence",
-    validationStatus: "prototype-unvalidated",
-  },
   claim: {
     id: "bright-river-ai-summary-claim-v1",
     label: "AI-summary claim",
@@ -181,5 +171,34 @@ describe("private evidence artifact", () => {
     expect(
       screen.queryByRole("button", { name: evidenceCopy.en.saveLabel }),
     ).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["th", "draft"],
+    ["th", "ready"],
+    ["th", "withdrawn"],
+    ["en", "draft"],
+    ["en", "ready"],
+    ["en", "withdrawn"],
+  ] as const)("renders the authenticated %s %s state", (locale, status) => {
+    const copy = evidenceCopy[locale];
+    render(
+      <PrivateEvidenceArtifact
+        copy={copy}
+        initialArtifact={state(readyPayload, status)}
+        locale={locale}
+        view={view}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(copy[status]);
+    if (status === "draft") {
+      expect(screen.getByRole("button", { name: copy.saveLabel })).toBeVisible();
+      expect(screen.getByRole("button", { name: copy.readyLabel })).toBeVisible();
+    } else {
+      expect(screen.getByText(copy.readOnlyBody)).toBeVisible();
+      expect(screen.queryByRole("button", { name: copy.saveLabel })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toBeNull();
   });
 });

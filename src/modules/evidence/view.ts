@@ -13,6 +13,7 @@ import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication
 import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification/view";
 
 export function createEvidenceArtifactView(locale: Locale): EvidenceArtifactView {
+  getEvidenceArtifactContract();
   const lesson = createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition);
   const fitCriterion = lesson.practice.criteria.find(({ id }) => id === "claim-source-fit");
   const safeCriterion = lesson.practice.criteria.find(({ id }) => id === "safe-next-action");
@@ -20,7 +21,6 @@ export function createEvidenceArtifactView(locale: Locale): EvidenceArtifactView
     throw new Error("The evidence artifact option view is unavailable.");
   }
   return {
-    contract: getEvidenceArtifactContract(),
     claim: {
       id: "bright-river-ai-summary-claim-v1",
       label: lesson.scenario.aiSummaryLabel,

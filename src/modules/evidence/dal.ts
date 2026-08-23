@@ -382,14 +382,7 @@ export async function saveEvidenceArtifact(
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     if (!(await currentConsent(client, userId))) return { state: "not-ready" } as const;
     const artifact = await findArtifact(client, userId, true);
-    if (!artifact || artifact.status !== "draft") return { state: "not-ready" } as const;
-    if (
-      artifact.startMutationId === input.clientMutationId ||
-      artifact.readyMutationId === input.clientMutationId ||
-      artifact.withdrawMutationId === input.clientMutationId
-    ) {
-      return { state: "conflict" } as const;
-    }
+    if (!artifact) return { state: "not-ready" } as const;
     const replayResult = await client.query<RevisionRow>(
       `SELECT id, revision, payload, client_mutation_id, mutation_intent,
               mutation_locale, mutation_expected_revision
@@ -399,13 +392,25 @@ export async function saveEvidenceArtifact(
     );
     const replay = parseRevision(replayResult.rows[0]);
     if (replay) {
-      return exactSaveReplay(input, replay)
-        ? {
-            state: "saved" as const,
-            artifact: clientState(input.locale, artifact.status, replay),
-          }
-        : { state: "conflict" as const };
+      if (!exactSaveReplay(input, replay)) return { state: "conflict" } as const;
+      return {
+        state:
+          artifact.status === "ready"
+            ? ("ready" as const)
+            : artifact.status === "withdrawn"
+              ? ("withdrawn" as const)
+              : ("saved" as const),
+        artifact: clientState(input.locale, artifact.status, replay),
+      };
     }
+    if (
+      artifact.startMutationId === input.clientMutationId ||
+      artifact.readyMutationId === input.clientMutationId ||
+      artifact.withdrawMutationId === input.clientMutationId
+    ) {
+      return { state: "conflict" } as const;
+    }
+    if (artifact.status !== "draft") return { state: "not-ready" } as const;
     const previous = await latestRevision(client, artifact.id);
     if ((previous?.revision ?? 0) !== input.expectedRevision) {
       return { state: "conflict" } as const;
@@ -466,7 +471,12 @@ export async function mutateEvidenceLifecycle(
     const revision = await latestRevision(client, artifact.id);
     if (exactLifecycleReplay(input, artifact)) {
       return {
-        state: input.intent === "ready" ? "ready" : "withdrawn",
+        state:
+          artifact.status === "ready"
+            ? "ready"
+            : artifact.status === "withdrawn"
+              ? "withdrawn"
+              : "saved",
         artifact: clientState(input.locale, artifact.status, revision),
       } as const;
     }

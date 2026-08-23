@@ -453,6 +453,13 @@ BEGIN
       OR NEW.ready_mutation_locale NOT IN ('th', 'en')
       OR NEW.ready_expected_revision IS DISTINCT FROM latest_revision
       OR NEW.ready_mutation_id = OLD.start_mutation_id
+      OR EXISTS (
+        SELECT 1
+        FROM evidence_artifact_revisions
+        WHERE artifact_id = OLD.id
+          AND user_id = OLD.user_id
+          AND client_mutation_id = NEW.ready_mutation_id
+      )
       OR latest_revision = 0
       OR NOT "rise_pals_private"."is_source_verification_evidence_ready"(latest_payload)
       OR NEW.withdraw_mutation_id IS NOT NULL
@@ -468,6 +475,13 @@ BEGIN
       OR NEW.withdraw_expected_revision IS DISTINCT FROM latest_revision
       OR NEW.withdraw_mutation_id = OLD.start_mutation_id
       OR NEW.withdraw_mutation_id IS NOT DISTINCT FROM OLD.ready_mutation_id
+      OR EXISTS (
+        SELECT 1
+        FROM evidence_artifact_revisions
+        WHERE artifact_id = OLD.id
+          AND user_id = OLD.user_id
+          AND client_mutation_id = NEW.withdraw_mutation_id
+      )
       OR NEW.ready_mutation_id IS DISTINCT FROM OLD.ready_mutation_id
       OR NEW.ready_mutation_locale IS DISTINCT FROM OLD.ready_mutation_locale
       OR NEW.ready_expected_revision IS DISTINCT FROM OLD.ready_expected_revision
@@ -511,7 +525,15 @@ BEGIN
   FROM evidence_artifacts
   WHERE id = NEW.artifact_id AND user_id = NEW.user_id
   FOR UPDATE;
-  IF parent.id IS NULL OR parent.status <> 'draft' THEN
+  IF parent.id IS NULL THEN
+    RAISE EXCEPTION 'Evidence revisions require an owner artifact.';
+  END IF;
+  IF NEW.client_mutation_id = parent.start_mutation_id
+    OR NEW.client_mutation_id IS NOT DISTINCT FROM parent.ready_mutation_id
+    OR NEW.client_mutation_id IS NOT DISTINCT FROM parent.withdraw_mutation_id THEN
+    RAISE EXCEPTION 'Evidence mutation UUID cannot be reused across intents.';
+  END IF;
+  IF parent.status <> 'draft' THEN
     RAISE EXCEPTION 'Evidence revisions require an editable owner draft.';
   END IF;
 

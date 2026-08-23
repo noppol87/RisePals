@@ -51,16 +51,6 @@ export type EvidenceFieldFeedback = Readonly<{
 }>;
 
 export type EvidenceArtifactView = Readonly<{
-  contract: Readonly<{
-    id: typeof EVIDENCE_ARTIFACT_CONTRACT_ID;
-    version: typeof EVIDENCE_ARTIFACT_CONTRACT_VERSION;
-    artifactType: typeof EVIDENCE_ARTIFACT_TYPE;
-    sourceProofIdentity: string;
-    sourceLessonIdentity: typeof EVIDENCE_SOURCE_LESSON_IDENTITY;
-    sourcePackId: typeof EVIDENCE_SOURCE_PACK_ID;
-    classification: typeof EVIDENCE_CLASSIFICATION;
-    validationStatus: typeof EVIDENCE_VALIDATION_STATUS;
-  }>;
   claim: Readonly<{ id: typeof EVIDENCE_CLAIM_ID; label: string; value: string }>;
   sourceReferences: readonly Readonly<{
     id: EvidenceSourceReferenceId;
