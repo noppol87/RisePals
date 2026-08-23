@@ -782,7 +782,7 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 and RP-TURN-014 for their bounded synthetic-alpha contracts. RP-TURN-015 is complete pending review. This does not approve validated assessment/proficiency or learning-efficacy claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-016 is recommended only and is not authorized or started.
+Project Codex Accepted RP-TURN-013 through RP-TURN-015 for their bounded synthetic-alpha contracts. RP-TURN-015 was reviewed at implementation head `962b4422fa21c28b06c362f87ec55466281409e8`. This does not approve validated assessment/proficiency or learning-efficacy claims, real users or career data, production Clerk/PostgreSQL, retention/export/erasure operations, CI, infrastructure or deployment. RP-TURN-016 is recommended only and is not authorized or started.
 
 ## RP-TURN-014 trusted content publication verification
 
@@ -802,6 +802,8 @@ Status: Accepted by Project Codex for the documented synthetic-alpha boundary at
 
 ## RP-TURN-015 persisted lesson/practice/progress verification
 
+Status: Accepted by Project Codex at reviewed implementation head `962b4422fa21c28b06c362f87ec55466281409e8` for the documented synthetic-alpha and `prototype-unvalidated` boundary.
+
 The fifth forward migration adds exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`, producing twenty tables. Public lesson routes remain static and memory-only. Protected `/[locale]/learning` and `/[locale]/lessons/source-verification-practice/attempt` routes are dynamic, noindex/noarchive and use explicit start/save/evaluate/retry actions. Current consent and forced owner RLS govern reads and writes. Practice revisions persist normalized mutation intent, locale and expected revision; replay requires every provenance field and canonical save/evaluate selection to match. A non-demonstrated evaluated revision permits only an explicit retry draft that copies and supersedes the exact predecessor. DAL and PostgreSQL deny direct save/evaluate without changing a row, event or lesson timestamp; save/evaluate becomes available again only after the retry draft exists. Exact replay remains valid after demonstration while every new mutation is denied. The server resolves exact content identity and performs deterministic evaluation; the client receives no evaluator mapping, internal UUID, provider/email, consent internals, digest map or assessment/scoring data. XP stays preview-only and proof remains unavailable.
 
 | Verification | Result |
@@ -815,7 +817,7 @@ The fifth forward migration adds exactly `lesson_attempts`, `practice_attempts` 
 | production/full audits | PASS — both report zero vulnerabilities |
 | protected lesson client boundary | PASS with recorded upstream marker — exact 3 route client chunks / 410,571 bytes contain zero database URL/context/table, provider subject, assessment/scoring, evaluator mapping, canonical digest, publication artifact, Drizzle/pg or secret-value markers; the manifest contains no DAL/registry/database source path. The shared Clerk SDK chunk contains one literal environment-variable name `CLERK_SECRET_KEY`, not a value or Rise Pals server module. |
 
-Final audit, client-boundary, repository-integrity and Gitleaks results are recorded in the RP-TURN-015 handoff after the staged/pushed candidate is fixed. No Clerk Development smoke is part of this turn.
+Project Codex accepted the final audit, client-boundary, repository-integrity and four-scope Gitleaks evidence. No Clerk Development smoke was part of this turn.
 | production/full npm audits | PASS — both report 0 vulnerabilities |
 | lesson client boundary | PASS — five referenced route client chunks / 474,796 bytes contain zero publication seal/manifest/registry names, canonical digest, parser-package, database, assessment-fixture or scoring-table markers; the route client manifest contains no server pipeline/registry source path |
 | executable-content inspection | PASS — source/generated content contains no ESM statement, `dangerouslySetInnerHTML`, `new Function`, VM import or `javascript:`, `data:` or `file:` marker; rejection tests also cover expressions, spread/expression props, event handlers, raw HTML, images and unknown components |

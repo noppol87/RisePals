@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-015 persisted lesson/practice/progress complete pending Project Codex review / no real users or production service  
+**Project status:** RP-TURN-015 persisted lesson/practice/progress Accepted by Project Codex / no real users or production service  
 **Last updated:** 2026-08-23
 
 ## Product thesis
@@ -176,4 +176,4 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## Current boundary
 
-RP-TURN-006 through RP-TURN-014 are Accepted for their documented synthetic/prototype boundaries, and RP-TURN-015 is complete pending Project Codex review. The public player and public lesson preserve their temporary/memory-only contracts. The protected lesson state is owner/current-consent scoped and synthetic-only; `prototype-unvalidated` remains unchanged. No real user/data, production identity/database resource, retention/export/erasure operation, externally validated lesson, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-016 is recommended only and is not authorized or started.
+RP-TURN-006 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-015 was reviewed at implementation head `962b4422fa21c28b06c362f87ec55466281409e8`. The public player and public lesson preserve their temporary/memory-only contracts. The protected lesson state is owner/current-consent scoped and synthetic-only; `prototype-unvalidated` remains unchanged. No real user/data, production identity/database resource, retention/export/erasure operation, externally validated lesson, saved XP, proof capture, payment, analytics, CI, VPS service or deployment exists. RP-TURN-016 is recommended only and is not authorized or started.
