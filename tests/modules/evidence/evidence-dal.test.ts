@@ -58,6 +58,20 @@ const revisionRow = {
   mutation_locale: "en",
   mutation_expected_revision: 0,
 };
+const currentPayload: EvidenceArtifactPayload = {
+  ...payload,
+  sourceReferenceIds: ["pilot-table", "scope-note"],
+  fitCheckId: "partially-supported-overgeneralized",
+};
+const currentRevisionRow = {
+  id: "30000000-0000-4000-8000-000000000002",
+  revision: 2,
+  payload: currentPayload,
+  client_mutation_id: "40000000-0000-4000-8000-000000000002",
+  mutation_intent: "save",
+  mutation_locale: "th",
+  mutation_expected_revision: 1,
+};
 
 function authorize(client: PoolClient) {
   authorization.run.mockImplementation(async (...args: unknown[]) => {
@@ -141,6 +155,7 @@ describe("private evidence DAL", () => {
         if (sql.includes("FROM consent_records")) return consentRow();
         if (sql.includes("FROM evidence_artifacts")) return { rows: [artifactRow] };
         if (sql.includes("client_mutation_id = $2")) return { rows: [revisionRow] };
+        if (sql.includes("ORDER BY revision DESC LIMIT 1")) return { rows: [revisionRow] };
         mutations.push(sql);
         throw new Error(`Unexpected mutation query: ${sql}`);
       }),
@@ -168,12 +183,17 @@ describe("private evidence DAL", () => {
 
   it.each([
     {
+      status: "draft" as const,
+      expectedState: "saved" as const,
+      lifecycle: {},
+    },
+    {
       status: "ready" as const,
       expectedState: "ready" as const,
       lifecycle: {
         ready_mutation_id: "40000000-0000-4000-8000-000000000010",
         ready_mutation_locale: "en",
-        ready_expected_revision: 1,
+        ready_expected_revision: 2,
       },
     },
     {
@@ -182,26 +202,38 @@ describe("private evidence DAL", () => {
       lifecycle: {
         ready_mutation_id: "40000000-0000-4000-8000-000000000010",
         ready_mutation_locale: "en",
-        ready_expected_revision: 1,
+        ready_expected_revision: 2,
         withdraw_mutation_id: "40000000-0000-4000-8000-000000000011",
         withdraw_mutation_locale: "th",
-        withdraw_expected_revision: 1,
+        withdraw_expected_revision: 2,
       },
     },
   ])(
-    "replays an exact save after $status and reports the truthful lifecycle",
+    "replays historical revision 1 while revision 2 is current after $status",
     async ({ status, expectedState, lifecycle }) => {
-      const mutations: string[] = [];
+      const writes: string[] = [];
+      const storedTimestamps = {
+        createdAt: "2026-08-23T10:00:00.000Z",
+        updatedAt: "2026-08-23T10:02:00.000Z",
+        readyAt: status === "draft" ? null : "2026-08-23T10:03:00.000Z",
+        withdrawnAt: status === "withdrawn" ? "2026-08-23T10:04:00.000Z" : null,
+        revisions: ["2026-08-23T10:01:00.000Z", "2026-08-23T10:02:00.000Z"],
+      };
+      const before = structuredClone(storedTimestamps);
+      const query = vi.fn(async (sql: string) => {
+        if (sql.includes("FROM consent_records")) return consentRow();
+        if (sql.includes("FROM evidence_artifacts")) {
+          return { rows: [{ ...artifactRow, ...lifecycle, status }] };
+        }
+        if (sql.includes("client_mutation_id = $2")) return { rows: [revisionRow] };
+        if (sql.includes("ORDER BY revision DESC LIMIT 1")) {
+          return { rows: [currentRevisionRow] };
+        }
+        if (/\b(?:INSERT|UPDATE|DELETE)\b/iu.test(sql)) writes.push(sql);
+        throw new Error(`Unexpected query: ${sql}`);
+      });
       const client = {
-        query: vi.fn(async (sql: string) => {
-          if (sql.includes("FROM consent_records")) return consentRow();
-          if (sql.includes("FROM evidence_artifacts")) {
-            return { rows: [{ ...artifactRow, ...lifecycle, status }] };
-          }
-          if (sql.includes("client_mutation_id = $2")) return { rows: [revisionRow] };
-          mutations.push(sql);
-          throw new Error(`Unexpected mutation query: ${sql}`);
-        }),
+        query,
       } as unknown as PoolClient;
       authorize(client);
       await expect(
@@ -217,11 +249,45 @@ describe("private evidence DAL", () => {
         ),
       ).resolves.toMatchObject({
         state: expectedState,
-        artifact: { status, revision: 1, payload },
+        artifact: { status, revision: 2, payload: currentPayload },
       });
-      expect(mutations).toEqual([]);
+      expect(writes).toEqual([]);
+      expect(storedTimestamps).toEqual(before);
+      expect(query).toHaveBeenCalledTimes(4);
+      expect(query.mock.calls.every(([sql]) => /^\s*SELECT\b/iu.test(sql))).toBe(true);
     },
   );
+
+  it("keeps conflicting historical save UUID reuse controlled while revision 2 is current", async () => {
+    const writes: string[] = [];
+    const client = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("FROM consent_records")) return consentRow();
+        if (sql.includes("FROM evidence_artifacts")) return { rows: [artifactRow] };
+        if (sql.includes("client_mutation_id = $2")) return { rows: [revisionRow] };
+        if (/\b(?:INSERT|UPDATE|DELETE)\b/iu.test(sql)) writes.push(sql);
+        throw new Error(`Unexpected query: ${sql}`);
+      }),
+    } as unknown as PoolClient;
+    authorize(client);
+    await expect(
+      saveEvidenceArtifact(
+        {
+          locale: "en",
+          intent: "save",
+          payload: { ...payload, sourceReferenceIds: ["scope-note"] },
+          expectedRevision: 0,
+          clientMutationId: mutationId,
+        },
+        provider,
+      ),
+    ).resolves.toEqual({ state: "conflict" });
+    expect(writes).toEqual([]);
+    expect(client.query).not.toHaveBeenCalledWith(
+      expect.stringContaining("ORDER BY revision DESC LIMIT 1"),
+      expect.anything(),
+    );
+  });
 
   it("reports withdrawn when replaying the earlier ready mutation after withdrawal", async () => {
     const readyMutationId = "40000000-0000-4000-8000-000000000010";

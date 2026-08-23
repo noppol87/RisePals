@@ -393,6 +393,7 @@ export async function saveEvidenceArtifact(
     const replay = parseRevision(replayResult.rows[0]);
     if (replay) {
       if (!exactSaveReplay(input, replay)) return { state: "conflict" } as const;
+      const currentRevision = await latestRevision(client, artifact.id);
       return {
         state:
           artifact.status === "ready"
@@ -400,7 +401,7 @@ export async function saveEvidenceArtifact(
             : artifact.status === "withdrawn"
               ? ("withdrawn" as const)
               : ("saved" as const),
-        artifact: clientState(input.locale, artifact.status, replay),
+        artifact: clientState(input.locale, artifact.status, currentRevision),
       };
     }
     if (

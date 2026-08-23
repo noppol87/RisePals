@@ -2,7 +2,7 @@
 
 **Status date:** 2026-08-23  
 **Current phase:** RP-TURN-016 private structured evidence artifact implemented for synthetic alpha  
-**Current turn:** RP-TURN-016-R1 is complete pending Project Codex review; RP-TURN-017 is not authorized
+**Current turn:** RP-TURN-016-R2 is complete pending Project Codex review; RP-TURN-017 is not authorized
 
 ## Locked decisions
 
@@ -112,7 +112,7 @@
 - Sixth forward migration adding exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`; the fresh disposable schema has 23 tables and all three new tables use current-consent forced owner RLS, database-enforced provenance and no application DELETE
 - Separate dynamic `/th|en/evidence` and `/th|en/evidence/source-verification-note` routes for one private controlled Bright River source-verification note after exact demonstrated practice, with explicit start/save/ready/withdraw actions and no write on GET
 - Strict `source-verification-note-artifact-v1@1.0.0` payload with fixed claim, ordered allowlisted source references, controlled fit/correction/safe-action selections, immutable revisions, exact replay/conflict behavior and deterministic readiness feedback; no free text, file/upload, URL, share/export, XP, assessment/scoring or employment signal
-- RP-TURN-016-R1 resolves lifecycle-safe exact replay, database-enforced cross-intent mutation UUID uniqueness and the authenticated server-to-client allowlist; deterministic/unit/build/browser/database/security evidence is complete pending Project Codex review, sealed lesson/publication bytes and digests remain unchanged and no real Clerk smoke or external resource was used
+- RP-TURN-016-R2 preserves current state during historical exact replay: the matched revision verifies the original request while the locked artifact returns its latest revision, payload, feedback and truthful lifecycle; database-enforced cross-intent mutation UUID uniqueness and the authenticated server-to-client allowlist remain unchanged, deterministic/unit/build/browser/database/security evidence is complete pending Project Codex review, sealed lesson/publication bytes and digests remain unchanged and no real Clerk smoke or external resource was used
 
 ## Open decisions
 
@@ -155,9 +155,9 @@
 
 **RP-TURN-017 — Consent-Aware Measurement and Error Monitoring (recommended, not authorized)**
 
-RP-TURN-016-R1 is complete pending Project Codex review. RP-TURN-017 is only the next recommended turn and requires separate authorization.
+RP-TURN-016-R2 is complete pending Project Codex review. RP-TURN-017 is only the next recommended turn and requires separate authorization.
 
-RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-016-R1 is pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The new private artifact is controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.
+RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries; RP-TURN-016-R2 is pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The new private artifact is controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.
 
 ## Turn history
 
