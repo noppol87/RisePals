@@ -27,6 +27,11 @@ const canonicalSelections = [
   { criterionId: "claim-source-fit", optionId: "fit-narrow-to-supported-teams" },
   { criterionId: "safe-next-action", optionId: "safe-hold-and-resolve-gaps" },
 ] as const;
+const failedSelections = [
+  canonicalSelections[0],
+  { criterionId: "claim-source-fit", optionId: "fit-keep-all-team-claim" },
+  canonicalSelections[2],
+] as const;
 
 type StoredPractice = Readonly<{
   id: string;
@@ -58,6 +63,27 @@ function storedPractice(overrides: Partial<StoredPractice> = {}): StoredPractice
     mutation_expected_revision: 0,
     ...overrides,
   };
+}
+
+function failedEvaluation(overrides: Partial<StoredPractice> = {}): StoredPractice {
+  return storedPractice({
+    status: "evaluated",
+    response_payload: {
+      schemaVersion: "source-verification-practice-response-v1",
+      selections: failedSelections,
+    },
+    criterion_results: {
+      schemaVersion: "source-verification-evaluation-v1",
+      criteria: failedSelections.map((selection, index) => ({
+        criterionId: selection.criterionId,
+        selectedOptionId: selection.optionId,
+        status: index === 1 ? "not-met" : "met",
+      })),
+    },
+    demonstrated: false,
+    mutation_intent: "evaluate",
+    ...overrides,
+  });
 }
 
 type MutationInputOverrides = Omit<Partial<PersistedLessonMutationInput>, "selections"> &
@@ -299,5 +325,184 @@ describe("persisted lesson mutation replay", () => {
     expect(harness.rows).toHaveLength(1);
     expect(harness.events).toHaveLength(0);
     expect(harness.lessonUpdates).toBe(1);
+  });
+
+  it.each(["save", "evaluate"] as const)(
+    "denies direct %s after a failed evaluation without changing state",
+    async (intent) => {
+      const harness = new SerializedMutationHarness();
+      harness.rows.push(failedEvaluation());
+      authorization.run.mockImplementation(harness.run.bind(harness));
+      await expect(
+        mutatePersistedLesson(
+          input({
+            intent,
+            expectedRevision: 1,
+            clientMutationId: `50000000-0000-4000-8000-00000000001${intent === "save" ? "0" : "1"}`,
+          }),
+          provider,
+        ),
+      ).resolves.toEqual({ state: "not-ready" });
+      expect(harness.rows).toHaveLength(1);
+      expect(harness.events).toHaveLength(0);
+      expect(harness.lessonUpdates).toBe(0);
+      expect(harness.lessonStatus).toBe("in_progress");
+    },
+  );
+
+  it("creates one exact retry revision and replays it without another mutation", async () => {
+    const harness = new SerializedMutationHarness();
+    harness.rows.push(failedEvaluation());
+    authorization.run.mockImplementation(harness.run.bind(harness));
+    const retryRequest = input({
+      intent: "retry",
+      selections: undefined,
+      expectedRevision: 1,
+      clientMutationId: "50000000-0000-4000-8000-000000000012",
+    });
+    await expect(mutatePersistedLesson(retryRequest, provider)).resolves.toMatchObject({
+      state: "saved",
+      revision: 2,
+      selections: failedSelections,
+      results: null,
+    });
+    expect(harness.rows).toHaveLength(2);
+    expect(harness.rows[1]).toMatchObject({
+      revision: 2,
+      status: "draft",
+      response_payload: harness.rows[0]!.response_payload,
+      mutation_intent: "retry",
+      mutation_expected_revision: 1,
+    });
+    expect(harness.events).toHaveLength(0);
+    expect(harness.lessonUpdates).toBe(1);
+    expect(harness.lessonStatus).toBe("in_progress");
+
+    await expect(mutatePersistedLesson(retryRequest, provider)).resolves.toMatchObject({
+      state: "saved",
+      revision: 2,
+    });
+    expect(harness.rows).toHaveLength(2);
+    expect(harness.events).toHaveLength(0);
+    expect(harness.lessonUpdates).toBe(1);
+    expect(harness.replayCount).toBe(1);
+  });
+
+  it.each(["save", "evaluate"] as const)(
+    "allows %s after the explicit retry draft",
+    async (intent) => {
+      const harness = new SerializedMutationHarness();
+      harness.rows.push(failedEvaluation());
+      authorization.run.mockImplementation(harness.run.bind(harness));
+      await mutatePersistedLesson(
+        input({
+          intent: "retry",
+          selections: undefined,
+          expectedRevision: 1,
+          clientMutationId: "50000000-0000-4000-8000-000000000013",
+        }),
+        provider,
+      );
+      const result = await mutatePersistedLesson(
+        input({
+          intent,
+          expectedRevision: 2,
+          clientMutationId: `50000000-0000-4000-8000-00000000001${intent === "save" ? "4" : "5"}`,
+        }),
+        provider,
+      );
+      expect(result).toMatchObject({
+        state: intent === "save" ? "saved" : "demonstrated",
+        revision: 3,
+      });
+      expect(harness.rows).toHaveLength(3);
+      expect(harness.lessonUpdates).toBe(2);
+      expect(harness.events).toHaveLength(intent === "save" ? 0 : 2);
+    },
+  );
+
+  it("denies retry from an ordinary draft and with no prior revision", async () => {
+    const draftHarness = new SerializedMutationHarness();
+    draftHarness.rows.push(storedPractice());
+    authorization.run.mockImplementation(draftHarness.run.bind(draftHarness));
+    await expect(
+      mutatePersistedLesson(
+        input({
+          intent: "retry",
+          selections: undefined,
+          expectedRevision: 1,
+          clientMutationId: "50000000-0000-4000-8000-000000000016",
+        }),
+        provider,
+      ),
+    ).resolves.toEqual({ state: "not-ready" });
+    expect(draftHarness.rows).toHaveLength(1);
+    expect(draftHarness.events).toHaveLength(0);
+    expect(draftHarness.lessonUpdates).toBe(0);
+
+    const emptyHarness = new SerializedMutationHarness();
+    authorization.run.mockImplementation(emptyHarness.run.bind(emptyHarness));
+    await expect(
+      mutatePersistedLesson(
+        input({
+          intent: "retry",
+          selections: undefined,
+          clientMutationId: "50000000-0000-4000-8000-000000000017",
+        }),
+        provider,
+      ),
+    ).resolves.toEqual({ state: "not-ready" });
+    expect(emptyHarness.rows).toHaveLength(0);
+    expect(emptyHarness.events).toHaveLength(0);
+    expect(emptyHarness.lessonUpdates).toBe(0);
+  });
+
+  it("denies every new mutation after demonstration but preserves exact replay", async () => {
+    const demonstrated = failedEvaluation({
+      demonstrated: true,
+      criterion_results: {
+        schemaVersion: "source-verification-evaluation-v1",
+        criteria: canonicalSelections.map((selection) => ({
+          criterionId: selection.criterionId,
+          selectedOptionId: selection.optionId,
+          status: "met",
+        })),
+      },
+      response_payload: {
+        schemaVersion: "source-verification-practice-response-v1",
+        selections: canonicalSelections,
+      },
+    });
+    const harness = new SerializedMutationHarness();
+    harness.rows.push(demonstrated);
+    harness.lessonStatus = "demonstrated";
+    authorization.run.mockImplementation(harness.run.bind(harness));
+    for (const [intent, clientMutationId] of [
+      ["save", "50000000-0000-4000-8000-000000000018"],
+      ["evaluate", "50000000-0000-4000-8000-000000000019"],
+      ["retry", "50000000-0000-4000-8000-000000000020"],
+    ] as const) {
+      await expect(
+        mutatePersistedLesson(
+          input({
+            intent,
+            selections: intent === "retry" ? undefined : canonicalSelections,
+            expectedRevision: 1,
+            clientMutationId,
+          }),
+          provider,
+        ),
+      ).resolves.toEqual({ state: "not-ready" });
+    }
+    expect(harness.rows).toHaveLength(1);
+    expect(harness.events).toHaveLength(0);
+    expect(harness.lessonUpdates).toBe(0);
+
+    await expect(
+      mutatePersistedLesson(input({ intent: "evaluate" }), provider),
+    ).resolves.toMatchObject({ state: "demonstrated", revision: 1 });
+    expect(harness.rows).toHaveLength(1);
+    expect(harness.lessonUpdates).toBe(0);
+    expect(harness.replayCount).toBe(1);
   });
 });

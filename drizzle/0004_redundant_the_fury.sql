@@ -444,6 +444,12 @@ BEGIN
   IF NEW.revision <> NEW.mutation_expected_revision + 1 THEN
     RAISE EXCEPTION 'Practice revision does not match mutation provenance.';
   END IF;
+  IF prior.id IS NOT NULL
+    AND prior.status = 'evaluated'
+    AND NOT prior.demonstrated
+    AND NEW.mutation_intent <> 'retry' THEN
+    RAISE EXCEPTION 'A failed evaluation must be followed by an explicit retry.';
+  END IF;
   IF NEW.mutation_intent = 'retry'
     AND (
       prior.id IS NULL

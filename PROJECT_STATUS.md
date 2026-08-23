@@ -1,6 +1,6 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-22  
+**Status date:** 2026-08-23  
 **Current phase:** RP-TURN-015 persisted lesson, practice and progress implemented for synthetic alpha  
 **Current turn:** RP-TURN-015 is complete pending Project Codex review; RP-TURN-016 has not been started or authorized
 
@@ -107,7 +107,7 @@
 - Calendar-exact external-evidence dates constrained to `publicationDate <= lastVerifiedDate < reviewExpiryDate`, plus current-UTC expiry with an injectable deterministic test instant; invalid, exact-expiry and later evidence fail before any generated-output write
 - Fifth forward migration adding exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`; the fresh disposable schema has 20 tables and all three new tables use forced owner RLS, current-consent enforcement and append-only history
 - Separate dynamic `/th|en/learning` and `/th|en/lessons/source-verification-practice/attempt` paths with explicit start/save/evaluate/retry actions, while both public lesson routes remain statically generated and memory-only
-- Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; normalized intent/locale/expected-revision provenance makes only an exact mutation replay idempotent and rejects conflicting UUID reuse without another row, event or lesson transition; no page-view event, saved XP, proof input or assessment/scoring coupling
+- Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; normalized intent/locale/expected-revision provenance makes only an exact mutation replay idempotent and rejects conflicting UUID reuse without another row, event or lesson transition. After a non-demonstrated evaluation, both DAL and PostgreSQL require an explicit payload-preserving retry draft before another save/evaluate mutation; denied transitions leave rows, events and lesson timestamps unchanged. No page-view event, saved XP, proof input or assessment/scoring coupling exists.
 - RP-TURN-015 deterministic/unit/build/browser/database/security evidence complete pending Project Codex review; no real Clerk smoke or external resource was used
 
 ## Open decisions
@@ -174,4 +174,4 @@ RP-TURN-007 through RP-TURN-014 are Accepted for their documented synthetic/prot
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only |
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
 | 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
-| 015 | Complete pending review | Owner/current-consent persisted lesson start/save/evaluate/retry flow, three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |
+| 015 | Complete pending review | Owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |

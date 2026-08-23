@@ -2503,6 +2503,57 @@ async function verifyPersistedLessonContract() {
     mutationId: "70000000-0000-4000-8000-000000000003",
     intent: "evaluate",
   });
+  const learningMutationSnapshot = () =>
+    withApplicationUser(lessonUserA, async (client) => {
+      const lesson = await client.query(
+        `SELECT status, last_meaningful_activity_at::text AS last_meaningful_activity_at,
+                demonstrated_at::text AS demonstrated_at
+         FROM lesson_attempts WHERE id=$1`,
+        [lessonId],
+      );
+      const practices = await client.query(
+        `SELECT count(*)::integer AS count FROM practice_attempts WHERE lesson_attempt_id=$1`,
+        [lessonId],
+      );
+      const events = await client.query(
+        `SELECT count(*)::integer AS count FROM learning_progress_events WHERE lesson_attempt_id=$1`,
+        [lessonId],
+      );
+      return {
+        lesson: lesson.rows[0],
+        practiceCount: practices.rows[0].count,
+        eventCount: events.rows[0].count,
+      };
+    });
+  const beforeDeniedSuccessor = await learningMutationSnapshot();
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 3,
+        previousId: failedId,
+        status: "draft",
+        payload: payloads.passing,
+        results: null,
+        demonstrated: null,
+        mutationId: "70000000-0000-4000-8000-000000000027",
+        intent: "save",
+      }),
+    "a direct save after a failed evaluation",
+  );
+  await expectDatabaseRejection(
+    () =>
+      insertPractice({
+        revision: 3,
+        previousId: failedId,
+        status: "evaluated",
+        payload: payloads.passing,
+        results: evaluation(payloads.passing, ["met", "met", "met"]),
+        demonstrated: true,
+        mutationId: "70000000-0000-4000-8000-000000000028",
+        intent: "evaluate",
+      }),
+    "a direct evaluation after a failed evaluation",
+  );
   await expectDatabaseRejection(
     () =>
       insertPractice({
@@ -2517,6 +2568,11 @@ async function verifyPersistedLessonContract() {
       }),
     "a retry whose payload differs from its predecessor",
   );
+  assert.deepEqual(
+    await learningMutationSnapshot(),
+    beforeDeniedSuccessor,
+    "denied failed-evaluation successors preserve row, event, lesson state and activity time",
+  );
   const retryId = await insertPractice({
     revision: 3,
     previousId: failedId,
@@ -2527,26 +2583,36 @@ async function verifyPersistedLessonContract() {
     mutationId: "70000000-0000-4000-8000-000000000004",
     intent: "retry",
   });
+  const savedAfterRetryId = await insertPractice({
+    revision: 4,
+    previousId: retryId,
+    status: "draft",
+    payload: payloads.passing,
+    results: null,
+    demonstrated: null,
+    mutationId: "70000000-0000-4000-8000-000000000029",
+    intent: "save",
+  });
   await expectDatabaseRejection(
     () =>
       insertPractice({
-        revision: 5,
-        previousId: retryId,
+        revision: 6,
+        previousId: savedAfterRetryId,
         status: "draft",
         payload: payloads.passing,
         results: null,
         demonstrated: null,
         mutationId: "70000000-0000-4000-8000-000000000005",
         intent: "save",
-        expectedRevision: 3,
+        expectedRevision: 4,
       }),
     "a stale or skipped practice revision",
   );
   await expectDatabaseRejection(
     () =>
       insertPractice({
-        revision: 4,
-        previousId: retryId,
+        revision: 5,
+        previousId: savedAfterRetryId,
         status: "evaluated",
         payload: payloads.passing,
         results: evaluation(payloads.passing, ["not-met", "met", "met"]),
@@ -2557,8 +2623,8 @@ async function verifyPersistedLessonContract() {
     "a forged server evaluation",
   );
   await insertPractice({
-    revision: 4,
-    previousId: retryId,
+    revision: 5,
+    previousId: savedAfterRetryId,
     status: "evaluated",
     payload: payloads.passing,
     results: evaluation(payloads.passing, ["met", "met", "met"]),
@@ -2570,7 +2636,8 @@ async function verifyPersistedLessonContract() {
   const final = await withApplicationUser(lessonUserA, async (client) => {
     const lesson = await client.query(`SELECT status FROM lesson_attempts WHERE id=$1`, [lessonId]);
     const practices = await client.query(
-      `SELECT revision, status, demonstrated FROM practice_attempts WHERE lesson_attempt_id=$1 ORDER BY revision`,
+      `SELECT revision, status, demonstrated, mutation_intent
+       FROM practice_attempts WHERE lesson_attempt_id=$1 ORDER BY revision`,
       [lessonId],
     );
     const events = await client.query(
@@ -2580,7 +2647,12 @@ async function verifyPersistedLessonContract() {
     return { lesson: lesson.rows, practices: practices.rows, events: events.rows };
   });
   assert.equal(final.lesson[0].status, "demonstrated");
-  assert.equal(final.practices.length, 4, "append-only history retains four exact revisions");
+  assert.equal(final.practices.length, 5, "append-only history retains five exact revisions");
+  assert.deepEqual(
+    final.practices.map((row) => row.mutation_intent),
+    ["save", "evaluate", "retry", "save", "evaluate"],
+    "failed evaluation requires retry before another editable draft and evaluation",
+  );
   assert.deepEqual(final.events.map((row) => row.event_kind).sort(), [
     "lesson_started",
     "practice_demonstrated",

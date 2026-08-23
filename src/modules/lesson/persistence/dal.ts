@@ -335,6 +335,9 @@ export async function mutatePersistedLesson(
 
     const previous = await latestPractice(client, lesson.id);
     if ((previous?.revision ?? 0) !== input.expectedRevision) return { state: "conflict" } as const;
+    if (previous?.status === "evaluated" && !previous.demonstrated && input.intent !== "retry") {
+      return { state: "not-ready" } as const;
+    }
 
     let selections: readonly PersistedPracticeSelection[];
     let status: "draft" | "evaluated";
