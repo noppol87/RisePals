@@ -522,6 +522,16 @@ Published pages reference a claim version rather than copying an untraceable sta
 
 Append-only entries include `user_id`, positive or reversing points, reason code, source entity type/ID, ruleset version and idempotency key. Unique (`ruleset_version`, `reason_code`, `source_entity_id`) prevents duplicate awards. XP cannot be awarded for elapsed screen time alone.
 
+### Implemented RP-TURN-015 bounded learning model
+
+The implemented synthetic-alpha subset intentionally uses exactly three pluralized tables rather than the broader future model above:
+
+- `lesson_attempts` anchors one owner/current-consent attempt to exact `source-verification-practice@1.0.0`, its lesson digest, practice, rubric and evaluation contract. Status is only `in_progress` or `demonstrated`; database-owned timestamps and triggers permit only the forward transition and prohibit reopen/delete.
+- `practice_attempts` stores immutable monotonic `draft` or `evaluated` response snapshots. Payloads contain only a schema version and ordered allowlisted criterion/option pairs. Each row also records normalized mutation intent, locale and expected revision so UUID replay is accepted only when the full request provenance and canonical selections match. Evaluated rows carry deterministic criterion results and the demonstrated flag; PostgreSQL independently re-evaluates their exact shape and canonical mapping. A non-demonstrated evaluated revision permits only a retry successor. The retry must be a draft, copy the exact eligible predecessor payload, supersede that predecessor and use its revision as the expected revision; only after this retry draft exists may save or evaluate create another revision. Both DAL and PostgreSQL enforce the transition, while exact replay remains available after demonstration.
+- `learning_progress_events` is an append-only meaningful-event ledger restricted to `lesson_started`, `practice_evaluated` and `practice_demonstrated`. It records no page view, refresh, arbitrary click, email, provider identity, free text or analytics payload.
+
+The fifth migration brings the fresh schema to exactly twenty tables. All three new tables enable and force RLS, use composite owner foreign keys, require the current exact service-data grant and deny application DELETE. Practice/event UPDATE is absent; lesson UPDATE is limited to exact lifecycle timestamp/status columns and protected by triggers. There is no `progress_snapshot`, `rubric_result`, `xp_ledger_entry` or proof table in this turn.
+
 ## Evidence and user-controlled sharing
 
 ### `evidence_artifact`
@@ -576,13 +586,13 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 ### Implemented RP-TURN-010 baseline and RP-TURN-011/012/013 extensions
 
-The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds the five derived tables above. The fresh four-migration schema therefore contains exactly seventeen tables.
+The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds five derived tables; RP-TURN-015 adds exactly the three learning tables above. The fresh five-migration schema therefore contains exactly twenty tables.
 
 One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
 `user_accounts`, `external_identities`, `consent_records` and `user_profiles` have forced RLS. Both the table-owning migration role and normal application role resolve owned rows through a transaction-local `app.current_user_id`; without valid context both see zero provider-identity rows. The normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. A hardened `SECURITY DEFINER` function exposes only Clerk resolve-or-provision to the application role: it fixes `search_path`, rejects other provider/subject shapes, serializes on the mapping key, relies on provider/subject uniqueness, provisions account and mapping atomically, revokes `PUBLIC` and grants only runtime execution. The function owner is a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role with only required table operations and narrow forced-RLS policies; neither application nor migration owner can assume it after the privileged bootstrap revokes temporary migration membership. The server may call the function only after a validated Clerk session and then establishes the internal UUID context. Browser input never controls the provider subject or context.
 
-The RP-TURN-011 extension persists a controlled profile and append-only service-data consent receipts. RP-TURN-012 adds owner-scoped synthetic assessment sessions and raw selected-option revision history. RP-TURN-013 adds only reproducible synthetic derived runs/signals/explanations/bounded priority. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Lesson progress, XP, proof/evidence storage, real identities and production accounts remain excluded. The disposable PostgreSQL harness uses only synthetic users, repository-local synthetic published definitions and temporary credentials outside the repository.
+The RP-TURN-011 extension persists a controlled profile and append-only service-data consent receipts. RP-TURN-012 adds owner-scoped synthetic assessment sessions and raw selected-option revision history. RP-TURN-013 adds only reproducible synthetic derived runs/signals/explanations/bounded priority. RP-TURN-015 adds owner-scoped synthetic lesson/practice/progress history without XP or proof. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Real identities, production accounts, XP and proof/evidence storage remain excluded. The disposable PostgreSQL harness uses only synthetic users, repository-local synthetic published definitions and temporary credentials outside the repository.
 
 - Browser code never receives a privileged database credential.
 - Server Data Access Layer checks active account, required role, owner/relationship and requested fields.
@@ -595,7 +605,7 @@ The RP-TURN-011 extension persists a controlled profile and append-only service-
 ## Key invariants and indexes
 
 - Unique provider identity mapping and unique published business version keys
-- One bounded alpha assessment session per owner/version, one active response revision per answered item and unique client mutation/revision/supersession provenance
+- One bounded alpha assessment session per owner/version, one active response revision per answered item and unique client mutation/revision/supersession provenance; persisted lesson mutations additionally require exact intent/locale/expected-revision and selection replay provenance
 - Foreign keys prevent answers/scores/attempts from referencing mismatched framework/content versions
 - Published versions reject content/provenance mutation, allow only status-only retirement and become fully immutable when retired; corrections create a new version
 - Only submitted sessions can produce completed scoring runs

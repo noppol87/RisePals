@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-22  
-**Current phase:** RP-TURN-014 trusted content publication pipeline Accepted by Project Codex for synthetic alpha  
-**Current turn:** RP-TURN-014 is Accepted at reviewed implementation head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`; RP-TURN-015 is recommended only and remains unauthorized
+**Status date:** 2026-08-23  
+**Current phase:** RP-TURN-015 persisted lesson, practice and progress implemented for synthetic alpha  
+**Current turn:** RP-TURN-015 is Accepted by Project Codex; RP-TURN-016 has not been started or authorized
 
 ## Locked decisions
 
@@ -105,6 +105,10 @@
 - Strict declarative MDX allowlist for six local lesson section identifiers; ESM, expressions, raw HTML, unsafe links, unknown components, event handlers, spreads, images, traversal, symlinks and unsupported files fail closed
 - Immutable `source-verification-practice@1.0.0` publication identity protected by an independently Git-reviewed identity/digest seal that the publisher cannot rewrite, with exact Thai/English locale parity, synthetic-source provenance, explicit content-owner/reviewer references and source-supplied review/publication timestamps
 - Calendar-exact external-evidence dates constrained to `publicationDate <= lastVerifiedDate < reviewExpiryDate`, plus current-UTC expiry with an injectable deterministic test instant; invalid, exact-expiry and later evidence fail before any generated-output write
+- Fifth forward migration adding exactly `lesson_attempts`, `practice_attempts` and `learning_progress_events`; the fresh disposable schema has 20 tables and all three new tables use forced owner RLS, current-consent enforcement and append-only history
+- Separate dynamic `/th|en/learning` and `/th|en/lessons/source-verification-practice/attempt` paths with explicit start/save/evaluate/retry actions, while both public lesson routes remain statically generated and memory-only
+- Exact published lesson/practice/rubric/evaluation/digest anchors, server-authoritative deterministic evaluation, immutable revisions, controlled progress states and meaningful events only; normalized intent/locale/expected-revision provenance makes only an exact mutation replay idempotent and rejects conflicting UUID reuse without another row, event or lesson transition. After a non-demonstrated evaluation, both DAL and PostgreSQL require an explicit payload-preserving retry draft before another save/evaluate mutation; denied transitions leave rows, events and lesson timestamps unchanged. No page-view event, saved XP, proof input or assessment/scoring coupling exists.
+- RP-TURN-015 deterministic/unit/build/browser/database/security evidence Accepted by Project Codex at reviewed implementation head `962b4422fa21c28b06c362f87ec55466281409e8`; no real Clerk smoke or external resource was used
 
 ## Open decisions
 
@@ -145,11 +149,11 @@
 
 ## Next recommended action
 
-**RP-TURN-015 — Persisted Lesson, Practice and Progress (recommended, not authorized)**
+**RP-TURN-016 — Private Evidence Artifact (recommended, not authorized)**
 
-RP-TURN-014 is Accepted by Project Codex for its documented synthetic-alpha publication boundary. A future turn may add resumable lesson/practice/progress persistence, but RP-TURN-015 requires separate authorization.
+RP-TURN-015 is Accepted by Project Codex. RP-TURN-016 is the next recommended turn and requires separate authorization.
 
-RP-TURN-007 through RP-TURN-014 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication in RP-TURN-014 means availability through the reviewed repository-local registry for synthetic alpha only; it is not learning-efficacy validation or production release. No real account/data, production identity resource, production database, validated assessment/proficiency claim or real recommendation, durable lesson progress, saved XP, proof, CI, production service or deployment exists. RP-TURN-015 is not authorized or started.
+RP-TURN-007 through RP-TURN-015 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. Operational publication remains synthetic alpha and not learning-efficacy validation or production release. The new durable lesson state is synthetic-only; no real account/data, production resource, validated proficiency claim, saved XP, proof, CI, production service or deployment exists. RP-TURN-016 is recommended only and is not authorized or started.
 
 ## Turn history
 
@@ -170,3 +174,4 @@ RP-TURN-007 through RP-TURN-014 are Accepted for their documented synthetic/prot
 | 012 | Accepted | Owner-scoped synthetic assessment start/save/resume/submit implementation, two-table forced-RLS migration, append-only revision/idempotency contract, deterministic/database/browser gates and the final bounded logout/re-auth/privacy/database smoke accepted by Project Codex for synthetic alpha only |
 | 013 | Accepted | Reviewed head `b80c1c27902b856aac268eb7b17fbf983a62650e`: reproducible owner-scoped synthetic result, five-table forced-RLS append-only migration, deterministic policy/digests, one normal run with two core rows/cards, six unassessed cores, two multiplier observations, six explanations and one Critical Thinking priority; deterministic/browser/database/privacy gates and complete identity/disposable cleanup accepted for synthetic alpha only, with the Clerk Development session-refresh warning retained as a non-production known issue |
 | 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
+| 015 | Accepted | Reviewed head `962b4422fa21c28b06c362f87ec55466281409e8`: owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |

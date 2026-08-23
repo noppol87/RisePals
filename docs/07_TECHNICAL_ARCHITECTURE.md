@@ -395,6 +395,12 @@ This selection is deliberately non-production. Use one Jeff-controlled Clerk Dev
 
 ## Security and privacy baseline
 
+### RP-TURN-015 protected learning persistence boundary
+
+The public source-verification lesson remains statically generated and memory-only. Separate dynamic `/[locale]/learning` and `/[locale]/lessons/source-verification-practice/attempt` routes use the centralized server authorization transaction, current exact service-data consent and fixed same-locale returns. GET reads do not create lesson/practice/progress rows; start, save, evaluate and retry are explicit Server Actions. The browser receives localized controlled copy, public criterion/option IDs, its selected IDs, a revision number and controlled feedback, but no internal account/consent/attempt/event UUID, provider subject, email, digest map, database error or assessment/scoring record.
+
+The server resolves the exact sealed lesson identity and reuses the accepted deterministic evaluator. PostgreSQL is authoritative for append-only revisions and meaningful start/evaluated/demonstrated events. All three learning tables force owner RLS and require current consent. No local/session storage, answer-bearing URL, custom cookie, analytics, saved XP or proof operation participates in this path.
+
 Assessment and career data are sensitive even if local law does not assign every field a special category. The baseline is:
 
 1. **Minimize:** collect only role context needed for recommendation; no employer name, exact salary, national ID or raw work documents in the MVP unless a later brief explicitly approves them.
