@@ -247,7 +247,7 @@ Gate:
 
 Outcome: complete assessment-to-practice regression suite, deletion/export dry runs, threat review, performance/accessibility audit and operational runbook.
 
-Implementation status: Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract. The change adds a server-only canonical export, operator-only synthetic erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal, desktop/320px/reduced-motion browser projects, threat model and bilingual-aware support/recovery runbook. These remain non-production dry-run evidence and do not authorize launch or real-user collection. Production retention, deletion ledger, backup expiry, restore reconciliation, legal/privacy/provider suitability, RTO/RPO and staff/operator access remain open. No real Clerk smoke, user, production resource, dependency, CI, infrastructure or deployment is included. RP-TURN-019 is recommended only, unstarted and unauthorized.
+Implementation status: Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract. The change adds a server-only canonical export, operator-only synthetic erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal, desktop/320px/reduced-motion browser projects, threat model and bilingual-aware support/recovery runbook. These remain non-production dry-run evidence and do not authorize launch or real-user collection. Production retention, deletion ledger, backup expiry, restore reconciliation, legal/privacy/provider suitability, RTO/RPO and staff/operator access remain open. No real Clerk smoke, user, production resource, dependency, CI, infrastructure or deployment is included. RP-TURN-019 was separately authorized on 2026-08-24.
 
 Gate:
 
@@ -260,7 +260,9 @@ Gate:
 
 Outcome: prepare and rehearse the confirmed Windows Server 2022 production target without making the application publicly available unless a later deployment brief explicitly authorizes launch.
 
-This bounded turn requires fresh Jeff authorization before installing/configuring Node, reverse proxy, service wrapper, Windows services, service accounts, firewall rules, deployment credentials, monitoring or backup tooling. It does not inherit authorization from the scaffold or Git/GitHub turns.
+Implementation status: Authorized and in progress on `agent/windows-vps-infrastructure-readiness`. The approved candidate is Next.js standalone on Node 24.18.1 behind standard Caddy 2.11.4, with WinSW 2.12.0 stable supervising Node and SCM supervising Caddy. Every runtime endpoint remains loopback-only. This turn may create version-pinned tools, two Disabled final-state virtual-account services, immutable rehearsal releases and local evidence under `C:\RisePals`; it may not enable public firewall rules, DNS, public certificates, production resources, real users/data, CI or deployment.
+
+One controlled reboot is a separate checkpoint after every non-reboot gate passes. RP-TURN-020 remains unauthorized.
 
 Required gates:
 

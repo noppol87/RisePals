@@ -9,7 +9,7 @@
   "packageManager": "npm@11.16.0",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run content:validate && node scripts/run-secret-free.mjs build",
+    "build": "npm run content:validate && node scripts/run-secret-free.mjs build && node scripts/prepare-standalone.mjs",
     "start": "next start",
     "content:publish": "node scripts/content/publish.mjs",
     "content:validate": "node scripts/content/validate.mjs",
@@ -22,12 +22,15 @@
     "db:test": "node scripts/db/integration.mjs",
     "db:test:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1",
     "db:test:recovery": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1 -Mode recovery-rehearsal",
+    "db:test:tls:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres-tls.ps1",
     "test:auth:clerk:development": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1 -Mode clerk-development-smoke",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-secret-free.mjs e2e --project=chromium",
     "test:e2e:alpha": "node scripts/run-secret-free.mjs e2e --grep=@alpha-hardening --project=chromium --project=chromium-mobile-320 --project=chromium-reduced-motion",
     "test:e2e:install": "playwright install chromium",
+    "infra:test": "vitest run tests/infra",
+    "infra:inventory": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/infra/Get-RisePalsHostInventory.ps1",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {

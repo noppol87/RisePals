@@ -6,6 +6,7 @@ export default function createNextConfig(phase: string): NextConfig {
 
   return {
     ...(clerkDevelopmentSmoke ? { distDir: ".next-clerk-development-smoke" } : {}),
+    output: "standalone",
     poweredByHeader: false,
     reactStrictMode: true,
     typescript: {

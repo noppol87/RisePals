@@ -1,7 +1,7 @@
 # Local Development
 
-**Turn:** RP-TURN-018  
-**Status:** RP-TURN-018 Accepted by Project Codex for bounded synthetic alpha; no real users, external telemetry, production database/service or deployment exists  
+**Turn:** RP-TURN-019  
+**Status:** Windows VPS Infrastructure Readiness authorized and in progress; loopback-only non-public rehearsal, no real users/data, production database, CI or deployment  
 **Checked:** 2026-08-24
 
 ## Confirmed host role and separation rule
@@ -159,19 +159,24 @@ tests/                    Vitest unit/render tests and Chromium-only Playwright 
 
 No `public/` directory is required by the current page. Database integration suites, a monorepo, a separate API and shared-package workspaces remain deferred until a real boundary requires them.
 
-## Proposed production-host layout
+## Authorized non-public rehearsal host layout
 
-The paths below are conceptual defaults for a later VPS infrastructure-readiness turn. They do not exist and were not created in RP-TURN-001-R1; the final root and ACLs require Jeff approval.
+RP-TURN-019 authorizes the exact paths below for a bounded Windows rehearsal. The development workspace remains separate and is never served.
 
 ```text
-C:\RisePals\workspace\                 repository checkout used for authorized source/deploy work; never served
-C:\RisePals\staging\release-id\       unpacked/built candidate before activation
-C:\RisePals\releases\release-id\      versioned, immutable/read-only application release
-C:\RisePals\current\                  active-release pointer or switching boundary
-C:\RisePals\data\uploads\             persistent private user artifacts; not inside a release
-C:\RisePals\config\                   production secrets/config; ACL-restricted and outside Git
-C:\RisePals\logs\                     rotated proxy/application/deployment logs
-C:\RisePals\runtime\                  bounded cache/temp/PID/service-wrapper state when required
+C:\RisePals\tools\node\24.18.1\
+C:\RisePals\tools\caddy\2.11.4\
+C:\RisePals\tools\winsw\2.12.0\
+C:\RisePals\staging\
+C:\RisePals\releases\release-id\
+C:\RisePals\current\
+C:\RisePals\shared\config\
+C:\RisePals\shared\secrets\
+C:\RisePals\shared\cache\
+C:\RisePals\logs\app\
+C:\RisePals\logs\proxy\
+C:\RisePals\logs\deploy\
+C:\RisePals\rehearsal\
 ```
 
 `release-id` means a concrete source commit plus artifact digest recorded at build time; it is not a literal directory name to create.
@@ -182,7 +187,7 @@ Boundary rules:
 - Build/test in CI or `staging`, never in `current` or an active release. Promote only a verified artifact.
 - Release directories contain application code/build output and public static assets only. Treat them as replaceable and read-only to the application service.
 - Persistent uploads/data, secret material and logs survive release changes and use separate least-privilege ACLs/backups.
-- `current` may become a validated NTFS junction/symlink, proxy upstream/port switch or another Windows-safe mechanism. Selection waits for a rehearsal of file locks, permissions, atomicity and rollback.
+- `current` is a validated NTFS junction for RP-TURN-019 and must pass atomic forward/failure/manual rollback rehearsal.
 - Keep the last known-good release. Rollback switches to that existing artifact, performs readiness/external HTTPS checks and records the incident; it does not edit the failed release.
 - Database backups, upload backups and VPS/system recovery copies must be encrypted and off-host according to an approved policy. GitHub and another directory on the same VPS are not sufficient backups.
 
@@ -203,7 +208,7 @@ These requirements belong to a later bounded VPS infrastructure-readiness turn a
 11. assign database/upload/config/system backup ownership and complete a non-production restore drill
 12. document Windows/Node/proxy patching and incident-response ownership
 
-Docker, WSL and Linux are not assumed. Caddy/Windows services and IIS/ARR are candidates documented in `docs/07_TECHNICAL_ARCHITECTURE.md`; neither is installed or selected.
+Docker, WSL, IIS and ARR are not used. RP-TURN-019 selects pinned Node/Caddy/WinSW with Windows virtual service accounts only for its non-public rehearsal; production approval remains separate.
 
 ## Verified scaffold behavior
 
@@ -878,6 +883,38 @@ No real Clerk Development smoke, identity, durable/production database, external
 ## RP-TURN-018 alpha hardening and recovery verification
 
 Status: Accepted by Project Codex at reviewed implementation head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract. Acceptance does not authorize a real-user alpha, launch, production resources or RP-TURN-019.
+
+## RP-TURN-019 Windows VPS readiness evidence
+
+RP-TURN-019 began from exact main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad` on `agent/windows-vps-infrastructure-readiness`. Authorization brief commit `60cad01dd519ee24354c7b37fb018663f76e09fc` was pushed before implementation and Draft PR #17 targets unchanged `main`.
+
+The read-only Phase A inventory passed with no service/listener/path conflict. Windows Server 2022 build 20348 had no pending reboot, no `C:\RisePals`, no Caddy/WinSW/IIS/ARR service, no listener on 80/443/2019/3100/8080/8443 and no Rise Pals firewall rule. The inspection was non-elevated and made no host mutation. Public IPs, machine identifiers, SIDs and certificate details are excluded.
+
+Verified candidate provenance:
+
+| Artifact | Official bytes | Verified SHA-256 | Additional result |
+|---|---:|---|---|
+| Node `node-v24.18.1-win-x64.zip` | 37,177,316 | `ec56b84a7551893ab2324ebdfdc4ab974a63b4781162600b68a1293cc3e53765` | official SHASUMS match; `node.exe` OpenJS Authenticode Valid |
+| Caddy `caddy_2.11.4_windows_amd64.zip` | 17,559,418 | `1708333f79e274c7697285afe6d592ab39314e0b131e9ec6bea08ad27df62ebf` | official SHA-512 match; exact GitHub Actions release identity and Fulcio/Rekor verification passed |
+| WinSW `WinSW-x64.exe` | 18,243,033 | `05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da` | product `2.12.0+eef5bad...`; official release asset, NotSigned, no release checksum asset |
+
+The exact URLs, digest chain and operational limitation are recorded in `infra/windows/tool-manifest.json` and `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. No custom Caddy module, Caddy self-upgrade, WinSW v3 alpha, Docker, WSL, IIS or ARR is permitted.
+
+The application now builds with Next.js `output: "standalone"`. `/health/live` is fixed, `/health/ready` is direct-loopback/fail-closed and `/health/stream` is exact-rehearsal-only. Standard secret-free mode returns 503 readiness and 404 streaming. The isolated release build uses `git archive`, so ignored `.env.local` is absent from release build input; no value is read, copied or printed by infrastructure tooling.
+
+Initial deterministic results before host mutation:
+
+- `npm ci`: 573 packages installed, 574 audited, zero vulnerabilities;
+- pending install-script query: `[]`; `strict-allow-scripts=true`;
+- focused infrastructure tests: 3 files / 20 tests passed before the forwarded-header assertion was added;
+- complete unit/component tests: 46 files / 411 tests passed;
+- lint and strict typecheck passed;
+- production build passed with 27 generated route entries, including the three dynamic health boundaries;
+- trusted content digest remained `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525`;
+- Caddy 2.11.4 parsed and validated the repository Caddyfile successfully;
+- every `scripts/infra/*.ps1` file passed Windows PowerShell AST parsing.
+
+The full host rehearsal, release hashes, service/ACL/listener evidence, database/recovery reruns, security scans and separately authorized reboot disposition must be recorded before RP-TURN-019 can be called complete. RP-TURN-020 remains unauthorized.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

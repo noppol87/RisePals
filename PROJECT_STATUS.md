@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-24  
-**Current phase:** RP-TURN-018 Alpha Hardening and Recovery Accepted by Project Codex  
-**Current turn:** RP-TURN-018 is Accepted; RP-TURN-019 is recommended only, unstarted and unauthorized
+**Current phase:** RP-TURN-019 Windows VPS Infrastructure Readiness  
+**Current turn:** RP-TURN-019 is authorized and in progress on a non-public loopback-only rehearsal branch
 
 ## Locked decisions
 
@@ -18,6 +18,7 @@
 - Delivery process: Project Codex reviews and directs; VS Code Codex implements one approved turn at a time
 - Cross-context messages identify source, destination and purpose; only marked TURN HANDOFF messages are completed-turn submissions
 - Accepted technical direction: Next.js App Router, React with strict TypeScript, Node.js 24 LTS/npm, PostgreSQL/Drizzle, Git-versioned trusted MDX/metadata for pilot lessons and a modular monolith
+- RP-TURN-019 rehearsal architecture: Next.js standalone, Node.js 24.18.1, standard Caddy 2.11.4, stable WinSW 2.12.0, SCM and separate Windows virtual service accounts; this is not production/launch approval
 - Production application deployment target: this Windows Server 2022 VPS using native Node.js after a separately approved infrastructure-readiness turn; the repository contains an application scaffold, but no production application/service/deployment exists yet
 - Canonical source/history: Jeff's personal Public repository [`noppol87/RisePals`](https://github.com/noppol87/RisePals), connected locally as the single `origin`
 - Synthetic-alpha identity provider: Clerk Development on Free/Hobby with email verification code only; US identity hosting accepted only for synthetic testing, while production suitability remains undecided
@@ -160,13 +161,13 @@
 - The final RP-TURN-013 Clerk Development smoke emitted a recurring session-refresh redirect-loop warning with a generic possible key-mismatch suggestion. It did not disrupt the verified functional/session flow; the frontend-created identity was found and deleted by the Backend API, the authenticated provider subject matched the internal mapping, and logout/re-authentication/restoration passed. The diagnostic guard remains in the smoke harness, while production Clerk suitability, session behavior and provider approval remain unresolved.
 - The Public repository exposes every pushed file and commit to unrestricted readers; inventory, secret/history scanning, synthetic-fixture checks and operational-document review remain mandatory for future pushes
 
-## Next recommended action
+## Current authorized action
 
-**RP-TURN-019 — Windows VPS Infrastructure Readiness (recommended only, not authorized)**
+**RP-TURN-019 — Windows VPS Infrastructure Readiness (authorized and in progress)**
 
-RP-TURN-018 is Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for its bounded synthetic-alpha contract. RP-TURN-019 requires separate authorization and remains unstarted.
+RP-TURN-019 started from exact main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad` on `agent/windows-vps-infrastructure-readiness`. Phase A found no conflicting service/listener/path and made no host mutation. The turn is limited to version-pinned tools, immutable rehearsal releases, loopback endpoints, virtual-account services, local operational evidence and one separately confirmed reboot checkpoint. Draft PR #17 is open and unmerged. RP-TURN-020 is unstarted and unauthorized.
 
-RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-018 adds only non-production hardening evidence: a dry-run owner export, fake-adapter/operator-only erasure, disposable recovery rehearsal, threat model, runbook and browser/accessibility regression. Acceptance does not authorize launch or real-user collection. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/deletion-ledger/backup-expiry/restore-reconciliation operations, RTO/RPO, staff/operator access and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists.
+RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-018 adds only non-production hardening evidence: a dry-run owner export, fake-adapter/operator-only erasure, disposable recovery rehearsal, threat model, runbook and browser/accessibility regression. Acceptance does not authorize launch or real-user collection. RP-TURN-019 preserves those boundaries and may not introduce real credentials/users/data, a production database, external monitoring, public firewall/DNS/TLS, CI or deployment. Standard build/check/E2E explicitly disable Clerk and allow only loopback. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged.
 
 ## Turn history
 
@@ -191,3 +192,4 @@ RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prot
 | 016 | Accepted | Reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: one private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, current-state historical replay, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI accepted by Project Codex |
 | 017 | Accepted | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |
 | 018 | Accepted | Reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80`: bounded synthetic-alpha hardening with deterministic owner export, operator-only idempotent erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore rehearsal, threat model, support runbook and Thai/English desktop/mobile/reduced-motion accessibility regression; no launch, real-user collection or production approval |
+| 019 | In progress | Authorized non-public Windows Server 2022 infrastructure readiness with pinned standalone/Node/Caddy/WinSW architecture, loopback-only rehearsal and separate controlled reboot checkpoint; no public launch or production resource |
