@@ -56,12 +56,18 @@ export const userAccounts = pgTable(
     createdAt: utcTimestamp("created_at").notNull().defaultNow(),
     updatedAt: utcTimestamp("updated_at").notNull().defaultNow(),
     lastSeenAt: utcTimestamp("last_seen_at"),
+    deletionRequestId: uuid("deletion_request_id").unique(),
+    deletionRequestedAt: utcTimestamp("deletion_requested_at"),
     deletedAt: utcTimestamp("deleted_at"),
   },
   (table) => [
     check(
       "user_accounts_deleted_state_check",
       sql`(${table.status} = 'deleted' AND ${table.deletedAt} IS NOT NULL) OR (${table.status} <> 'deleted' AND ${table.deletedAt} IS NULL)`,
+    ),
+    check(
+      "user_accounts_deletion_request_state_check",
+      sql`(${table.status} IN ('deletion_pending', 'deleted') AND ${table.deletionRequestId} IS NOT NULL AND ${table.deletionRequestedAt} IS NOT NULL) OR (${table.status} NOT IN ('deletion_pending', 'deleted') AND ${table.deletionRequestId} IS NULL AND ${table.deletionRequestedAt} IS NULL)`,
     ),
   ],
 );

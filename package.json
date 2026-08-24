@@ -21,10 +21,12 @@
     "db:prepare:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/prepare-postgres.ps1",
     "db:test": "node scripts/db/integration.mjs",
     "db:test:disposable": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1",
+    "db:test:recovery": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1 -Mode recovery-rehearsal",
     "test:auth:clerk:development": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/db/run-disposable-postgres.ps1 -Mode clerk-development-smoke",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-secret-free.mjs e2e --project=chromium",
+    "test:e2e:alpha": "node scripts/run-secret-free.mjs e2e --grep=@alpha-hardening --project=chromium --project=chromium-mobile-320 --project=chromium-reduced-motion",
     "test:e2e:install": "playwright install chromium",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
   },

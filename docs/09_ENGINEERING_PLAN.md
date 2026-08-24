@@ -233,7 +233,7 @@ Gate:
 
 Outcome: allowlisted activation/return events and redacted operational monitoring behind adapters.
 
-Implementation status: Complete pending Project Codex review after R1. One seventh migration adds exactly `measurement_subjects`, `product_events` and `error_occurrences`, producing twenty-six tables. A separate optional versioned consent controls a pseudonymous per-grant subject. Server-only repository-local PostgreSQL and disabled adapters receive only a prehashed exact controlled candidate; a private applied/replayed/non-applied envelope limits capture to newly committed actions. Owner-bound global digest uniqueness rejects exact replay across consent rotation. Controlled unexpected failures do not forward or rethrow raw errors. No external provider, dependency, environment variable, browser tracker, production approval or retention/export/erasure operation exists. RP-TURN-018 is recommended only and not authorized.
+Implementation status: Accepted by Project Codex at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`. One seventh migration adds exactly `measurement_subjects`, `product_events` and `error_occurrences`, producing twenty-six tables. A separate optional versioned consent controls a pseudonymous per-grant subject. Server-only repository-local PostgreSQL and disabled adapters receive only a prehashed exact controlled candidate; a private applied/replayed/non-applied envelope limits capture to newly committed actions. Owner-bound global digest uniqueness rejects exact replay across consent rotation. Controlled unexpected failures do not forward or rethrow raw errors. No external provider, dependency, environment variable, browser tracker, production approval or accepted production retention/export/erasure operation exists.
 
 Gate:
 
@@ -246,6 +246,8 @@ Gate:
 ### RP-TURN-018 — Alpha Hardening and Recovery
 
 Outcome: complete assessment-to-practice regression suite, deletion/export dry runs, threat review, performance/accessibility audit and operational runbook.
+
+Implementation status: Authorized and implemented on `agent/alpha-hardening-recovery`, pending Project Codex review. The bounded change adds a server-only canonical export, operator-only synthetic erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal, desktop/320px/reduced-motion browser projects, threat model and bilingual-aware support/recovery runbook. No real Clerk smoke, user, production resource, dependency, CI, infrastructure or deployment is included. RP-TURN-019 remains unauthorized.
 
 Gate:
 

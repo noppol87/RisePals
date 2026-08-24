@@ -1,6 +1,6 @@
 param(
   [string]$PostgresBin = $env:RISE_PALS_POSTGRES_BIN,
-  [ValidateSet("integration", "clerk-development-smoke")]
+  [ValidateSet("integration", "clerk-development-smoke", "recovery-rehearsal")]
   [string]$Mode = "integration"
 )
 
@@ -19,6 +19,9 @@ $originalDatabaseUrl = $env:DATABASE_URL
 $originalMigrationUrl = $env:DATABASE_MIGRATION_URL
 $originalDisposableBootstrapUrl = $env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL
 $originalPgPassword = $env:PGPASSWORD
+$originalRecoveryRoot = $env:RISE_PALS_ALPHA_RECOVERY_ROOT
+$originalPostgresBin = $env:RISE_PALS_POSTGRES_BIN
+$recoveryRoot = $null
 
 function Resolve-PostgresBin {
   param([string]$Candidate)
@@ -48,7 +51,7 @@ try {
   }
 
   $resolvedBin = Resolve-PostgresBin -Candidate $PostgresBin
-  foreach ($executable in @("initdb.exe", "pg_ctl.exe", "pg_isready.exe", "psql.exe", "postgres.exe")) {
+  foreach ($executable in @("initdb.exe", "pg_ctl.exe", "pg_isready.exe", "psql.exe", "postgres.exe", "pg_dump.exe", "pg_restore.exe")) {
     if (-not (Test-Path -LiteralPath (Join-Path $resolvedBin $executable) -PathType Leaf)) {
       throw "The PostgreSQL bin directory is incomplete."
     }
@@ -107,7 +110,9 @@ try {
 CREATE ROLE rise_pals_owner LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$ownerPassword';
 CREATE ROLE rise_pals_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD '$applicationPassword';
 CREATE ROLE rise_pals_identity_resolver NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+CREATE ROLE rise_pals_privacy_operator NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
 GRANT rise_pals_identity_resolver TO rise_pals_owner WITH ADMIN OPTION;
+GRANT rise_pals_privacy_operator TO rise_pals_owner WITH ADMIN OPTION;
 CREATE DATABASE rise_pals_test OWNER rise_pals_owner;
 REVOKE CONNECT ON DATABASE rise_pals_test FROM PUBLIC;
 GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
@@ -116,11 +121,12 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
   $env:PGPASSWORD = $bootstrapPassword
   & psql.exe -h 127.0.0.1 -p $port -U postgres -d postgres -v ON_ERROR_STOP=1 -f $bootstrapSqlFile | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Disposable role/database bootstrap failed." }
-  Write-Output "Synthetic owner/application roles, credentialless resolver role and empty database created."
+  Write-Output "Synthetic owner/application roles, credentialless resolver/privacy roles and empty database created."
 
   $env:DATABASE_MIGRATION_URL = "postgresql://rise_pals_owner:$ownerPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
   $env:DATABASE_URL = "postgresql://rise_pals_app:$applicationPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
   $env:RISE_PALS_DISPOSABLE_BOOTSTRAP_URL = "postgresql://postgres:$bootstrapPassword@127.0.0.1:$port/rise_pals_test?sslmode=disable"
+  $env:RISE_PALS_POSTGRES_BIN = $resolvedBin
   Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
 
   Write-Output "$(& postgres.exe --version)"
@@ -128,6 +134,15 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
   if ($Mode -eq "integration") {
     & npm.cmd run db:test
     if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed." }
+  } elseif ($Mode -eq "recovery-rehearsal") {
+    & npm.cmd run db:test
+    if ($LASTEXITCODE -ne 0) { throw "PostgreSQL integration checks failed before recovery." }
+    $recoveryBase = Join-Path ([IO.Path]::GetTempPath()) "risepals-alpha-recovery"
+    [IO.Directory]::CreateDirectory($recoveryBase) | Out-Null
+    $recoveryRoot = Join-Path $recoveryBase ([guid]::NewGuid().ToString("N"))
+    $env:RISE_PALS_ALPHA_RECOVERY_ROOT = $recoveryRoot
+    & node.exe scripts/recovery/alpha-recovery.mjs
+    if ($LASTEXITCODE -ne 0) { throw "Alpha recovery rehearsal failed." }
   } else {
     if (-not (Test-Path -LiteralPath ".env.local" -PathType Leaf)) {
       throw "The Clerk Development smoke requires an ignored .env.local file."
@@ -198,10 +213,37 @@ GRANT CONNECT ON DATABASE rise_pals_test TO rise_pals_owner, rise_pals_app;
   } else {
     $env:PGPASSWORD = $originalPgPassword
   }
+  if ($null -eq $originalRecoveryRoot) {
+    Remove-Item Env:RISE_PALS_ALPHA_RECOVERY_ROOT -ErrorAction SilentlyContinue
+  } else {
+    $env:RISE_PALS_ALPHA_RECOVERY_ROOT = $originalRecoveryRoot
+  }
+  if ($null -eq $originalPostgresBin) {
+    Remove-Item Env:RISE_PALS_POSTGRES_BIN -ErrorAction SilentlyContinue
+  } else {
+    $env:RISE_PALS_POSTGRES_BIN = $originalPostgresBin
+  }
 
   foreach ($secretFile in @($bootstrapPasswordFile, $bootstrapSqlFile)) {
     if ($secretFile -and (Test-Path -LiteralPath $secretFile -PathType Leaf)) {
       Remove-Item -LiteralPath $secretFile -Force
+    }
+  }
+
+  if ($recoveryRoot) {
+    $resolvedRecoveryBase = [IO.Path]::GetFullPath(
+      (Join-Path ([IO.Path]::GetTempPath()) "risepals-alpha-recovery")
+    )
+    $resolvedRecoveryRoot = [IO.Path]::GetFullPath($recoveryRoot)
+    if (
+      -not $resolvedRecoveryRoot.StartsWith(
+        $resolvedRecoveryBase + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase
+      )
+    ) {
+      $cleanupError = "Refusing to clean an unexpected recovery path."
+    } elseif ([IO.Directory]::Exists($resolvedRecoveryRoot)) {
+      [IO.Directory]::Delete($resolvedRecoveryRoot, $true)
     }
   }
 

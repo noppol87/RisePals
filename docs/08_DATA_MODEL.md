@@ -606,7 +606,7 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 ### Implemented RP-TURN-010 baseline and RP-TURN-011/012/013 extensions
 
-The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds five derived tables; RP-TURN-015 adds exactly the three learning tables above; RP-TURN-016 adds the three controlled evidence tables; RP-TURN-017 adds the three consent-aware measurement/error tables. The fresh seven-migration schema therefore contains exactly twenty-six tables.
+The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds five derived tables; RP-TURN-015 adds exactly the three learning tables above; RP-TURN-016 adds the three controlled evidence tables; RP-TURN-017 adds the three consent-aware measurement/error tables. RP-TURN-018 proposes an eighth migration that adds no table and only extends `user_accounts` with nullable unique `deletion_request_id` plus nullable `deletion_requested_at`. The fresh eight-migration schema therefore remains exactly twenty-six public tables pending Project Codex review.
 
 One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
@@ -698,3 +698,13 @@ Self-report and diagnostic scores may help a user choose learning, but are exclu
 - Research/assessment calibration dataset and irreversible de-identification threshold
 
 These are explicit decisions, not implementation placeholders; the MVP must not collect the affected data until the relevant decision is approved.
+
+### Proposed RP-TURN-018 export and erasure lifecycle
+
+- `rise-pals-alpha-export-v1@1.0.0` is a server-only deterministic representation. It reads each owner section with an exact predicate and fixed 500-row maximum, fails rather than truncates, maps internal relationships to export-local references and includes Thai/English synthetic-alpha limitations.
+- The export allows minimized lifecycle/profile, consent, raw response revisions, reproducible derived signals/explanations/priority, lesson/practice/progress, controlled evidence and allowlisted product events plus the public identifiers/digests needed to interpret them. It excludes provider subjects, credentials/session state, internal UUIDs, measurement subject IDs, action/mutation digests, error correlation/operational logs, environment values and arbitrary metadata.
+- `deletion_pending` and `deleted` require both deletion-request fields. `deleted` additionally requires existing `deleted_at`; other states require all deletion fields to be null. Direct runtime transition into erasure states and direct account deletion are rejected.
+- `rise-pals-alpha-erasure-v1@1.0.0` accepts only an internal owner UUID and opaque request UUID under exact privacy-operator context. It deletes private child rows in dependency order and retains one account tombstone containing status, request/timing fields and no provider/profile/content record.
+- Exact pending/completed request replay performs no write; a conflicting request, missing/malformed context, cross-owner target or non-operator execution fails. Public framework/content versions and another owner remain unchanged.
+- The privacy operator is `NOLOGIN NOINHERIT NOBYPASSRLS`, owns no application table and receives only bounded private-table privileges. The application, identity resolver and migration runtime cannot invoke it after bootstrap membership revocation. There is no application route or production credential.
+- A restored pre-erasure backup can resurrect private rows. Production use remains blocked pending an approved deletion ledger, backup expiry/retention and restore reconciliation policy.
