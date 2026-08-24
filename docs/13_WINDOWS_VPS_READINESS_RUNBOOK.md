@@ -117,6 +117,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Get-RisePalsHo
 Use an elevated Windows PowerShell process only for the approved host mutations:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Invoke-RisePalsHostSetup.ps1
+# Or run the four bounded components individually:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Initialize-RisePalsHost.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Install-RisePalsTools.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Install-RisePalsServices.ps1
