@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-24  
-**Current phase:** RP-TURN-017 consent-aware measurement and error-monitoring foundation complete pending Project Codex review  
-**Current turn:** RP-TURN-017 is complete pending Project Codex review; RP-TURN-018 is not authorized
+**Current phase:** RP-TURN-017 consent-aware measurement and error-monitoring foundation Accepted by Project Codex  
+**Current turn:** RP-TURN-017 is Accepted; RP-TURN-018 is recommended only and not authorized
 
 ## Locked decisions
 
@@ -160,9 +160,9 @@
 
 **RP-TURN-018 — Alpha Hardening and Recovery (recommended, not authorized)**
 
-RP-TURN-017 implementation is complete pending Project Codex review. RP-TURN-018 is only the next recommended turn and requires separate authorization.
+RP-TURN-017 is Accepted by Project Codex at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`. RP-TURN-018 is only the next recommended turn and requires separate authorization.
 
-RP-TURN-007 through RP-TURN-016 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-017 adds only an optional first-party local synthetic-alpha foundation pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-018 is not authorized or started.
+RP-TURN-007 through RP-TURN-017 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-017 adds only an optional first-party local synthetic-alpha foundation. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-018 is not authorized or started.
 
 ## Turn history
 
@@ -185,4 +185,4 @@ RP-TURN-007 through RP-TURN-016 are Accepted for their documented synthetic/prot
 | 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
 | 015 | Accepted | Reviewed head `962b4422fa21c28b06c362f87ec55466281409e8`: owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |
 | 016 | Accepted | Reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: one private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, current-state historical replay, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI accepted by Project Codex |
-| 017 | Complete; pending review | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |
+| 017 | Accepted | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |

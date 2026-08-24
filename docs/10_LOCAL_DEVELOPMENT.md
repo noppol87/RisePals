@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-012  
-**Status:** RP-TURN-017 consent-aware measurement/error foundation complete pending Project Codex review; no real users, external telemetry, production database/service or deployment exists  
+**Status:** RP-TURN-017 consent-aware measurement/error foundation Accepted by Project Codex; no real users, external telemetry, production database/service or deployment exists  
 **Checked:** 2026-08-16
 
 ## Confirmed host role and separation rule
@@ -757,7 +757,7 @@ Project Codex Accepted the implementation and deterministic/database/browser/rea
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson efficacy/external validation, production content operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No real profile/data, validated score/result/recommendation, saved XP, file proof, object storage or share flow exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority; RP-TURN-015 adds only synthetic-alpha lesson/practice/progress state; RP-TURN-016 adds one private controlled synthetic note; RP-TURN-017 adds only optional pseudonymous first-party events and redacted occurrences pending review. Retention/export/erasure and production use remain open. RP-TURN-018 is not authorized or started.
+- No real profile/data, validated score/result/recommendation, saved XP, file proof, object storage or share flow exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority; RP-TURN-015 adds only synthetic-alpha lesson/practice/progress state; RP-TURN-016 adds one private controlled synthetic note; RP-TURN-017 adds only optional pseudonymous first-party events and redacted occurrences under its Accepted bounded synthetic-alpha contract. Retention/export/erasure and production use remain open. RP-TURN-018 is not authorized or started.
 
 ## RP-TURN-013 reproducible synthetic result verification
 
@@ -782,7 +782,7 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 through RP-TURN-016 for their bounded synthetic-alpha contracts. RP-TURN-017 is complete pending review for only its separate optional first-party measurement/redacted-error boundary. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, external telemetry, retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment. RP-TURN-018 is recommended only and is not authorized or started.
+Project Codex Accepted RP-TURN-013 through RP-TURN-017 for their bounded synthetic-alpha contracts. RP-TURN-017 acceptance covers only its separate optional first-party measurement/redacted-error boundary at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, external telemetry, retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment. RP-TURN-018 — Alpha Hardening and Recovery is recommended only and is not authorized or started.
 
 ## RP-TURN-014 trusted content publication verification
 
@@ -853,7 +853,7 @@ No real Clerk Development smoke, identity, durable/production database, external
 
 ## RP-TURN-017 consent-aware measurement and error-monitoring verification
 
-Status: Complete pending Project Codex review for the optional repository-local synthetic-alpha boundary.
+Status: Accepted by Project Codex at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2` for the optional repository-local synthetic-alpha boundary.
 
 The independent `measurement-monitoring` purpose uses `measurement-consent-contract-v1`, notice `alpha-measurement-monitoring-v1` and deterministic proof digest `36fda7d28f3db1120c8f9ab8211e038cb1579b6eb3e1f3b942d080e7c4735a78`. Thai/English profile controls display only controlled copy/status/actions and never expose a receipt, subject, event, occurrence, correlation or digest identifier. Service-data consent identifiers/copy/proof remain unchanged. Declining or withdrawing measurement consent does not affect product access.
 
