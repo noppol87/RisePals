@@ -1,6 +1,7 @@
 import "server-only";
 import type { PoolClient } from "pg";
 import type { Locale } from "@/lib/i18n/config";
+import { mutationExecution, type ServerMutationExecution } from "@/lib/server/mutation-execution";
 import {
   withAuthorizedUserTransaction,
   type AuthorizationFailureReason,
@@ -374,15 +375,17 @@ function exactSaveReplay(
   );
 }
 
-export async function saveEvidenceArtifact(
+export async function saveEvidenceArtifactWithExecution(
   rawInput: EvidenceSaveInput,
   identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
-): Promise<EvidenceMutationResult> {
+): Promise<ServerMutationExecution<EvidenceMutationResult>> {
   const input = parseEvidenceSaveInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
-    if (!(await currentConsent(client, userId))) return { state: "not-ready" } as const;
+    if (!(await currentConsent(client, userId))) {
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
+    }
     const artifact = await findArtifact(client, userId, true);
-    if (!artifact) return { state: "not-ready" } as const;
+    if (!artifact) return mutationExecution({ state: "not-ready" } as const, "not-applied");
     const replayResult = await client.query<RevisionRow>(
       `SELECT id, revision, payload, client_mutation_id, mutation_intent,
               mutation_locale, mutation_expected_revision
@@ -392,29 +395,36 @@ export async function saveEvidenceArtifact(
     );
     const replay = parseRevision(replayResult.rows[0]);
     if (replay) {
-      if (!exactSaveReplay(input, replay)) return { state: "conflict" } as const;
+      if (!exactSaveReplay(input, replay)) {
+        return mutationExecution({ state: "conflict" } as const, "not-applied");
+      }
       const currentRevision = await latestRevision(client, artifact.id);
-      return {
-        state:
-          artifact.status === "ready"
-            ? ("ready" as const)
-            : artifact.status === "withdrawn"
-              ? ("withdrawn" as const)
-              : ("saved" as const),
-        artifact: clientState(input.locale, artifact.status, currentRevision),
-      };
+      return mutationExecution(
+        {
+          state:
+            artifact.status === "ready"
+              ? ("ready" as const)
+              : artifact.status === "withdrawn"
+                ? ("withdrawn" as const)
+                : ("saved" as const),
+          artifact: clientState(input.locale, artifact.status, currentRevision),
+        },
+        "replayed",
+      );
     }
     if (
       artifact.startMutationId === input.clientMutationId ||
       artifact.readyMutationId === input.clientMutationId ||
       artifact.withdrawMutationId === input.clientMutationId
     ) {
-      return { state: "conflict" } as const;
+      return mutationExecution({ state: "conflict" } as const, "not-applied");
     }
-    if (artifact.status !== "draft") return { state: "not-ready" } as const;
+    if (artifact.status !== "draft") {
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
+    }
     const previous = await latestRevision(client, artifact.id);
     if ((previous?.revision ?? 0) !== input.expectedRevision) {
-      return { state: "conflict" } as const;
+      return mutationExecution({ state: "conflict" } as const, "not-applied");
     }
     const contract = getEvidenceArtifactContract();
     const inserted = await client.query<RevisionRow>(
@@ -439,12 +449,24 @@ export async function saveEvidenceArtifact(
         input.expectedRevision,
       ],
     );
-    return {
-      state: "saved",
-      artifact: clientState(input.locale, "draft", parseRevision(inserted.rows[0])),
-    } as const;
+    return mutationExecution(
+      {
+        state: "saved",
+        artifact: clientState(input.locale, "draft", parseRevision(inserted.rows[0])),
+      } as const,
+      "applied",
+    );
   });
-  return result.state === "authorized" ? result.value : { state: "denied" };
+  return result.state === "authorized"
+    ? result.value
+    : mutationExecution({ state: "denied" } as const, "not-applied");
+}
+
+export async function saveEvidenceArtifact(
+  rawInput: EvidenceSaveInput,
+  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+): Promise<EvidenceMutationResult> {
+  return (await saveEvidenceArtifactWithExecution(rawInput, identityProvider)).result;
 }
 
 function exactLifecycleReplay(
@@ -460,26 +482,31 @@ function exactLifecycleReplay(
         artifact.withdrawExpectedRevision === input.expectedRevision;
 }
 
-export async function mutateEvidenceLifecycle(
+export async function mutateEvidenceLifecycleWithExecution(
   rawInput: EvidenceLifecycleInput,
   identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
-): Promise<EvidenceMutationResult> {
+): Promise<ServerMutationExecution<EvidenceMutationResult>> {
   const input = parseEvidenceLifecycleInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
-    if (!(await currentConsent(client, userId))) return { state: "not-ready" } as const;
+    if (!(await currentConsent(client, userId))) {
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
+    }
     const artifact = await findArtifact(client, userId, true);
-    if (!artifact) return { state: "not-ready" } as const;
+    if (!artifact) return mutationExecution({ state: "not-ready" } as const, "not-applied");
     const revision = await latestRevision(client, artifact.id);
     if (exactLifecycleReplay(input, artifact)) {
-      return {
-        state:
-          artifact.status === "ready"
-            ? "ready"
-            : artifact.status === "withdrawn"
-              ? "withdrawn"
-              : "saved",
-        artifact: clientState(input.locale, artifact.status, revision),
-      } as const;
+      return mutationExecution(
+        {
+          state:
+            artifact.status === "ready"
+              ? "ready"
+              : artifact.status === "withdrawn"
+                ? "withdrawn"
+                : "saved",
+          artifact: clientState(input.locale, artifact.status, revision),
+        } as const,
+        "replayed",
+      );
     }
     const mutationIds = [
       artifact.startMutationId,
@@ -494,10 +521,10 @@ export async function mutateEvidenceLifecycle(
       [artifact.id, input.clientMutationId],
     );
     if (mutationIds.includes(input.clientMutationId) || revisionMutation.rows[0]?.present) {
-      return { state: "conflict" } as const;
+      return mutationExecution({ state: "conflict" } as const, "not-applied");
     }
     if ((revision?.revision ?? 0) !== input.expectedRevision) {
-      return { state: "conflict" } as const;
+      return mutationExecution({ state: "conflict" } as const, "not-applied");
     }
     if (input.intent === "ready") {
       if (
@@ -505,7 +532,7 @@ export async function mutateEvidenceLifecycle(
         !revision ||
         !evaluateEvidenceArtifactPayload(revision.payload).ready
       ) {
-        return { state: "not-ready" } as const;
+        return mutationExecution({ state: "not-ready" } as const, "not-applied");
       }
       await client.query(
         `UPDATE evidence_artifacts
@@ -514,13 +541,16 @@ export async function mutateEvidenceLifecycle(
          WHERE id = $1`,
         [artifact.id, input.clientMutationId, input.locale, input.expectedRevision],
       );
-      return {
-        state: "ready",
-        artifact: clientState(input.locale, "ready", revision),
-      } as const;
+      return mutationExecution(
+        {
+          state: "ready",
+          artifact: clientState(input.locale, "ready", revision),
+        } as const,
+        "applied",
+      );
     }
     if (artifact.status !== "draft" && artifact.status !== "ready") {
-      return { state: "not-ready" } as const;
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
     }
     await client.query(
       `UPDATE evidence_artifacts
@@ -529,10 +559,22 @@ export async function mutateEvidenceLifecycle(
        WHERE id = $1`,
       [artifact.id, input.clientMutationId, input.locale, input.expectedRevision],
     );
-    return {
-      state: "withdrawn",
-      artifact: clientState(input.locale, "withdrawn", revision),
-    } as const;
+    return mutationExecution(
+      {
+        state: "withdrawn",
+        artifact: clientState(input.locale, "withdrawn", revision),
+      } as const,
+      "applied",
+    );
   });
-  return result.state === "authorized" ? result.value : { state: "denied" };
+  return result.state === "authorized"
+    ? result.value
+    : mutationExecution({ state: "denied" } as const, "not-applied");
+}
+
+export async function mutateEvidenceLifecycle(
+  rawInput: EvidenceLifecycleInput,
+  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+): Promise<EvidenceMutationResult> {
+  return (await mutateEvidenceLifecycleWithExecution(rawInput, identityProvider)).result;
 }

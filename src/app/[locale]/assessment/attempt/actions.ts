@@ -4,11 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isLocale, persistedAssessmentPath, type Locale } from "@/lib/i18n/config";
 import {
-  savePersistedAssessmentResponse,
+  savePersistedAssessmentResponseWithExecution,
   startPersistedAssessment,
   submitPersistedAssessment,
 } from "@/modules/assessment/persistence/dal";
 import type { SavePersistedResponseInput } from "@/modules/assessment/persistence/contract";
+import {
+  captureSuccessfulProductAction,
+  reportControlledErrorOccurrence,
+} from "@/modules/measurement/server";
 
 function readLocale(value: unknown): Locale {
   if (typeof value !== "string" || !isLocale(value)) throw new Error("Unsupported locale.");
@@ -25,9 +29,32 @@ export async function startPersistedAssessmentAction(formData: FormData) {
 
 export async function savePersistedAssessmentResponseAction(input: SavePersistedResponseInput) {
   const locale = readLocale(input.locale);
-  const result = await savePersistedAssessmentResponse({ ...input, locale });
+  let execution: Awaited<ReturnType<typeof savePersistedAssessmentResponseWithExecution>>;
+  try {
+    execution = await savePersistedAssessmentResponseWithExecution({ ...input, locale });
+  } catch {
+    try {
+      await reportControlledErrorOccurrence({
+        surface: "assessment",
+        operationCode: "assessment_response_saved",
+        locale,
+        category: "unexpected_domain",
+        retryable: true,
+        clientMutationId: input.clientMutationId,
+      });
+    } catch {}
+    return { state: "not-ready" } as const;
+  }
+  if (execution.disposition === "applied") {
+    await captureSuccessfulProductAction({
+      surface: "assessment",
+      operationCode: "assessment_response_saved",
+      locale,
+      clientMutationId: input.clientMutationId,
+    });
+  }
   revalidatePath(persistedAssessmentPath(locale));
-  return result;
+  return execution.result;
 }
 
 export async function submitPersistedAssessmentAction(localeValue: string) {

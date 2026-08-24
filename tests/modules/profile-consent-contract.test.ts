@@ -2,6 +2,11 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   PRIVACY_NOTICE_VERSION,
+  MEASUREMENT_CONSENT_PURPOSE,
+  MEASUREMENT_CONSENT_SCHEMA_VERSION,
+  MEASUREMENT_NOTICE_VERSION,
+  measurementNotice,
+  measurementNoticeProofDigest,
   privacyNotice,
   privacyNoticeProofDigest,
   SERVICE_DATA_PURPOSE,
@@ -92,8 +97,62 @@ describe("profile-v1 and consent contract", () => {
     expect(privacyNoticeProofDigest).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it("keeps measurement consent separately versioned and deterministic", () => {
+    const canonical = {
+      schemaVersion: MEASUREMENT_CONSENT_SCHEMA_VERSION,
+      noticeVersion: MEASUREMENT_NOTICE_VERSION,
+      purposeCode: MEASUREMENT_CONSENT_PURPOSE,
+      optional: true,
+      productEventFields: [
+        "schema_version",
+        "event_class",
+        "surface_code",
+        "operation_code",
+        "occurred_at_utc",
+        "action_digest",
+      ],
+      errorOccurrenceFields: [
+        "schema_version",
+        "correlation_uuid",
+        "operation_code",
+        "surface_code",
+        "locale",
+        "error_category",
+        "severity",
+        "retryable",
+        "occurred_at_utc",
+        "optional_mutation_digest",
+      ],
+      eventClasses: ["activation_completed", "meaningful_return_completed"],
+      surfaces: ["assessment", "result", "lesson_practice", "private_evidence"],
+      exclusions: [
+        "identity",
+        "credentials",
+        "raw-urls",
+        "device-data",
+        "assessment-content",
+        "scoring-content",
+        "lesson-content",
+        "practice-content",
+        "evidence-content",
+        "free-text",
+        "arbitrary-json",
+        "external-providers",
+      ],
+    };
+    expect(measurementNoticeProofDigest).toBe(
+      createHash("sha256").update(JSON.stringify(canonical), "utf8").digest("hex"),
+    );
+    expect(measurementNoticeProofDigest).toBe(
+      "36fda7d28f3db1120c8f9ab8211e038cb1579b6eb3e1f3b942d080e7c4735a78",
+    );
+    expect(MEASUREMENT_CONSENT_PURPOSE).not.toBe(SERVICE_DATA_PURPOSE);
+    expect(MEASUREMENT_NOTICE_VERSION).not.toBe(PRIVACY_NOTICE_VERSION);
+  });
+
   it("keeps Thai and English notice/fallback coverage complete and explicit", () => {
     expect(Object.keys(privacyNotice.th)).toEqual(Object.keys(privacyNotice.en));
+    expect(Object.keys(measurementNotice.th)).toEqual(Object.keys(measurementNotice.en));
     expect(Object.keys(profileCopy.th)).toEqual(Object.keys(profileCopy.en));
     expect(privacyNotice.th.summary).toContain("ละเอียดอ่อน");
     expect(privacyNotice.en.summary).toContain("sensitive career data");
@@ -101,6 +160,8 @@ describe("profile-v1 and consent contract", () => {
     expect(privacyNotice.en.identity).toContain("United States");
     expect(profileCopy.th.localizationFallback).toContain("ทดลอง");
     expect(profileCopy.en.localizationFallback).toContain("experimental");
+    expect(measurementNotice.th.independence).toContain("ไม่ปิดกั้น");
+    expect(measurementNotice.en.independence).toContain("does not block");
   });
 
   it.each([

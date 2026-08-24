@@ -1,6 +1,7 @@
 import "server-only";
 import type { PoolClient } from "pg";
 import type { Locale } from "@/lib/i18n/config";
+import { mutationExecution, type ServerMutationExecution } from "@/lib/server/mutation-execution";
 import {
   withAuthorizedUserTransaction,
   type AuthorizationFailureReason,
@@ -300,15 +301,17 @@ function responsePayload(selections: readonly PersistedPracticeSelection[]) {
   return { schemaVersion: PERSISTED_LESSON_RESPONSE_SCHEMA_VERSION, selections };
 }
 
-export async function mutatePersistedLesson(
+export async function mutatePersistedLessonWithExecution(
   rawInput: PersistedLessonMutationInput,
   identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
-): Promise<PersistedLessonMutationResult> {
+): Promise<ServerMutationExecution<PersistedLessonMutationResult>> {
   const input = parsePersistedLessonMutationInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
-    if (!(await currentConsent(client, userId))) return { state: "not-ready" } as const;
+    if (!(await currentConsent(client, userId))) {
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
+    }
     const lesson = await findLesson(client, userId, true);
-    if (!lesson) return { state: "not-ready" } as const;
+    if (!lesson) return mutationExecution({ state: "not-ready" } as const, "not-applied");
 
     const replayResult = await client.query<PracticeRow>(
       `SELECT id, revision, status, response_payload, criterion_results, demonstrated,
@@ -319,24 +322,33 @@ export async function mutatePersistedLesson(
     );
     const replay = parsePractice(replayResult.rows[0]);
     if (replay) {
-      if (!isExactMutationReplay(input, replay)) return { state: "conflict" } as const;
-      return {
-        state: replay.demonstrated
-          ? "demonstrated"
-          : replay.status === "evaluated"
-            ? "needs-retry"
-            : "saved",
-        revision: replay.revision,
-        selections: replay.selections,
-        results: replay.results,
-      } as const;
+      if (!isExactMutationReplay(input, replay)) {
+        return mutationExecution({ state: "conflict" } as const, "not-applied");
+      }
+      return mutationExecution(
+        {
+          state: replay.demonstrated
+            ? "demonstrated"
+            : replay.status === "evaluated"
+              ? "needs-retry"
+              : "saved",
+          revision: replay.revision,
+          selections: replay.selections,
+          results: replay.results,
+        } as const,
+        "replayed",
+      );
     }
-    if (lesson.status === "demonstrated") return { state: "not-ready" } as const;
+    if (lesson.status === "demonstrated") {
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
+    }
 
     const previous = await latestPractice(client, lesson.id);
-    if ((previous?.revision ?? 0) !== input.expectedRevision) return { state: "conflict" } as const;
+    if ((previous?.revision ?? 0) !== input.expectedRevision) {
+      return mutationExecution({ state: "conflict" } as const, "not-applied");
+    }
     if (previous?.status === "evaluated" && !previous.demonstrated && input.intent !== "retry") {
-      return { state: "not-ready" } as const;
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
     }
 
     let selections: readonly PersistedPracticeSelection[];
@@ -348,7 +360,7 @@ export async function mutatePersistedLesson(
       status = "draft";
     } else if (input.intent === "retry") {
       if (!previous || previous.status !== "evaluated" || previous.demonstrated) {
-        return { state: "not-ready" } as const;
+        return mutationExecution({ state: "not-ready" } as const, "not-applied");
       }
       selections = previous.selections;
       status = "draft";
@@ -358,7 +370,9 @@ export async function mutatePersistedLesson(
         createSourceVerificationLessonView(input.locale, sourceVerificationLessonDefinition),
         selections,
       );
-      if (!evaluation.ok) return { state: "not-ready" } as const;
+      if (!evaluation.ok) {
+        return mutationExecution({ state: "not-ready" } as const, "not-applied");
+      }
       status = "evaluated";
       results = evaluation.evaluation.criterionResults;
       demonstrated = evaluation.evaluation.demonstrated;
@@ -435,12 +449,24 @@ export async function mutatePersistedLesson(
         );
       }
     }
-    return {
-      state: demonstrated ? "demonstrated" : status === "evaluated" ? "needs-retry" : "saved",
-      revision: nextRevision,
-      selections,
-      results,
-    } as const;
+    return mutationExecution(
+      {
+        state: demonstrated ? "demonstrated" : status === "evaluated" ? "needs-retry" : "saved",
+        revision: nextRevision,
+        selections,
+        results,
+      } as const,
+      "applied",
+    );
   });
-  return result.state === "authorized" ? result.value : { state: "denied" };
+  return result.state === "authorized"
+    ? result.value
+    : mutationExecution({ state: "denied" } as const, "not-applied");
+}
+
+export async function mutatePersistedLesson(
+  rawInput: PersistedLessonMutationInput,
+  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+): Promise<PersistedLessonMutationResult> {
+  return (await mutatePersistedLessonWithExecution(rawInput, identityProvider)).result;
 }

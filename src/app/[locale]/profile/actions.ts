@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { isConsentDecision } from "@/modules/consent/notice";
-import { appendConsentReceipt, saveProfile } from "@/modules/profile/dal";
+import {
+  appendConsentReceipt,
+  appendMeasurementConsentReceipt,
+  saveProfile,
+} from "@/modules/profile/dal";
 
 function readLocale(formData: FormData): Locale {
   const locale = formData.get("preferredLocale");
@@ -41,6 +45,18 @@ export async function saveProfileAction(formData: FormData) {
   }
 
   revalidatePath(`/${locale}/onboarding`);
+  revalidatePath(`/${locale}/profile`);
+  redirect(`/${locale}/profile`);
+}
+
+export async function recordMeasurementConsentAction(formData: FormData) {
+  const locale = readLocale(formData);
+  const decision = formData.get("decision");
+  if (!isConsentDecision(decision)) {
+    throw new Error("Unsupported measurement consent decision.");
+  }
+
+  ensureAuthorized(await appendMeasurementConsentReceipt(decision, locale));
   revalidatePath(`/${locale}/profile`);
   redirect(`/${locale}/profile`);
 }

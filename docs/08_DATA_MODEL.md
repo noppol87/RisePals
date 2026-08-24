@@ -542,6 +542,16 @@ The sixth migration adds exactly three pluralized tables for one controlled synt
 
 The sixth migration brings the fresh schema to exactly twenty-three tables. All three new tables enable and force RLS, require current consent and deny application DELETE. Revision/link UPDATE is absent; artifact UPDATE is limited to guarded lifecycle provenance columns. The application role owns no table and has no `BYPASSRLS`. No free text, file/object, URL, upload, share grant, export, XP, score or recommendation is stored.
 
+### Implemented RP-TURN-017 consent-aware measurement model
+
+The seventh migration adds exactly three pluralized tables for the optional first-party synthetic-alpha foundation:
+
+- `measurement_subjects` maps one owner and exact current granted `measurement-monitoring` receipt to one pseudonymous `measurement-subject-v1` identity. Withdrawal makes that subject ineligible for capture; a later exact grant produces another subject.
+- `product_events` stores only `product-measurement-v1`, one of `activation_completed` or `meaningful_return_completed`, an allowlisted surface/operation pair, owner-bound context SHA-256 and UTC time. The first newly applied explicit persisted action is activation; meaningful return requires a distinct newly applied action on a later UTC date. The globally unique owner-bound digest preserves mutation provenance across per-grant subject rotation, so an exact replay cannot be captured retroactively under a later grant.
+- `error_occurrences` stores only `redacted-error-occurrence-v1`, opaque correlation UUID, controlled surface/operation/locale/category/severity/retryability, UTC time and optional context-bound mutation digest. It has no message, stack, URL, identity, content, arbitrary JSON or secret field.
+
+The seventh migration brings the fresh schema to exactly twenty-six tables. All three new tables enable and force RLS, require the exact current measurement grant and grant the application only SELECT/INSERT. Direct SQL checks enforce every allowlist; application UPDATE/DELETE is absent. Capture is a non-authoritative side effect and never changes the underlying domain transaction. Retention/export/erasure operations, external telemetry and production observability remain open.
+
 ## Future evidence and user-controlled sharing (not implemented)
 
 ### `evidence_artifact`
@@ -576,9 +586,9 @@ Default is no grant. Shared views do not reveal assessment scores unless a futur
 
 ## Analytics and audit separation
 
-### `product_event`
+### Implemented `product_events` boundary
 
-May be an external analytics contract rather than an application table. Allowed fields:
+The local synthetic-alpha implementation uses the exact allowlisted fields documented above. A later external adapter or provider is not selected and would require a separate decision. The broader candidate contract remains limited to:
 
 - allowlisted event name and schema version
 - pseudonymous application user/event subject ID when consent permits
@@ -596,13 +606,13 @@ Staff/security audit records contain actor ID, action, target type/opaque ID, oc
 
 ### Implemented RP-TURN-010 baseline and RP-TURN-011/012/013 extensions
 
-The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds five derived tables; RP-TURN-015 adds exactly the three learning tables above; RP-TURN-016 adds the three controlled evidence tables. The fresh six-migration schema therefore contains exactly twenty-three tables.
+The accepted RP-TURN-010 baseline contains nine tables. RP-TURN-011 adds `user_profiles`; RP-TURN-012 adds only `assessment_sessions` and `assessment_responses`; RP-TURN-013 adds five derived tables; RP-TURN-015 adds exactly the three learning tables above; RP-TURN-016 adds the three controlled evidence tables; RP-TURN-017 adds the three consent-aware measurement/error tables. The fresh seven-migration schema therefore contains exactly twenty-six tables.
 
 One forward migration enforces UUID identities; unique provider/subject mappings; unique framework, scoring-model and assessment business versions; restrictive foreign keys; versioned JSON object checks; UTC-capable `timestamptz`; null multiplier weights; and the exact sealed 8-core/+2-multiplier registry totaling 10,000 core basis points. Version rows are inserted as drafts, publish only after validation, retire only through a status-only transition and are immutable while published or retired. Owned definition children cannot move out of or into a sealed framework/assessment; trigger locks cover OLD and NEW parents in deterministic UUID order. Consent rows are append-only.
 
 `user_accounts`, `external_identities`, `consent_records` and `user_profiles` have forced RLS. Both the table-owning migration role and normal application role resolve owned rows through a transaction-local `app.current_user_id`; without valid context both see zero provider-identity rows. The normal role owns no table and is `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT` and `NOBYPASSRLS`. A hardened `SECURITY DEFINER` function exposes only Clerk resolve-or-provision to the application role: it fixes `search_path`, rejects other provider/subject shapes, serializes on the mapping key, relies on provider/subject uniqueness, provisions account and mapping atomically, revokes `PUBLIC` and grants only runtime execution. The function owner is a credentialless `NOLOGIN`/`NOBYPASSRLS` resolver role with only required table operations and narrow forced-RLS policies; neither application nor migration owner can assume it after the privileged bootstrap revokes temporary migration membership. The server may call the function only after a validated Clerk session and then establishes the internal UUID context. Browser input never controls the provider subject or context.
 
-The RP-TURN-011 extension persists a controlled profile and append-only service-data consent receipts. RP-TURN-012 adds owner-scoped synthetic assessment sessions and raw selected-option revision history. RP-TURN-013 adds only reproducible synthetic derived runs/signals/explanations/bounded priority. RP-TURN-015 adds owner-scoped synthetic lesson/practice/progress history without XP. RP-TURN-016 adds only one private controlled synthetic note and its traceability link; it is not a general proof/file/share model. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Real identities, production accounts, XP, uploads, object storage, sharing and externally verifiable proof remain excluded. The disposable PostgreSQL harness uses only synthetic users, repository-local synthetic published definitions and temporary credentials outside the repository.
+The RP-TURN-011 extension persists a controlled profile and append-only service-data consent receipts. RP-TURN-012 adds owner-scoped synthetic assessment sessions and raw selected-option revision history. RP-TURN-013 adds only reproducible synthetic derived runs/signals/explanations/bounded priority. RP-TURN-015 adds owner-scoped synthetic lesson/practice/progress history without XP. RP-TURN-016 adds only one private controlled synthetic note and its traceability link; it is not a general proof/file/share model. RP-TURN-017 adds only optional pseudonymous first-party product events and redacted error occurrences under a separate consent receipt; it is not marketing analytics or external monitoring. Clerk retains authentication/session state; the database stores a provider mapping without copied email, token or credential. Real identities, production accounts, XP, uploads, object storage, sharing and externally verifiable proof remain excluded. The disposable PostgreSQL harness uses only synthetic users, repository-local synthetic published definitions and temporary credentials outside the repository.
 
 - Browser code never receives a privileged database credential.
 - Server Data Access Layer checks active account, required role, owner/relationship and requested fields.

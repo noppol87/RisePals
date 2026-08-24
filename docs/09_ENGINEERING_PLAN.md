@@ -220,7 +220,7 @@ Gate:
 
 Outcome: one owner/current-consent controlled synthetic source-verification note after the exact demonstrated persisted practice. Separate protected Thai/English evidence routes support explicit start, partial save, deterministic readiness and irreversible withdrawal. The accepted public lesson/proof placeholder remains static and non-collecting.
 
-Implementation status: Complete pending Project Codex review. One sixth migration adds exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`, producing twenty-three tables. The strict `source-verification-note-artifact-v1@1.0.0` payload contains only fixed controlled Bright River values. Revisions are append-only with exact replay/conflict provenance; all three tables force owner RLS and current consent. Ready is a synthetic structural checklist only. No free text, file/upload, object storage, share/export, XP, scoring, recommendation or employment claim exists. RP-TURN-017 is recommended only and not authorized.
+Implementation status: Accepted by Project Codex at reviewed implementation head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`. One sixth migration adds exactly `evidence_artifacts`, `evidence_artifact_revisions` and `evidence_competency_links`, producing twenty-three tables. The strict `source-verification-note-artifact-v1@1.0.0` payload contains only fixed controlled Bright River values. Revisions are append-only with exact replay/conflict provenance; all three tables force owner RLS and current consent. Ready is a synthetic structural checklist only. No free text, file/upload, object storage, share/export, XP, scoring, recommendation or employment claim exists.
 
 Gate:
 
@@ -233,11 +233,15 @@ Gate:
 
 Outcome: allowlisted activation/return events and redacted operational monitoring behind adapters.
 
+Implementation status: Complete pending Project Codex review after R1. One seventh migration adds exactly `measurement_subjects`, `product_events` and `error_occurrences`, producing twenty-six tables. A separate optional versioned consent controls a pseudonymous per-grant subject. Server-only repository-local PostgreSQL and disabled adapters receive only a prehashed exact controlled candidate; a private applied/replayed/non-applied envelope limits capture to newly committed actions. Owner-bound global digest uniqueness rejects exact replay across consent rotation. Controlled unexpected failures do not forward or rethrow raw errors. No external provider, dependency, environment variable, browser tracker, production approval or retention/export/erasure operation exists. RP-TURN-018 is recommended only and not authorized.
+
 Gate:
 
 - Event schemas reject prohibited P2/P3 fields
 - Analytics honors current consent state
 - Error tests prove answers, scores, proof content, tokens and signed URLs are redacted
+- Forced owner RLS, withdrawal cutoff, re-grant subject rotation, replay idempotency, later-UTC-day return and append-only restrictions pass in disposable PostgreSQL
+- Thai/English profile controls pass keyboard, 320px, reduced-motion, accessibility and no-network/client-boundary checks
 
 ### RP-TURN-018 — Alpha Hardening and Recovery
 

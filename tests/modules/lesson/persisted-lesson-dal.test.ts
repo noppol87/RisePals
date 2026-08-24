@@ -16,7 +16,10 @@ vi.mock("@/modules/identity/providers/clerk/server", () => ({
   createClerkDevelopmentIdentityProvider: vi.fn(),
 }));
 
-import { mutatePersistedLesson } from "@/modules/lesson/persistence/dal";
+import {
+  mutatePersistedLesson,
+  mutatePersistedLessonWithExecution,
+} from "@/modules/lesson/persistence/dal";
 
 const userId = "10000000-0000-4000-8000-000000000001";
 const lessonId = "20000000-0000-4000-8000-000000000001";
@@ -216,9 +219,9 @@ describe("persisted lesson mutation replay", () => {
 
   it("returns the original save, evaluation and retry for exact replays", async () => {
     const saveQueries = useReplayTransaction(storedPractice(), "in_progress");
-    await expect(mutatePersistedLesson(input(), provider)).resolves.toMatchObject({
-      state: "saved",
-      revision: 1,
+    await expect(mutatePersistedLessonWithExecution(input(), provider)).resolves.toMatchObject({
+      disposition: "replayed",
+      result: { state: "saved", revision: 1 },
     });
     expect(saveQueries).toEqual([]);
 
@@ -297,13 +300,17 @@ describe("persisted lesson mutation replay", () => {
     const harness = new SerializedMutationHarness();
     authorization.run.mockImplementation(harness.run.bind(harness));
     const request = input();
-    const results = await Promise.all([
-      mutatePersistedLesson(request, provider),
-      mutatePersistedLesson(request, provider),
+    const executions = await Promise.all([
+      mutatePersistedLessonWithExecution(request, provider),
+      mutatePersistedLessonWithExecution(request, provider),
     ]);
-    expect(results).toEqual([
+    expect(executions.map(({ result }) => result)).toEqual([
       { state: "saved", revision: 1, selections: canonicalSelections, results: null },
       { state: "saved", revision: 1, selections: canonicalSelections, results: null },
+    ]);
+    expect(executions.map(({ disposition }) => disposition).sort()).toEqual([
+      "applied",
+      "replayed",
     ]);
     expect(harness.rows).toHaveLength(1);
     expect(harness.events).toHaveLength(0);

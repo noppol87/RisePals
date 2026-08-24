@@ -1238,6 +1238,132 @@ export const evidenceCompetencyLinks = pgTable(
   ],
 );
 
+export const measurementSubjects = pgTable(
+  "measurement_subjects",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id").notNull(),
+    consentRecordId: uuid("consent_record_id").notNull(),
+    subjectSchemaVersion: text("subject_schema_version").notNull(),
+    createdAt: utcTimestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    unique("measurement_subjects_id_user_unique").on(table.id, table.userId),
+    uniqueIndex("measurement_subjects_owner_consent_unique").on(
+      table.userId,
+      table.consentRecordId,
+    ),
+    index("measurement_subjects_owner_created_idx").on(table.userId, table.createdAt),
+    foreignKey({
+      name: "measurement_subjects_user_fk",
+      columns: [table.userId],
+      foreignColumns: [userAccounts.id],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    foreignKey({
+      name: "measurement_subjects_consent_owner_fk",
+      columns: [table.consentRecordId, table.userId],
+      foreignColumns: [consentRecords.id, consentRecords.userId],
+    })
+      .onDelete("restrict")
+      .onUpdate("restrict"),
+    check(
+      "measurement_subjects_schema_check",
+      sql`${table.subjectSchemaVersion} = 'measurement-subject-v1'`,
+    ),
+  ],
+);
+
+export const productEvents = pgTable(
+  "product_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    measurementSubjectId: uuid("measurement_subject_id")
+      .notNull()
+      .references(() => measurementSubjects.id, {
+        onDelete: "restrict",
+        onUpdate: "restrict",
+      }),
+    schemaVersion: text("schema_version").notNull(),
+    eventClass: text("event_class").notNull(),
+    surfaceCode: text("surface_code").notNull(),
+    operationCode: text("operation_code").notNull(),
+    actionDigest: text("action_digest").notNull(),
+    occurredAt: utcTimestamp("occurred_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("product_events_action_unique").on(table.actionDigest),
+    index("product_events_subject_occurred_idx").on(table.measurementSubjectId, table.occurredAt),
+    check("product_events_schema_check", sql`${table.schemaVersion} = 'product-measurement-v1'`),
+    check(
+      "product_events_class_check",
+      sql`${table.eventClass} IN ('activation_completed', 'meaningful_return_completed')`,
+    ),
+    check(
+      "product_events_surface_check",
+      sql`${table.surfaceCode} IN ('assessment', 'result', 'lesson_practice', 'private_evidence')`,
+    ),
+    check(
+      "product_events_operation_check",
+      sql`(${table.surfaceCode} = 'assessment' AND ${table.operationCode} = 'assessment_response_saved') OR (${table.surfaceCode} = 'result' AND ${table.operationCode} = 'result_generated') OR (${table.surfaceCode} = 'lesson_practice' AND ${table.operationCode} IN ('lesson_started', 'lesson_practice_saved', 'lesson_practice_evaluated', 'lesson_practice_retry_started')) OR (${table.surfaceCode} = 'private_evidence' AND ${table.operationCode} IN ('private_evidence_started', 'private_evidence_saved', 'private_evidence_marked_ready', 'private_evidence_withdrawn'))`,
+    ),
+    check("product_events_digest_check", sql`${table.actionDigest} ~ '^[0-9a-f]{64}$'`),
+  ],
+);
+
+export const errorOccurrences = pgTable(
+  "error_occurrences",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    measurementSubjectId: uuid("measurement_subject_id")
+      .notNull()
+      .references(() => measurementSubjects.id, {
+        onDelete: "restrict",
+        onUpdate: "restrict",
+      }),
+    schemaVersion: text("schema_version").notNull(),
+    correlationId: uuid("correlation_id").notNull(),
+    operationCode: text("operation_code").notNull(),
+    surfaceCode: text("surface_code").notNull(),
+    locale: text("locale").notNull(),
+    errorCategory: text("error_category").notNull(),
+    severity: text("severity").notNull(),
+    retryable: boolean("retryable").notNull(),
+    occurredAt: utcTimestamp("occurred_at").notNull(),
+    mutationDigest: text("mutation_digest"),
+  },
+  (table) => [
+    uniqueIndex("error_occurrences_correlation_unique").on(table.correlationId),
+    index("error_occurrences_subject_occurred_idx").on(
+      table.measurementSubjectId,
+      table.occurredAt,
+    ),
+    check(
+      "error_occurrences_schema_check",
+      sql`${table.schemaVersion} = 'redacted-error-occurrence-v1'`,
+    ),
+    check(
+      "error_occurrences_surface_check",
+      sql`${table.surfaceCode} IN ('assessment', 'result', 'lesson_practice', 'private_evidence')`,
+    ),
+    check(
+      "error_occurrences_operation_check",
+      sql`(${table.surfaceCode} = 'assessment' AND ${table.operationCode} = 'assessment_response_saved') OR (${table.surfaceCode} = 'result' AND ${table.operationCode} = 'result_generated') OR (${table.surfaceCode} = 'lesson_practice' AND ${table.operationCode} IN ('lesson_started', 'lesson_practice_saved', 'lesson_practice_evaluated', 'lesson_practice_retry_started')) OR (${table.surfaceCode} = 'private_evidence' AND ${table.operationCode} IN ('private_evidence_started', 'private_evidence_saved', 'private_evidence_marked_ready', 'private_evidence_withdrawn'))`,
+    ),
+    check("error_occurrences_locale_check", sql`${table.locale} IN ('th', 'en')`),
+    check(
+      "error_occurrences_category_check",
+      sql`${table.errorCategory} IN ('unexpected_database', 'unexpected_identity', 'unexpected_domain', 'unexpected_internal')`,
+    ),
+    check("error_occurrences_severity_check", sql`${table.severity} IN ('warning', 'error')`),
+    check(
+      "error_occurrences_digest_check",
+      sql`${table.mutationDigest} IS NULL OR ${table.mutationDigest} ~ '^[0-9a-f]{64}$'`,
+    ),
+  ],
+);
+
 export const databaseSchema = {
   userAccounts,
   externalIdentities,
@@ -1262,4 +1388,7 @@ export const databaseSchema = {
   evidenceArtifacts,
   evidenceArtifactRevisions,
   evidenceCompetencyLinks,
+  measurementSubjects,
+  productEvents,
+  errorOccurrences,
 } as const;

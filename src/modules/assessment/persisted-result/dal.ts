@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { Locale } from "@/lib/i18n/config";
+import { mutationExecution, type ServerMutationExecution } from "@/lib/server/mutation-execution";
 import {
   withAuthorizedUserTransaction,
   type AuthorizationFailureReason,
@@ -513,35 +514,51 @@ export async function loadPersistedResultPageState(
   return result.state === "authorized" ? result.value : { state: "denied", reason: result.reason };
 }
 
-export async function generatePersistedResult(
+export async function generatePersistedResultWithExecution(
   locale: Locale,
   mutationId: string,
   identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
-): Promise<GeneratePersistedResultResult> {
-  if (!uuidPattern.test(mutationId)) return { state: "failed" };
+): Promise<ServerMutationExecution<GeneratePersistedResultResult>> {
+  if (!uuidPattern.test(mutationId)) {
+    return mutationExecution({ state: "failed" } as const, "not-applied");
+  }
   try {
     const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
       let source = await loadSource(client, userId, true);
-      if (typeof source === "string") return { state: source } as const;
+      if (typeof source === "string") {
+        return mutationExecution({ state: source } as const, "not-applied");
+      }
       await client.query(
         `SELECT pg_advisory_xact_lock(hashtextextended('assessment-scoring:' || $1, 0))`,
         [source.sessionId],
       );
       source = await loadSource(client, userId, true);
-      if (typeof source === "string") return { state: source } as const;
+      if (typeof source === "string") {
+        return mutationExecution({ state: source } as const, "not-applied");
+      }
       const derivation = derivePersistedSyntheticResult(source.derivationInput);
       const existing = await latestRun(client, source.sessionId);
       if (existing) {
         await assertPersistedRunMatches(client, existing, derivation);
-        return { state: "ready" } as const;
+        return mutationExecution({ state: "ready" } as const, "replayed");
       }
       await persistDerivation(client, source, derivation, mutationId, null);
-      return { state: "ready" } as const;
+      return mutationExecution({ state: "ready" } as const, "applied");
     });
-    return result.state === "authorized" ? result.value : { state: "denied" };
+    return result.state === "authorized"
+      ? result.value
+      : mutationExecution({ state: "denied" } as const, "not-applied");
   } catch {
-    return { state: "failed" };
+    return mutationExecution({ state: "failed" } as const, "not-applied");
   }
+}
+
+export async function generatePersistedResult(
+  locale: Locale,
+  mutationId: string,
+  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+): Promise<GeneratePersistedResultResult> {
+  return (await generatePersistedResultWithExecution(locale, mutationId, identityProvider)).result;
 }
 
 export async function rescorePersistedResultForAuthorizedUser(

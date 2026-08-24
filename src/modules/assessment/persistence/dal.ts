@@ -1,6 +1,7 @@
 import "server-only";
 import type { PoolClient } from "pg";
 import type { Locale } from "@/lib/i18n/config";
+import { mutationExecution, type ServerMutationExecution } from "@/lib/server/mutation-execution";
 import type { IdentityProvider } from "@/modules/identity/contract";
 import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
 import {
@@ -331,10 +332,10 @@ export async function startPersistedAssessment(
     : { state: "denied", reason: result.reason };
 }
 
-export async function savePersistedAssessmentResponse(
+export async function savePersistedAssessmentResponseWithExecution(
   rawInput: SavePersistedResponseInput,
   identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
-): Promise<SavePersistedResponseResult> {
+): Promise<ServerMutationExecution<SavePersistedResponseResult>> {
   const input = parseSavePersistedResponseInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     const context = await loadInternalContext(client, userId, input.locale, true);
@@ -343,7 +344,7 @@ export async function savePersistedAssessmentResponse(
       !context.session ||
       context.session.status !== "in_progress"
     ) {
-      return { state: "not-ready" } as const;
+      return mutationExecution({ state: "not-ready" } as const, "not-applied");
     }
     const item = context.items.find((entry) => entry.key === input.itemKey);
     if (!item || !item.optionIds.includes(input.selectedOptionId)) {
@@ -368,7 +369,7 @@ export async function savePersistedAssessmentResponse(
       ) {
         throw new Error("A client mutation ID cannot represent two different responses.");
       }
-      return { state: "saved", selection: replay } as const;
+      return mutationExecution({ state: "saved", selection: replay } as const, "replayed");
     }
 
     const activeRow = context.responses.find(
@@ -376,7 +377,10 @@ export async function savePersistedAssessmentResponse(
     );
     const activeSelection = activeRow ? parseSelection(activeRow) : null;
     if ((activeSelection?.revision ?? 0) !== input.expectedRevision) {
-      return { state: "conflict", selection: activeSelection } as const;
+      return mutationExecution(
+        { state: "conflict", selection: activeSelection } as const,
+        "not-applied",
+      );
     }
 
     if (activeRow) {
@@ -410,9 +414,21 @@ export async function savePersistedAssessmentResponse(
        WHERE id = $2`,
       [item.id, context.session.id],
     );
-    return { state: "saved", selection: parseSelection(inserted.rows[0]!) } as const;
+    return mutationExecution(
+      { state: "saved", selection: parseSelection(inserted.rows[0]!) } as const,
+      "applied",
+    );
   });
-  return result.state === "authorized" ? result.value : { state: "denied" };
+  return result.state === "authorized"
+    ? result.value
+    : mutationExecution({ state: "denied" } as const, "not-applied");
+}
+
+export async function savePersistedAssessmentResponse(
+  rawInput: SavePersistedResponseInput,
+  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+): Promise<SavePersistedResponseResult> {
+  return (await savePersistedAssessmentResponseWithExecution(rawInput, identityProvider)).result;
 }
 
 export async function submitPersistedAssessment(

@@ -186,7 +186,7 @@ try {
      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
      ORDER BY table_name`,
   );
-  assert.equal(tables.rowCount, 23, "the smoke database must contain exactly twenty-three tables");
+  assert.equal(tables.rowCount, 26, "the smoke database must contain exactly twenty-six tables");
 
   const expectedSeedCounts = {
     assessment_item_competencies: 6,

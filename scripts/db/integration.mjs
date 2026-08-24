@@ -34,6 +34,9 @@ const lessonUserA = "20000000-0000-4000-8000-000000000006";
 const lessonUserB = "20000000-0000-4000-8000-000000000007";
 const evidenceUserA = "20000000-0000-4000-8000-000000000008";
 const evidenceUserB = "20000000-0000-4000-8000-000000000009";
+const measurementUserA = "20000000-0000-4000-8000-000000000010";
+const measurementUserB = "20000000-0000-4000-8000-000000000011";
+const measurementProofDigest = "36fda7d28f3db1120c8f9ab8211e038cb1579b6eb3e1f3b942d080e7c4735a78";
 const resultPolicyDigest = "10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157";
 const persistedDefinition = JSON.parse(
   await readFile(
@@ -349,8 +352,8 @@ async function verifyRoleAndSchemaBaseline(client) {
   );
   assert.equal(
     tables.rows[0].count,
-    23,
-    "the six fresh migrations create exactly twenty-three tables",
+    26,
+    "the seven fresh migrations create exactly twenty-six tables",
   );
 
   const listener = await client.query(
@@ -440,17 +443,20 @@ async function verifyRoleAndSchemaBaseline(client) {
         "evidence_competency_links",
         "learning_progress_events",
         "lesson_attempts",
+        "measurement_subjects",
         "multiplier_observations",
         "practice_attempts",
         "priority_recommendations",
+        "product_events",
         "score_explanations",
         "scoring_runs",
+        "error_occurrences",
         "user_accounts",
         "user_profiles",
       ],
     ],
   );
-  assert.equal(forcedRls.rowCount, 17);
+  assert.equal(forcedRls.rowCount, 20);
   assert.ok(forcedRls.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 }
 
@@ -3244,6 +3250,384 @@ async function verifyPrivateEvidenceArtifactContract() {
   });
 }
 
+async function verifyMeasurementMonitoringContract() {
+  for (const userId of [measurementUserA, measurementUserB]) {
+    await withApplicationUser(userId, (client) =>
+      client.query(`INSERT INTO user_accounts (id) VALUES ($1)`, [userId]),
+    );
+  }
+
+  const serviceOnlyConsent = await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'service-profile-learning-state','alpha-privacy-v1','granted',
+               '2026-08-24T08:00:00Z','th','synthetic-test',$2)
+       RETURNING id`,
+      [measurementUserA, proofDigest],
+    ),
+  );
+  assert.equal(serviceOnlyConsent.rowCount, 1);
+  assert.deepEqual(
+    await withApplicationUser(measurementUserA, async (client) => ({
+      subjects: (await client.query(`SELECT id FROM measurement_subjects`)).rowCount,
+      events: (await client.query(`SELECT id FROM product_events`)).rowCount,
+      errors: (await client.query(`SELECT id FROM error_occurrences`)).rowCount,
+    })),
+    { subjects: 0, events: 0, errors: 0 },
+    "service-data consent alone creates no measurement or monitoring rows",
+  );
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO measurement_subjects
+            (user_id,consent_record_id,subject_schema_version)
+           VALUES ($1,$2,'measurement-subject-v1')`,
+          [measurementUserA, serviceOnlyConsent.rows[0].id],
+        ),
+      ),
+    "measurement subject backed only by service-data consent",
+    "42501",
+  );
+
+  const consentA = await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','granted',
+               '2026-08-24T09:00:00Z','th','profile-measurement-v1',$2)
+       RETURNING id`,
+      [measurementUserA, measurementProofDigest],
+    ),
+  );
+  const consentB = await withApplicationUser(measurementUserB, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','granted',
+               '2026-08-24T09:00:00Z','en','profile-measurement-v1',$2)
+       RETURNING id`,
+      [measurementUserB, measurementProofDigest],
+    ),
+  );
+  const subjectA = await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO measurement_subjects
+        (user_id,consent_record_id,subject_schema_version,created_at)
+       VALUES ($1,$2,'measurement-subject-v1','2026-08-24T09:01:00Z') RETURNING id`,
+      [measurementUserA, consentA.rows[0].id],
+    ),
+  );
+  const subjectB = await withApplicationUser(measurementUserB, (client) =>
+    client.query(
+      `INSERT INTO measurement_subjects
+        (user_id,consent_record_id,subject_schema_version,created_at)
+       VALUES ($1,$2,'measurement-subject-v1','2026-08-24T09:01:00Z') RETURNING id`,
+      [measurementUserB, consentB.rows[0].id],
+    ),
+  );
+  const subjectAId = subjectA.rows[0].id;
+  const subjectBId = subjectB.rows[0].id;
+  assert.notEqual(subjectAId, subjectBId, "owners receive distinct pseudonymous subjects");
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserB, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+                   'assessment_response_saved',$2,'2026-08-24T10:00:00Z')`,
+          [subjectAId, "1".repeat(64)],
+        ),
+      ),
+    "cross-owner product-event insertion",
+    "42501",
+  );
+
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO product_events
+        (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+         action_digest,occurred_at)
+       VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+               'assessment_response_saved',$2,'2026-08-24T10:00:00Z')`,
+      [subjectAId, "2".repeat(64)],
+    ),
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+                   'assessment_response_saved',$2,'2026-08-24T10:00:00Z')`,
+          [subjectAId, "2".repeat(64)],
+        ),
+      ),
+    "exact action-digest replay",
+    "23505",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+                   'private_evidence_saved',$2,'2026-08-24T10:01:00Z')`,
+          [subjectAId, "3".repeat(64)],
+        ),
+      ),
+    "mismatched event surface and operation",
+    "23514",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','page_view','assessment',
+                   'assessment_response_saved',$2,'2026-08-24T10:01:00Z')`,
+          [subjectAId, "3".repeat(64)],
+        ),
+      ),
+    "non-allowlisted product event class",
+    "23514",
+  );
+
+  const correlationId = "60000000-0000-4000-8000-000000000001";
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO error_occurrences
+        (measurement_subject_id,schema_version,correlation_id,operation_code,surface_code,
+         locale,error_category,severity,retryable,occurred_at,mutation_digest)
+       VALUES ($1,'redacted-error-occurrence-v1',$2,'result_generated','result','th',
+               'unexpected_domain','error',true,'2026-08-24T10:02:00Z',$3)`,
+      [subjectAId, correlationId, "4".repeat(64)],
+    ),
+  );
+  for (const [label, locale, category, severity, mutation] of [
+    ["arbitrary error category", "th", "raw_exception", "error", "5".repeat(64)],
+    ["non-allowlisted severity", "th", "unexpected_domain", "critical", "5".repeat(64)],
+    ["non-allowlisted locale", "fr", "unexpected_domain", "error", "5".repeat(64)],
+    ["malformed mutation digest", "th", "unexpected_domain", "error", "raw-mutation-uuid"],
+  ]) {
+    await expectDatabaseRejection(
+      () =>
+        withApplicationUser(measurementUserA, (client) =>
+          client.query(
+            `INSERT INTO error_occurrences
+              (measurement_subject_id,schema_version,correlation_id,operation_code,surface_code,
+               locale,error_category,severity,retryable,occurred_at,mutation_digest)
+             VALUES ($1,'redacted-error-occurrence-v1',gen_random_uuid(),'result_generated',
+                     'result',$2,$3,$4,false,'2026-08-24T10:03:00Z',$5)`,
+            [subjectAId, locale, category, severity, mutation],
+          ),
+        ),
+      label,
+      "23514",
+    );
+  }
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(`UPDATE product_events SET occurred_at=clock_timestamp()`),
+      ),
+    "application product-event update",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(`DELETE FROM error_occurrences`),
+      ),
+    "application error-occurrence delete",
+    "42501",
+  );
+
+  assert.deepEqual(
+    await withApplicationUser(measurementUserA, async (client) => ({
+      subjects: (await client.query(`SELECT id FROM measurement_subjects`)).rowCount,
+      events: (await client.query(`SELECT id FROM product_events`)).rowCount,
+      errors: (await client.query(`SELECT id FROM error_occurrences`)).rowCount,
+    })),
+    { subjects: 1, events: 1, errors: 1 },
+  );
+  assert.deepEqual(
+    await withApplicationUser(measurementUserB, async (client) => ({
+      subjects: (await client.query(`SELECT id FROM measurement_subjects`)).rowCount,
+      events: (await client.query(`SELECT id FROM product_events`)).rowCount,
+      errors: (await client.query(`SELECT id FROM error_occurrences`)).rowCount,
+    })),
+    { subjects: 1, events: 0, errors: 0 },
+    "forced RLS keeps pseudonymous occurrence history owner-scoped",
+  );
+
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','withdrawn',
+               '2026-08-24T11:00:00Z','th','profile-measurement-v1',$2)`,
+      [measurementUserA, measurementProofDigest],
+    ),
+  );
+  assert.deepEqual(
+    await withApplicationUser(measurementUserA, async (client) => ({
+      subjects: (await client.query(`SELECT id FROM measurement_subjects`)).rowCount,
+      events: (await client.query(`SELECT id FROM product_events`)).rowCount,
+      errors: (await client.query(`SELECT id FROM error_occurrences`)).rowCount,
+    })),
+    { subjects: 0, events: 0, errors: 0 },
+    "withdrawal immediately hides prior subjects and stops capture",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','meaningful_return_completed','result',
+                   'result_generated',$2,'2026-08-25T10:00:00Z')`,
+          [subjectAId, "6".repeat(64)],
+        ),
+      ),
+    "capture after withdrawal",
+    "42501",
+  );
+
+  const regrant = await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','granted',
+               '2026-08-24T12:00:00Z','en','profile-measurement-v1',$2)
+       RETURNING id`,
+      [measurementUserA, measurementProofDigest],
+    ),
+  );
+  const rotated = await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO measurement_subjects
+        (user_id,consent_record_id,subject_schema_version,created_at)
+       VALUES ($1,$2,'measurement-subject-v1','2026-08-24T12:01:00Z') RETURNING id`,
+      [measurementUserA, regrant.rows[0].id],
+    ),
+  );
+  assert.notEqual(rotated.rows[0].id, subjectAId, "re-grant rotates the pseudonymous subject");
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+                   'assessment_response_saved',$2,'2026-08-24T12:02:00Z')`,
+          [rotated.rows[0].id, "2".repeat(64)],
+        ),
+      ),
+    "cross-consent action-digest replay after subject rotation",
+    "23505",
+  );
+  assert.equal(
+    (
+      await withApplicationUser(measurementUserA, (client) =>
+        client.query(`SELECT id FROM product_events`),
+      )
+    ).rowCount,
+    0,
+    "cross-consent replay leaves the rotated subject without a retroactive event",
+  );
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO product_events
+        (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+         action_digest,occurred_at)
+       VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+               'assessment_response_saved',$2,'2026-08-24T12:03:00Z')`,
+      [rotated.rows[0].id, "6".repeat(64)],
+    ),
+  );
+  assert.equal(
+    (
+      await withApplicationUser(measurementUserA, (client) =>
+        client.query(`SELECT id FROM product_events`),
+      )
+    ).rowCount,
+    1,
+    "a distinct new action after re-grant may activate the rotated subject",
+  );
+
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v0','granted',
+               '2026-08-24T13:00:00Z','en','profile-measurement-v1',$2)`,
+      [measurementUserA, measurementProofDigest],
+    ),
+  );
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO error_occurrences
+            (measurement_subject_id,schema_version,correlation_id,operation_code,surface_code,
+             locale,error_category,severity,retryable,occurred_at,mutation_digest)
+           VALUES ($1,'redacted-error-occurrence-v1',gen_random_uuid(),'result_generated',
+                   'result','en','unexpected_internal','warning',false,
+                   '2026-08-24T13:01:00Z',NULL)`,
+          [rotated.rows[0].id],
+        ),
+      ),
+    "capture after a stale notice becomes current",
+    "42501",
+  );
+
+  for (const table of ["measurement_subjects", "product_events", "error_occurrences"]) {
+    assert.equal(
+      (await applicationPool.query(`SELECT id FROM ${table}`)).rowCount,
+      0,
+      `${table} fails closed without trusted context`,
+    );
+    await expectDatabaseRejection(
+      () => withApplicationUser("not-a-uuid", (client) => client.query(`SELECT id FROM ${table}`)),
+      `${table} rejects malformed trusted context`,
+      "22P02",
+    );
+  }
+
+  const privileges = await ownerPool.query(
+    `SELECT has_table_privilege('rise_pals_app','measurement_subjects','UPDATE') AS subject_update,
+            has_table_privilege('rise_pals_app','measurement_subjects','DELETE') AS subject_delete,
+            has_table_privilege('rise_pals_app','product_events','UPDATE') AS event_update,
+            has_table_privilege('rise_pals_app','product_events','DELETE') AS event_delete,
+            has_table_privilege('rise_pals_app','error_occurrences','UPDATE') AS error_update,
+            has_table_privilege('rise_pals_app','error_occurrences','DELETE') AS error_delete`,
+  );
+  assert.deepEqual(privileges.rows[0], {
+    subject_update: false,
+    subject_delete: false,
+    event_update: false,
+    event_delete: false,
+    error_update: false,
+    error_delete: false,
+  });
+}
+
 let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
@@ -3257,8 +3641,9 @@ try {
   await verifyPersistedAssessmentContract();
   await verifyPersistedLessonContract();
   await verifyPrivateEvidenceArtifactContract();
+  await verifyMeasurementMonitoringContract();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 23 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice controls, private evidence revision/lifecycle controls, and complete cross-user forced-RLS evidence).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 26 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice controls, private evidence revision/lifecycle controls, consent-aware measurement/error allowlists, append-only replay/withdrawal/subject-rotation controls, and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);
