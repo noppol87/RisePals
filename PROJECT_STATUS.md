@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
 **Status date:** 2026-08-24  
-**Current phase:** RP-TURN-017 consent-aware measurement and error-monitoring foundation Accepted by Project Codex  
-**Current turn:** RP-TURN-017 is Accepted; RP-TURN-018 is recommended only and not authorized
+**Current phase:** RP-TURN-018 Alpha Hardening and Recovery Accepted by Project Codex  
+**Current turn:** RP-TURN-018 is Accepted; RP-TURN-019 is recommended only, unstarted and unauthorized
 
 ## Locked decisions
 
@@ -149,6 +149,10 @@
 - The reviewed dependency graph now pins patched `nanoid 3.3.18` explicitly while preserving exact PostCSS `8.5.25` and Sharp `0.35.3`; future upstream upgrades must re-evaluate all three overrides rather than changing them silently
 - Drizzle `0.45.2` declarations span unsupported optional dialects under the repository's TypeScript settings; application typechecking retains `skipLibCheck: false`, while the isolated strict database-schema project skips third-party declaration checking only
 - RLS trusts a server-set transaction-local user UUID; exposing the application database credential or letting browser input set that context would break the security boundary
+- Canonical server-only owner export `rise-pals-alpha-export-v1@1.0.0` with deterministic bounded reads, stable export-local references and bilingual synthetic/prototype limitations
+- Operator-only erasure dry run `rise-pals-alpha-erasure-v1@1.0.0`, minimized deleted-account tombstone and an eighth no-new-table migration; the schema remains exactly 26 tables
+- Disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal plus a repository-local threat model and bilingual-aware alpha recovery/support runbook
+- Desktop, 320 CSS-pixel and reduced-motion Chromium hardening coverage for Thai and English critical surfaces, with keyboard/focus, loopback-only network and serious/critical axe checks
 - The migration/table-owner credential must remain absent from the production application environment and be supplied only to separately controlled migration tooling
 - Cloud vendor region, DPA, backup deletion and cost have not been evaluated or accepted
 - Clerk Development localization is experimental, Clerk's US identity hosting is approved only for synthetic alpha, and the vendor's supported Development session flow transiently uses `__clerk_handshake`; the final smoke URL was clean, but production provider/session/privacy suitability remains undecided
@@ -158,11 +162,11 @@
 
 ## Next recommended action
 
-**RP-TURN-018 — Alpha Hardening and Recovery (recommended, not authorized)**
+**RP-TURN-019 — Windows VPS Infrastructure Readiness (recommended only, not authorized)**
 
-RP-TURN-017 is Accepted by Project Codex at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`. RP-TURN-018 is only the next recommended turn and requires separate authorization.
+RP-TURN-018 is Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for its bounded synthetic-alpha contract. RP-TURN-019 requires separate authorization and remains unstarted.
 
-RP-TURN-007 through RP-TURN-017 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-017 adds only an optional first-party local synthetic-alpha foundation. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-018 is not authorized or started.
+RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-018 adds only non-production hardening evidence: a dry-run owner export, fake-adapter/operator-only erasure, disposable recovery rehearsal, threat model, runbook and browser/accessibility regression. Acceptance does not authorize launch or real-user collection. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/deletion-ledger/backup-expiry/restore-reconciliation operations, RTO/RPO, staff/operator access and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists.
 
 ## Turn history
 
@@ -186,3 +190,4 @@ RP-TURN-007 through RP-TURN-017 are Accepted for their documented synthetic/prot
 | 015 | Accepted | Reviewed head `962b4422fa21c28b06c362f87ec55466281409e8`: owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |
 | 016 | Accepted | Reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: one private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, current-state historical replay, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI accepted by Project Codex |
 | 017 | Accepted | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |
+| 018 | Accepted | Reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80`: bounded synthetic-alpha hardening with deterministic owner export, operator-only idempotent erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore rehearsal, threat model, support runbook and Thai/English desktop/mobile/reduced-motion accessibility regression; no launch, real-user collection or production approval |

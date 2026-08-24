@@ -10,7 +10,7 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  reporter: [["line"], ["html", { open: "never" }]],
+  reporter: [["line"]],
   use: {
     baseURL,
     screenshot: "only-on-failure",
@@ -19,6 +19,14 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium-mobile-320",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 320, height: 800 } },
+    },
+    {
+      name: "chromium-reduced-motion",
       use: { ...devices["Desktop Chrome"] },
     },
   ],

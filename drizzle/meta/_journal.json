@@ -50,6 +50,13 @@
       "when": 1787548684678,
       "tag": "0006_faithful_calypso",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787589228359,
+      "tag": "0007_wonderful_baron_zemo",
+      "breakpoints": true
     }
   ]
 }

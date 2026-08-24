@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import pg from "pg";
+
+import { createAlphaOwnerExport } from "../../src/modules/privacy/export-runtime.mjs";
 
 const { Pool } = pg;
 const migrationDirectory = resolve("drizzle");
@@ -92,6 +95,41 @@ const withApplicationUser = (userId, operation) =>
   withDatabaseUser(applicationPool, userId, operation);
 const withOwnerUser = (userId, operation) => withDatabaseUser(ownerPool, userId, operation);
 
+async function withPrivacyOperatorUser(userId, operation) {
+  const client = await disposableBootstrapPool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL ROLE rise_pals_privacy_operator");
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+    const result = await operation(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function withPrivacyOperatorWithoutContext(operation) {
+  const client = await disposableBootstrapPool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL ROLE rise_pals_privacy_operator");
+    const result = await operation(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function applyMigration() {
   const migrationFiles = (await readdir(migrationDirectory))
     .filter((fileName) => /^\d{4}_.+\.sql$/.test(fileName))
@@ -99,17 +137,31 @@ async function applyMigration() {
   const migrations = await Promise.all(
     migrationFiles.map(async (fileName) => ({
       fileName,
-      statements: (await readFile(resolve(migrationDirectory, fileName), "utf8"))
-        .split("--> statement-breakpoint")
-        .map((statement) => statement.trim())
-        .filter(Boolean),
+      raw: await readFile(resolve(migrationDirectory, fileName), "utf8"),
     })),
+  );
+  for (const migration of migrations) {
+    migration.statements = migration.raw
+      .split("--> statement-breakpoint")
+      .map((statement) => statement.trim())
+      .filter(Boolean);
+  }
+  const journal = JSON.parse(
+    await readFile(resolve(migrationDirectory, "meta/_journal.json"), "utf8"),
   );
   const client = await ownerPool.connect();
   let statementCount = 0;
 
   try {
     await client.query("BEGIN");
+    await client.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
+    await client.query(
+      `CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+         id serial PRIMARY KEY,
+         hash text NOT NULL,
+         created_at bigint NOT NULL
+       )`,
+    );
     for (const migration of migrations) {
       for (const [index, statement] of migration.statements.entries()) {
         try {
@@ -119,6 +171,14 @@ async function applyMigration() {
           throw new Error(`${migration.fileName} statement ${index + 1} failed.`, { cause: error });
         }
       }
+      const entry = journal.entries.find(
+        (candidate) => `${candidate.tag}.sql` === migration.fileName,
+      );
+      assert.ok(entry, `${migration.fileName} has a migration journal entry`);
+      await client.query(
+        `INSERT INTO drizzle.__drizzle_migrations (hash, created_at) VALUES ($1, $2)`,
+        [createHash("sha256").update(migration.raw, "utf8").digest("hex"), entry.when],
+      );
     }
     await client.query("COMMIT");
   } catch (error) {
@@ -135,6 +195,10 @@ async function finalizeDisposableIdentityResolverBootstrap() {
   await disposableBootstrapPool.query(`REVOKE rise_pals_identity_resolver FROM rise_pals_owner`);
   await disposableBootstrapPool.query(
     `ALTER ROLE rise_pals_identity_resolver NOLOGIN NOBYPASSRLS PASSWORD NULL`,
+  );
+  await disposableBootstrapPool.query(`REVOKE rise_pals_privacy_operator FROM rise_pals_owner`);
+  await disposableBootstrapPool.query(
+    `ALTER ROLE rise_pals_privacy_operator NOLOGIN NOINHERIT NOBYPASSRLS PASSWORD NULL`,
   );
 }
 
@@ -353,8 +417,12 @@ async function verifyRoleAndSchemaBaseline(client) {
   assert.equal(
     tables.rows[0].count,
     26,
-    "the seven fresh migrations create exactly twenty-six tables",
+    "the eight fresh migrations create exactly twenty-six tables",
   );
+  const journal = await client.query(
+    `SELECT count(*)::integer AS count FROM drizzle.__drizzle_migrations`,
+  );
+  assert.equal(journal.rows[0].count, 8, "the fresh database records exactly eight migrations");
 
   const listener = await client.query(
     `SELECT host(inet_server_addr()) AS address,
@@ -405,6 +473,24 @@ async function verifyRoleAndSchemaBaseline(client) {
     { rolcanlogin: false, rolbypassrls: false, has_password: false },
   ]);
 
+  const privacyRole = await disposableBootstrapPool.query(
+    `SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolinherit,
+            rolbypassrls, rolpassword IS NOT NULL AS has_password
+     FROM pg_authid
+     WHERE rolname = 'rise_pals_privacy_operator'`,
+  );
+  assert.deepEqual(privacyRole.rows, [
+    {
+      rolcanlogin: false,
+      rolsuper: false,
+      rolcreatedb: false,
+      rolcreaterole: false,
+      rolinherit: false,
+      rolbypassrls: false,
+      has_password: false,
+    },
+  ]);
+
   const resolverMembership = await client.query(
     `SELECT pg_has_role('rise_pals_app', 'rise_pals_identity_resolver', 'MEMBER')
               AS app_member,
@@ -416,6 +502,20 @@ async function verifyRoleAndSchemaBaseline(client) {
     owner_member: false,
   });
 
+  const privacyMembership = await client.query(
+    `SELECT pg_has_role('rise_pals_app', 'rise_pals_privacy_operator', 'MEMBER')
+              AS app_member,
+            pg_has_role('rise_pals_owner', 'rise_pals_privacy_operator', 'MEMBER')
+              AS owner_member,
+            pg_has_role('rise_pals_identity_resolver', 'rise_pals_privacy_operator', 'MEMBER')
+              AS resolver_member`,
+  );
+  assert.deepEqual(privacyMembership.rows[0], {
+    app_member: false,
+    owner_member: false,
+    resolver_member: false,
+  });
+
   const ownedTables = await applicationPool.query(
     `SELECT count(*)::integer AS count
      FROM pg_class AS relation
@@ -425,6 +525,16 @@ async function verifyRoleAndSchemaBaseline(client) {
        AND owner.rolname = current_user`,
   );
   assert.equal(ownedTables.rows[0].count, 0, "the application role owns no tables");
+
+  const privacyOwnedTables = await client.query(
+    `SELECT count(*)::integer AS count
+     FROM pg_class AS relation
+     JOIN pg_roles AS owner ON owner.oid = relation.relowner
+     WHERE relation.relkind = 'r'
+       AND relation.relnamespace = 'public'::regnamespace
+       AND owner.rolname = 'rise_pals_privacy_operator'`,
+  );
+  assert.equal(privacyOwnedTables.rows[0].count, 0, "the privacy operator owns no tables");
 
   const forcedRls = await client.query(
     `SELECT relname, relrowsecurity, relforcerowsecurity
@@ -585,8 +695,11 @@ async function verifyIdentityProvisioningBoundary() {
   const resolverPrivileges = await ownerPool.query(
     `SELECT has_table_privilege(
               'rise_pals_identity_resolver', 'public.user_accounts',
-              'SELECT,INSERT,UPDATE,DELETE'
+              'SELECT,INSERT,UPDATE'
             ) AS account_privileges,
+            has_table_privilege(
+              'rise_pals_identity_resolver', 'public.user_accounts', 'DELETE'
+            ) AS account_delete,
             has_table_privilege(
               'rise_pals_identity_resolver', 'public.external_identities',
               'SELECT,INSERT,UPDATE'
@@ -597,6 +710,7 @@ async function verifyIdentityProvisioningBoundary() {
   );
   assert.deepEqual(resolverPrivileges.rows[0], {
     account_privileges: true,
+    account_delete: false,
     identity_privileges: true,
     identity_delete: false,
   });
@@ -977,7 +1091,7 @@ async function verifyConstraintsAndLifecycle() {
           ownerClient.query(`DELETE FROM user_accounts WHERE id = $1`, [ownerConsentUser]),
         ),
       "unsafe deletion through a referenced user",
-      "23001",
+      "42501",
     );
   } finally {
     client.release();
@@ -1195,13 +1309,8 @@ async function verifyRowLevelSecurity() {
       `UPDATE user_accounts SET last_seen_at = now() WHERE id = $1`,
       [userB],
     );
-    const accountDelete = await client.query(`DELETE FROM user_accounts WHERE id = $1`, [userB]);
     const identityUpdate = await client.query(
       `UPDATE external_identities SET last_authenticated_at = now() WHERE user_id = $1`,
-      [userB],
-    );
-    const identityDelete = await client.query(
-      `DELETE FROM external_identities WHERE user_id = $1`,
       [userB],
     );
     const profileUpdate = await client.query(
@@ -1209,9 +1318,7 @@ async function verifyRowLevelSecurity() {
       [userB],
     );
     assert.equal(accountUpdate.rowCount, 0, "cross-user account UPDATE changes no row");
-    assert.equal(accountDelete.rowCount, 0, "cross-user account DELETE changes no row");
     assert.equal(identityUpdate.rowCount, 0, "cross-user identity UPDATE changes no row");
-    assert.equal(identityDelete.rowCount, 0, "cross-user identity DELETE changes no row");
     assert.equal(profileUpdate.rowCount, 0, "cross-user profile UPDATE changes no row");
   });
 
@@ -1266,23 +1373,25 @@ async function verifyRowLevelSecurity() {
     "42501",
   );
 
-  await withApplicationUser(userA, async (client) => {
-    const identityDelete = await client.query(
-      `DELETE FROM external_identities WHERE user_id = $1`,
-      [userA],
-    );
-    assert.equal(identityDelete.rowCount, 1, "own identity DELETE succeeds");
-    await client.query(
-      `INSERT INTO external_identities (user_id, provider, provider_subject)
-       VALUES ($1, 'synthetic', 'user-a')`,
-      [userA],
-    );
-  });
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(userA, (client) =>
+        client.query(`DELETE FROM external_identities WHERE user_id = $1`, [userA]),
+      ),
+    "an own identity DELETE outside the privacy operator",
+    "42501",
+  );
   await withApplicationUser(userC, async (client) => {
     await client.query(`INSERT INTO user_accounts (id) VALUES ($1)`, [userC]);
-    const accountDelete = await client.query(`DELETE FROM user_accounts WHERE id = $1`, [userC]);
-    assert.equal(accountDelete.rowCount, 1, "an unreferenced own account DELETE succeeds");
   });
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(userC, (client) =>
+        client.query(`DELETE FROM user_accounts WHERE id = $1`, [userC]),
+      ),
+    "an unreferenced own account DELETE outside the privacy operator",
+    "42501",
+  );
 
   for (const table of [
     "user_accounts",
@@ -1815,7 +1924,7 @@ async function verifyDerivedScoringContract(definition) {
         rescoreId,
       ]),
     "a completed derived-child delete",
-    "55000",
+    "42501",
   );
 
   const tiedSession = await createSubmittedSyntheticSession(
@@ -3628,6 +3737,541 @@ async function verifyMeasurementMonitoringContract() {
   });
 }
 
+async function countOwnerRows(userId) {
+  const directTables = [
+    "external_identities",
+    "consent_records",
+    "user_profiles",
+    "assessment_sessions",
+    "scoring_runs",
+    "competency_scores",
+    "multiplier_observations",
+    "score_explanations",
+    "priority_recommendations",
+    "lesson_attempts",
+    "practice_attempts",
+    "learning_progress_events",
+    "evidence_artifacts",
+    "evidence_artifact_revisions",
+    "evidence_competency_links",
+    "measurement_subjects",
+  ];
+  const counts = {};
+  for (const table of directTables) {
+    const result = await disposableBootstrapPool.query(
+      `SELECT count(*)::integer AS count FROM ${table} WHERE user_id = $1`,
+      [userId],
+    );
+    counts[table] = result.rows[0].count;
+  }
+  const responses = await disposableBootstrapPool.query(
+    `SELECT count(*)::integer AS count
+     FROM assessment_responses r
+     JOIN assessment_sessions s ON s.id = r.session_id
+     WHERE s.user_id = $1`,
+    [userId],
+  );
+  counts.assessment_responses = responses.rows[0].count;
+  const measurements = await disposableBootstrapPool.query(
+    `SELECT count(*) FILTER (WHERE source = 'product')::integer AS product_events,
+            count(*) FILTER (WHERE source = 'error')::integer AS error_occurrences
+     FROM (
+       SELECT e.measurement_subject_id, 'product'::text AS source
+       FROM product_events e
+       JOIN measurement_subjects s ON s.id = e.measurement_subject_id
+       WHERE s.user_id = $1
+       UNION ALL
+       SELECT e.measurement_subject_id, 'error'::text AS source
+       FROM error_occurrences e
+       JOIN measurement_subjects s ON s.id = e.measurement_subject_id
+       WHERE s.user_id = $1
+     ) records`,
+    [userId],
+  );
+  counts.product_events = measurements.rows[0].product_events;
+  counts.error_occurrences = measurements.rows[0].error_occurrences;
+  return counts;
+}
+
+async function prepareCriticalSyntheticAlphaFlow() {
+  const definitionRows = await ownerPool.query(
+    `SELECT a.id AS assessment_id, a.framework_version_id, a.scoring_model_version_id
+     FROM assessment_versions a
+     WHERE a.assessment_key = $1 AND a.version = $2 AND a.status = 'published'`,
+    [persistedDefinition.assessmentKey, persistedDefinition.assessmentVersion],
+  );
+  assert.equal(definitionRows.rowCount, 1, "one canonical persisted assessment is published");
+  const definition = {
+    assessmentId: definitionRows.rows[0].assessment_id,
+    frameworkId: definitionRows.rows[0].framework_version_id,
+    scoringId: definitionRows.rows[0].scoring_model_version_id,
+    items: new Map(),
+    competencies: new Map(),
+  };
+  const [items, competencies] = await Promise.all([
+    ownerPool.query(
+      `SELECT id, item_key FROM assessment_item_versions
+       WHERE assessment_version_id = $1`,
+      [definition.assessmentId],
+    ),
+    ownerPool.query(
+      `SELECT id, competency_key FROM competency_versions
+       WHERE framework_version_id = $1`,
+      [definition.frameworkId],
+    ),
+  ]);
+  for (const row of items.rows) definition.items.set(row.item_key, { id: row.id });
+  for (const row of competencies.rows) definition.competencies.set(row.competency_key, row.id);
+
+  const serviceConsent = await withApplicationUser(evidenceUserA, async (client) => {
+    const consent = await client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'service-profile-learning-state','alpha-privacy-v1','granted',
+               clock_timestamp(),'th','synthetic-alpha-regression',$2)
+       RETURNING id`,
+      [evidenceUserA, proofDigest],
+    );
+    await client.query(
+      `INSERT INTO user_profiles
+        (user_id,preferred_locale,timezone,role_family,function,experience_band,goals,
+         onboarding_completed_at,profile_schema_version)
+       VALUES ($1,'th','Asia/Bangkok','individual-contributor','operations','mid',
+               ARRAY['build-evidence'],'2026-08-24T12:01:00Z','profile-v1')
+       ON CONFLICT (user_id) DO NOTHING`,
+      [evidenceUserA],
+    );
+    return consent.rows[0].id;
+  });
+  const session = await insertPersistedSession(
+    evidenceUserA,
+    definition.assessmentId,
+    serviceConsent,
+  );
+  const sessionId = session.rows[0].id;
+  const firstItem = persistedDefinition.items[0];
+  const firstItemRecord = definition.items.get(firstItem.key);
+  await savePersistedRevision({
+    userId: evidenceUserA,
+    sessionId,
+    assessmentId: definition.assessmentId,
+    itemId: firstItemRecord.id,
+    itemKey: firstItem.key,
+    optionId: firstItem.optionIds[1],
+    expectedRevision: 0,
+    mutationId: "61000000-0000-4000-8000-000000000001",
+  });
+  await savePersistedRevision({
+    userId: evidenceUserA,
+    sessionId,
+    assessmentId: definition.assessmentId,
+    itemId: firstItemRecord.id,
+    itemKey: firstItem.key,
+    optionId: firstItem.optionIds[0],
+    expectedRevision: 1,
+    mutationId: "61000000-0000-4000-8000-000000000002",
+  });
+  for (const [index, item] of persistedDefinition.items.slice(1).entries()) {
+    const optionIndexes = [2, 1, 1, 2, 2];
+    await savePersistedRevision({
+      userId: evidenceUserA,
+      sessionId,
+      assessmentId: definition.assessmentId,
+      itemId: definition.items.get(item.key).id,
+      itemKey: item.key,
+      optionId: item.optionIds[optionIndexes[index]],
+      expectedRevision: 0,
+      mutationId: `61000000-0000-4000-8000-${String(index + 3).padStart(12, "0")}`,
+    });
+  }
+  await withApplicationUser(evidenceUserA, (client) =>
+    client.query(`UPDATE assessment_sessions SET status = 'submitted' WHERE id = $1`, [sessionId]),
+  );
+  await insertSyntheticDerivedRun({
+    userId: evidenceUserA,
+    sessionId,
+    definition,
+    runNumber: 1,
+    coreEarned: [1, 4],
+    multiplierEarned: [1, 1],
+    mutationId: "71000000-0000-4000-8000-000000000001",
+  });
+
+  await withApplicationUser(evidenceUserA, async (client) => {
+    const firstGrant = await client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','granted',
+               '2026-08-25T08:00:00Z','th','profile-measurement-v1',$2)
+       RETURNING id`,
+      [evidenceUserA, measurementProofDigest],
+    );
+    const firstSubject = await client.query(
+      `INSERT INTO measurement_subjects
+        (user_id,consent_record_id,subject_schema_version,created_at)
+       VALUES ($1,$2,'measurement-subject-v1','2026-08-25T08:01:00Z') RETURNING id`,
+      [evidenceUserA, firstGrant.rows[0].id],
+    );
+    await client.query(
+      `INSERT INTO product_events
+        (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+         action_digest,occurred_at)
+       VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+               'assessment_response_saved',$2,'2026-08-25T08:02:00Z')`,
+      [firstSubject.rows[0].id, "7".repeat(64)],
+    );
+    for (const [decision, time] of [
+      ["declined", "2026-08-26T08:00:00Z"],
+      ["withdrawn", "2026-08-27T08:00:00Z"],
+    ]) {
+      await client.query(
+        `INSERT INTO consent_records
+          (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+         VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1',$2,$3,
+                 'en','profile-measurement-v1',$4)`,
+        [evidenceUserA, decision, time, measurementProofDigest],
+      );
+    }
+    const secondGrant = await client.query(
+      `INSERT INTO consent_records
+        (user_id,purpose_code,notice_version,decision,occurred_at,locale,source_surface,proof_digest)
+       VALUES ($1,'measurement-monitoring','alpha-measurement-monitoring-v1','granted',
+               '2026-08-28T08:00:00Z','en','profile-measurement-v1',$2)
+       RETURNING id`,
+      [evidenceUserA, measurementProofDigest],
+    );
+    const secondSubject = await client.query(
+      `INSERT INTO measurement_subjects
+        (user_id,consent_record_id,subject_schema_version,created_at)
+       VALUES ($1,$2,'measurement-subject-v1','2026-08-28T08:01:00Z') RETURNING id`,
+      [evidenceUserA, secondGrant.rows[0].id],
+    );
+    await client.query(
+      `INSERT INTO product_events
+        (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+         action_digest,occurred_at)
+       VALUES ($1,'product-measurement-v1','meaningful_return_completed','lesson_practice',
+               'lesson_practice_evaluated',$2,'2026-08-29T08:00:00Z')`,
+      [secondSubject.rows[0].id, "8".repeat(64)],
+    );
+  });
+
+  const flow = await disposableBootstrapPool.query(
+    `SELECT
+       (SELECT count(*)::integer FROM user_profiles WHERE user_id = $1) AS profiles,
+       (SELECT count(*)::integer FROM assessment_sessions
+        WHERE user_id = $1 AND status = 'submitted') AS submitted_sessions,
+       (SELECT count(*)::integer FROM assessment_responses r
+        JOIN assessment_sessions s ON s.id = r.session_id WHERE s.user_id = $1) AS revisions,
+       (SELECT count(*)::integer FROM assessment_responses r
+        JOIN assessment_sessions s ON s.id = r.session_id
+        WHERE s.user_id = $1 AND r.is_active) AS active_responses,
+       (SELECT count(*)::integer FROM scoring_runs WHERE user_id = $1) AS scoring_runs,
+       (SELECT count(*)::integer FROM competency_scores WHERE user_id = $1) AS core_scores,
+       (SELECT count(*)::integer FROM multiplier_observations WHERE user_id = $1)
+         AS multipliers,
+       (SELECT count(*)::integer FROM score_explanations WHERE user_id = $1) AS explanations,
+       (SELECT count(*)::integer FROM priority_recommendations WHERE user_id = $1)
+         AS priorities,
+       (SELECT count(*)::integer FROM lesson_attempts
+        WHERE user_id = $1 AND status = 'demonstrated') AS demonstrated_lessons,
+       (SELECT count(*)::integer FROM evidence_artifacts
+        WHERE user_id = $1 AND status = 'withdrawn') AS withdrawn_evidence,
+       (SELECT count(*)::integer FROM measurement_subjects WHERE user_id = $1)
+         AS measurement_subjects,
+       (SELECT count(*)::integer FROM product_events e JOIN measurement_subjects s
+        ON s.id = e.measurement_subject_id WHERE s.user_id = $1) AS product_events`,
+    [evidenceUserA],
+  );
+  assert.deepEqual(flow.rows[0], {
+    profiles: 1,
+    submitted_sessions: 1,
+    revisions: 7,
+    active_responses: 6,
+    scoring_runs: 1,
+    core_scores: 2,
+    multipliers: 2,
+    explanations: 6,
+    priorities: 1,
+    demonstrated_lessons: 1,
+    withdrawn_evidence: 1,
+    measurement_subjects: 2,
+    product_events: 2,
+  });
+}
+
+async function verifyAlphaPrivacyContracts() {
+  const exportClient = await applicationPool.connect();
+  try {
+    await exportClient.query("BEGIN");
+    await exportClient.query("SELECT set_config('app.current_user_id', $1, true)", [evidenceUserA]);
+    const first = await createAlphaOwnerExport(exportClient, evidenceUserA);
+    const second = await createAlphaOwnerExport(exportClient, evidenceUserA);
+    assert.equal(first.bytes, second.bytes, "unchanged owner exports are byte-identical");
+    assert.equal(first.sha256, second.sha256, "unchanged owner export digests match");
+    assert.equal(first.contractVersion, "rise-pals-alpha-export-v1@1.0.0");
+    assert.equal(first.bytes.includes(evidenceUserA), false, "owner UUID is not exported");
+    assert.equal(first.bytes.includes("provider_subject"), false, "provider subjects are excluded");
+    assert.equal(
+      first.bytes.includes("measurement_subject"),
+      false,
+      "measurement subject IDs are excluded",
+    );
+    assert.equal(first.bytes.includes("action_digest"), false, "action digests are excluded");
+    assert.equal(first.bytes.includes("mutation_digest"), false, "mutation digests are excluded");
+    await assert.rejects(
+      () => createAlphaOwnerExport(exportClient, evidenceUserB),
+      /owner account is unavailable or ambiguous/i,
+      "cross-owner export is denied by forced RLS",
+    );
+    await exportClient.query("ROLLBACK");
+  } catch (error) {
+    await exportClient.query("ROLLBACK");
+    throw error;
+  } finally {
+    exportClient.release();
+  }
+
+  const publicBefore = await disposableBootstrapPool.query(
+    `SELECT (SELECT count(*)::integer FROM framework_versions) AS frameworks,
+            (SELECT count(*)::integer FROM assessment_versions) AS assessments,
+            (SELECT count(*)::integer FROM scoring_model_versions) AS models,
+            (SELECT string_agg(content_digest, ',' ORDER BY content_digest)
+             FROM framework_versions) AS framework_digests`,
+  );
+  const preservedOwnerBefore = await countOwnerRows(derivedUserB);
+  const deletionRequest = "50000000-0000-4000-8000-000000000001";
+  const conflictingRequest = "50000000-0000-4000-8000-000000000002";
+
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(derivedUserA, (client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          derivedUserA,
+          deletionRequest,
+        ]),
+      ),
+    "application execution of privacy maintenance",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withOwnerUser(derivedUserA, (client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          derivedUserA,
+          deletionRequest,
+        ]),
+      ),
+    "migration-owner execution of privacy maintenance",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withPrivacyOperatorUser(derivedUserA, (client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          derivedUserB,
+          deletionRequest,
+        ]),
+      ),
+    "cross-owner privacy maintenance",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withPrivacyOperatorWithoutContext((client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          derivedUserA,
+          deletionRequest,
+        ]),
+      ),
+    "missing owner context for privacy maintenance",
+    "42501",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withPrivacyOperatorUser(derivedUserA, (client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          "not-a-uuid",
+          deletionRequest,
+        ]),
+      ),
+    "malformed owner ID for privacy maintenance",
+    "22P02",
+  );
+
+  const pending = await withPrivacyOperatorUser(derivedUserA, (client) =>
+    client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid) AS result`, [
+      derivedUserA,
+      deletionRequest,
+    ]),
+  );
+  assert.deepEqual(pending.rows[0].result, {
+    contractVersion: "rise-pals-alpha-erasure-v1@1.0.0",
+    state: "deletion_pending",
+    replayed: false,
+  });
+  const pendingState = await disposableBootstrapPool.query(
+    `SELECT status, deletion_request_id, deletion_requested_at, updated_at
+     FROM user_accounts WHERE id = $1`,
+    [derivedUserA],
+  );
+  const pendingReplay = await withPrivacyOperatorUser(derivedUserA, (client) =>
+    client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid) AS result`, [
+      derivedUserA,
+      deletionRequest,
+    ]),
+  );
+  assert.equal(pendingReplay.rows[0].result.replayed, true);
+  const replayedPendingState = await disposableBootstrapPool.query(
+    `SELECT status, deletion_request_id, deletion_requested_at, updated_at
+     FROM user_accounts WHERE id = $1`,
+    [derivedUserA],
+  );
+  assert.deepEqual(
+    replayedPendingState.rows,
+    pendingState.rows,
+    "pending request replay changes no lifecycle timestamp",
+  );
+  await expectDatabaseRejection(
+    () =>
+      withPrivacyOperatorUser(derivedUserA, (client) =>
+        client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+          derivedUserA,
+          conflictingRequest,
+        ]),
+      ),
+    "conflicting privacy request UUID",
+    "23505",
+  );
+
+  const erased = await withPrivacyOperatorUser(derivedUserA, (client) =>
+    client.query(
+      `SELECT rise_pals_private.erase_owner_private_data($1::uuid, $2::uuid) AS result`,
+      [derivedUserA, deletionRequest],
+    ),
+  );
+  assert.equal(erased.rows[0].result.state, "deleted");
+  assert.equal(erased.rows[0].result.replayed, false);
+  assert.ok(erased.rows[0].result.deletedRows > 0, "owner-linked private rows were removed");
+  const deletedState = await disposableBootstrapPool.query(
+    `SELECT status, last_seen_at, deletion_request_id, deletion_requested_at,
+            deleted_at, updated_at
+     FROM user_accounts WHERE id = $1`,
+    [derivedUserA],
+  );
+  assert.equal(deletedState.rows[0].status, "deleted");
+  assert.equal(deletedState.rows[0].last_seen_at, null);
+  const deletedCounts = await countOwnerRows(derivedUserA);
+  assert.ok(
+    Object.values(deletedCounts).every((count) => count === 0),
+    "all owner-linked P2/P3 rows are absent",
+  );
+  const erasedReplay = await withPrivacyOperatorUser(derivedUserA, (client) =>
+    client.query(
+      `SELECT rise_pals_private.erase_owner_private_data($1::uuid, $2::uuid) AS result`,
+      [derivedUserA, deletionRequest],
+    ),
+  );
+  assert.deepEqual(erasedReplay.rows[0].result, {
+    contractVersion: "rise-pals-alpha-erasure-v1@1.0.0",
+    state: "deleted",
+    replayed: true,
+    deletedRows: 0,
+  });
+  const replayedDeletedState = await disposableBootstrapPool.query(
+    `SELECT status, last_seen_at, deletion_request_id, deletion_requested_at,
+            deleted_at, updated_at
+     FROM user_accounts WHERE id = $1`,
+    [derivedUserA],
+  );
+  assert.deepEqual(
+    replayedDeletedState.rows,
+    deletedState.rows,
+    "completed erasure replay changes no tombstone timestamp",
+  );
+
+  for (const [index, ownerId] of [lessonUserA, evidenceUserA, measurementUserA].entries()) {
+    const requestId = `50000000-0000-4000-8000-${String(index + 3).padStart(12, "0")}`;
+    await withPrivacyOperatorUser(ownerId, (client) =>
+      client.query(`SELECT rise_pals_private.request_owner_erasure($1::uuid, $2::uuid)`, [
+        ownerId,
+        requestId,
+      ]),
+    );
+    await withPrivacyOperatorUser(ownerId, (client) =>
+      client.query(`SELECT rise_pals_private.erase_owner_private_data($1::uuid, $2::uuid)`, [
+        ownerId,
+        requestId,
+      ]),
+    );
+    const ownerCounts = await countOwnerRows(ownerId);
+    assert.ok(
+      Object.values(ownerCounts).every((count) => count === 0),
+      `privacy erasure removes every private domain seeded for owner ${index + 2}`,
+    );
+  }
+
+  const publicAfter = await disposableBootstrapPool.query(
+    `SELECT (SELECT count(*)::integer FROM framework_versions) AS frameworks,
+            (SELECT count(*)::integer FROM assessment_versions) AS assessments,
+            (SELECT count(*)::integer FROM scoring_model_versions) AS models,
+            (SELECT string_agg(content_digest, ',' ORDER BY content_digest)
+             FROM framework_versions) AS framework_digests`,
+  );
+  assert.deepEqual(
+    publicAfter.rows,
+    publicBefore.rows,
+    "public definitions and digests are unchanged",
+  );
+  assert.deepEqual(
+    await countOwnerRows(derivedUserB),
+    preservedOwnerBefore,
+    "another synthetic owner's private rows are unchanged",
+  );
+
+  await expectDatabaseRejection(
+    () =>
+      withPrivacyOperatorUser(derivedUserB, (client) =>
+        client.query(`DELETE FROM framework_versions`),
+      ),
+    "privacy-operator public-definition deletion",
+    "42501",
+  );
+
+  const functionBoundary = await ownerPool.query(
+    `SELECT owner.rolname AS function_owner,
+            bool_and(function.prosecdef) AS all_security_definer,
+            NOT coalesce(bool_or(acl.grantee = 0 AND acl.privilege_type = 'EXECUTE'), false)
+              AS no_public_execute,
+            bool_and(NOT has_function_privilege('rise_pals_app', function.oid, 'EXECUTE'))
+              AS no_app_execute,
+            bool_and(NOT has_function_privilege('rise_pals_owner', function.oid, 'EXECUTE'))
+              AS no_owner_execute,
+            bool_and(NOT has_function_privilege('rise_pals_identity_resolver', function.oid, 'EXECUTE'))
+              AS no_resolver_execute
+     FROM pg_proc AS function
+     JOIN pg_roles AS owner ON owner.oid = function.proowner
+     CROSS JOIN LATERAL aclexplode(
+       coalesce(function.proacl, acldefault('f', function.proowner))
+     ) AS acl
+     WHERE function.oid = ANY(ARRAY[
+       'rise_pals_private.request_owner_erasure(uuid,uuid)'::regprocedure,
+       'rise_pals_private.erase_owner_private_data(uuid,uuid)'::regprocedure
+     ])
+     GROUP BY owner.rolname`,
+  );
+  assert.deepEqual(functionBoundary.rows, [
+    {
+      function_owner: "rise_pals_privacy_operator",
+      all_security_definer: true,
+      no_public_execute: true,
+      no_app_execute: true,
+      no_owner_execute: true,
+      no_resolver_execute: true,
+    },
+  ]);
+}
+
 let migrationResult = { migrationFiles: [], statementCount: 0 };
 
 try {
@@ -3642,8 +4286,10 @@ try {
   await verifyPersistedLessonContract();
   await verifyPrivateEvidenceArtifactContract();
   await verifyMeasurementMonitoringContract();
+  await prepareCriticalSyntheticAlphaFlow();
+  await verifyAlphaPrivacyContracts();
   console.log(
-    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 26 tables, atomic Clerk provisioning, profile controls, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice controls, private evidence revision/lifecycle controls, consent-aware measurement/error allowlists, append-only replay/withdrawal/subject-rotation controls, and complete cross-user forced-RLS evidence).`,
+    `PostgreSQL integration PASS (${migrationResult.statementCount} statements across ${migrationResult.migrationFiles.length} migrations, 26 tables, atomic Clerk provisioning, profile controls, one complete synthetic assessment-to-practice/evidence/measurement regression, persisted assessment revision/idempotency/submission controls, immutable reproducible derived runs with tie/priority/re-score evidence, persisted lesson-practice controls, private evidence revision/lifecycle controls, consent-aware measurement/error allowlists, deterministic owner export, operator-only idempotent erasure, append-only replay/withdrawal/subject-rotation controls, and complete cross-user forced-RLS evidence).`,
   );
 } finally {
   await Promise.allSettled([ownerPool.end(), applicationPool.end(), disposableBootstrapPool.end()]);
