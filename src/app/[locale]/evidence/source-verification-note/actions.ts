@@ -13,6 +13,10 @@ import {
   saveEvidenceArtifact,
   startEvidenceArtifact,
 } from "@/modules/evidence/dal";
+import {
+  captureSuccessfulProductAction,
+  reportControlledErrorOccurrence,
+} from "@/modules/measurement/server";
 
 function localeValue(value: unknown): Locale {
   if (typeof value !== "string" || !isLocale(value)) throw new Error("Unsupported locale.");
@@ -33,14 +37,60 @@ export async function startEvidenceArtifactAction(localeInput: string, clientMut
 
 export async function saveEvidenceArtifactAction(input: EvidenceSaveInput) {
   const locale = localeValue(input.locale);
-  const result = await saveEvidenceArtifact({ ...input, locale });
+  let result: Awaited<ReturnType<typeof saveEvidenceArtifact>>;
+  try {
+    result = await saveEvidenceArtifact({ ...input, locale });
+  } catch (error) {
+    await reportControlledErrorOccurrence({
+      surface: "private_evidence",
+      operationCode: "private_evidence_saved",
+      locale,
+      category: "unexpected_domain",
+      retryable: true,
+      clientMutationId: input.clientMutationId,
+    });
+    throw error;
+  }
+  if (result.state === "saved" || result.state === "ready" || result.state === "withdrawn") {
+    await captureSuccessfulProductAction({
+      surface: "private_evidence",
+      operationCode: "private_evidence_saved",
+      locale,
+      clientMutationId: input.clientMutationId,
+    });
+  }
   revalidateEvidence(locale);
   return result;
 }
 
 export async function mutateEvidenceLifecycleAction(input: EvidenceLifecycleInput) {
   const locale = localeValue(input.locale);
-  const result = await mutateEvidenceLifecycle({ ...input, locale });
+  const operationCode =
+    input.intent === "ready"
+      ? ("private_evidence_marked_ready" as const)
+      : ("private_evidence_withdrawn" as const);
+  let result: Awaited<ReturnType<typeof mutateEvidenceLifecycle>>;
+  try {
+    result = await mutateEvidenceLifecycle({ ...input, locale });
+  } catch (error) {
+    await reportControlledErrorOccurrence({
+      surface: "private_evidence",
+      operationCode,
+      locale,
+      category: "unexpected_domain",
+      retryable: true,
+      clientMutationId: input.clientMutationId,
+    });
+    throw error;
+  }
+  if (result.state === "ready" || result.state === "withdrawn") {
+    await captureSuccessfulProductAction({
+      surface: "private_evidence",
+      operationCode,
+      locale,
+      clientMutationId: input.clientMutationId,
+    });
+  }
   revalidateEvidence(locale);
   return result;
 }

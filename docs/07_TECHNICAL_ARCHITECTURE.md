@@ -365,8 +365,10 @@ This selection is deliberately non-production. Use one Jeff-controlled Clerk Dev
 ### Object storage, analytics and monitoring
 
 - Object storage candidates: Supabase Storage, Cloudflare R2 or AWS S3. Require private buckets, short-lived signed URLs, server-side authorization and deletion support. Select only when proof upload enters scope.
-- Product analytics candidates: PostHog, a privacy-focused hosted analytics service, or a minimal first-party event table. Selection requires consent, Thailand/legal review, data residency, retention and deletion evaluation.
-- Monitoring candidates: Sentry or OpenTelemetry-compatible infrastructure. Error payloads must be redacted and must not include raw assessment responses, proof contents, tokens or sensitive profile fields.
+- RP-TURN-017 implements only a minimal first-party repository-local PostgreSQL foundation behind provider-neutral server-only adapters. A disabled adapter is the fail-safe default when the database runtime is unavailable. No external SDK, collector, request, cookie, browser storage, beacon or pixel is present.
+- Product measurement requires a separate exact current `measurement-monitoring` grant. Only successful explicit persisted operations can produce one allowlisted activation or later-UTC-day meaningful-return event. Passive GET/page view/refresh/navigation/language switch and denied/conflicting/failed mutations produce none.
+- Operational error occurrences accept only controlled operation/surface/locale/category/severity/retryability/time fields, an opaque correlation UUID and optional context-bound mutation digest. Raw errors/stacks, URLs, network/device data, identity/profile fields, answers, scores, lesson/evidence content, tokens, SQL values and arbitrary metadata are prohibited.
+- External product analytics or monitoring candidates remain undecided and require a separate Thailand privacy/legal, data-residency, security, retention, export/erasure and vendor review. RP-TURN-017 is not production observability coverage.
 
 ## Localization, responsive UI, accessibility and motion
 
@@ -408,6 +410,12 @@ The dynamic `/[locale]/evidence` and `/[locale]/evidence/source-verification-not
 The client boundary contains controlled bilingual copy, public synthetic field/option IDs, the owner's controlled selections, revision number, lifecycle state and deterministic field feedback. It excludes account, provider, consent, lesson/practice/artifact/revision/competency UUIDs, database errors and credentials, publication digests, assessment responses, scoring/multiplier/priority data and storage/share keys. Nothing is written to browser storage, URLs, analytics or custom cookies.
 
 PostgreSQL is authoritative for the exact `source-verification-note-artifact-v1@1.0.0` identity, append-only content revisions and `draft → ready`, `draft → withdrawn` or `ready → withdrawn` lifecycle. Three tables force owner RLS and current consent. Readiness is a deterministic structural checklist over fixed synthetic Bright River values, not proficiency, a credential or external verification. There is no free text, upload/object storage, download/export/share path, saved XP, scoring or employment coupling.
+
+### RP-TURN-017 consent-aware measurement boundary
+
+Measurement uses a separate, optional and independently versioned purpose from service-data consent. The protected profile exposes only controlled bilingual status/copy and grant/decline/withdraw actions; no subject, receipt, event, error or correlation identifier crosses the client boundary. Decline or withdrawal never blocks product use. Capture fails closed for absent, stale, malformed, declined or withdrawn measurement consent, and a new grant rotates the pseudonymous subject.
+
+The server-only adapter boundary receives only controlled surface/operation/locale and mutation context. The PostgreSQL adapter hashes mutation context before storage and writes only under the existing trusted user transaction; the disabled adapter and every adapter failure preserve the authoritative domain result. The three measurement tables force owner RLS, require current consent and grant the application only SELECT/INSERT. Exact replay is idempotent. No result, score, recommendation, lesson/evidence payload, raw response, provider/email, free text or secret is stored in telemetry.
 
 Assessment and career data are sensitive even if local law does not assign every field a special category. The baseline is:
 

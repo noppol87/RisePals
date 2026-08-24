@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-23  
-**Current phase:** RP-TURN-016 private structured evidence artifact Accepted for synthetic alpha  
-**Current turn:** RP-TURN-016 is Accepted by Project Codex; RP-TURN-017 is not authorized
+**Status date:** 2026-08-24  
+**Current phase:** RP-TURN-017 consent-aware measurement and error-monitoring foundation complete pending Project Codex review  
+**Current turn:** RP-TURN-017 is complete pending Project Codex review; RP-TURN-018 is not authorized
 
 ## Locked decisions
 
@@ -113,6 +113,10 @@
 - Separate dynamic `/th|en/evidence` and `/th|en/evidence/source-verification-note` routes for one private controlled Bright River source-verification note after exact demonstrated practice, with explicit start/save/ready/withdraw actions and no write on GET
 - Strict `source-verification-note-artifact-v1@1.0.0` payload with fixed claim, ordered allowlisted source references, controlled fit/correction/safe-action selections, immutable revisions, exact replay/conflict behavior and deterministic readiness feedback; no free text, file/upload, URL, share/export, XP, assessment/scoring or employment signal
 - RP-TURN-016 Accepted at reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: historical exact replay validates the original mutation while the locked artifact returns its latest revision, payload, feedback and truthful lifecycle; database-enforced cross-intent mutation UUID uniqueness, the authenticated server-to-client allowlist and deterministic/unit/build/browser/database/security evidence passed, sealed lesson/publication bytes and digests remain unchanged and no real Clerk smoke or external resource was used
+- Separate optional `measurement-monitoring` consent under `measurement-consent-contract-v1` and `alpha-measurement-monitoring-v1`; it is independent of service-data consent, never preselected and permits explicit grant, decline or withdrawal without blocking product use
+- Seventh forward migration adding exactly `measurement_subjects`, `product_events` and `error_occurrences`; the fresh disposable schema has 26 tables and all three new tables use current-consent forced owner RLS, controlled database allowlists and append-only application privileges
+- Provider-neutral server-only measurement/error interfaces with only a repository-local PostgreSQL adapter and disabled adapter; successful explicit accepted actions may create only `activation_completed` or a later-UTC-day `meaningful_return_completed`, while errors retain only the redacted controlled occurrence contract
+- Measurement/error capture is non-authoritative, exact-action replay safe and fail-closed; it cannot alter accepted domain mutations, lifecycle state or user access, and no passive page view, external request, browser telemetry identifier, cookie, storage, SDK, collector or vendor was added
 
 ## Open decisions
 
@@ -123,7 +127,7 @@
 - Windows reverse proxy, Node service supervisor, release switching and monitoring implementation
 - Managed PostgreSQL/database placement, object storage and backup placement/ownership
 - Payment provider and Thailand-specific billing requirements
-- Analytics/monitoring vendors, privacy consent implementation and retention periods
+- External analytics/monitoring vendors, production privacy/legal suitability and telemetry retention/export/erasure periods
 - Assessment question methodology and validation process
 - Validated result UX, personalized priority logic, proficiency/confidence semantics and real learner recommendation rules
 - Additional lesson availability, learning-efficacy evidence and external validation
@@ -153,11 +157,11 @@
 
 ## Next recommended action
 
-**RP-TURN-017 — Consent-Aware Measurement and Error Monitoring (recommended, not authorized)**
+**RP-TURN-018 — Alpha Hardening and Recovery (recommended, not authorized)**
 
-RP-TURN-016 is Accepted by Project Codex. RP-TURN-017 is only the next recommended turn and requires separate authorization.
+RP-TURN-017 implementation is complete pending Project Codex review. RP-TURN-018 is only the next recommended turn and requires separate authorization.
 
-RP-TURN-007 through RP-TURN-016 are Accepted for their documented synthetic/prototype boundaries. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The new private artifact is controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-017 is recommended only and is not authorized or started.
+RP-TURN-007 through RP-TURN-016 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-017 adds only an optional first-party local synthetic-alpha foundation pending review. Standard build/check/E2E explicitly disable Clerk and allow only the exact loopback origin. Patched `nanoid 3.3.18` is pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged. Production identity-provider suitability, privacy/legal review, data residency, retention/export/erasure and database operations remain undecided. The private artifact remains controlled synthetic P3 state only and is not validated proficiency, a credential, external verification or a shareable portfolio. No real account/data, external telemetry, production resource, saved XP, upload/object storage/share flow, CI, production service or deployment exists. RP-TURN-018 is not authorized or started.
 
 ## Turn history
 
@@ -180,3 +184,4 @@ RP-TURN-007 through RP-TURN-016 are Accepted for their documented synthetic/prot
 | 014 | Accepted | Reviewed head `e4572c02c4bbfa25f9e88b34d79d96b600da224f`: Git-reviewed trusted local MDX/JSON source bundle, independent publication seal, deterministic non-executable registry, calendar-exact evidence chronology/current-UTC expiry enforcement and immutable SHA-256 identity for one bilingual synthetic-alpha lesson; no database migration, durable lesson state or production publication |
 | 015 | Accepted | Reviewed head `962b4422fa21c28b06c362f87ec55466281409e8`: owner/current-consent persisted lesson start/save/evaluate/retry flow with exact mutation replay and a DAL/PostgreSQL-enforced evaluated-failure → explicit retry draft → save/evaluate state machine; three-table forced-RLS append-only migration, server-authoritative deterministic feedback and meaningful progress events; public lesson remains static/memory-only and XP/proof remain unpersisted |
 | 016 | Accepted | Reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: one private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, current-state historical replay, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI accepted by Project Codex |
+| 017 | Complete; pending review | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |

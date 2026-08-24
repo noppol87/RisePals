@@ -9,6 +9,10 @@ import {
   submitPersistedAssessment,
 } from "@/modules/assessment/persistence/dal";
 import type { SavePersistedResponseInput } from "@/modules/assessment/persistence/contract";
+import {
+  captureSuccessfulProductAction,
+  reportControlledErrorOccurrence,
+} from "@/modules/measurement/server";
 
 function readLocale(value: unknown): Locale {
   if (typeof value !== "string" || !isLocale(value)) throw new Error("Unsupported locale.");
@@ -25,7 +29,28 @@ export async function startPersistedAssessmentAction(formData: FormData) {
 
 export async function savePersistedAssessmentResponseAction(input: SavePersistedResponseInput) {
   const locale = readLocale(input.locale);
-  const result = await savePersistedAssessmentResponse({ ...input, locale });
+  let result: Awaited<ReturnType<typeof savePersistedAssessmentResponse>>;
+  try {
+    result = await savePersistedAssessmentResponse({ ...input, locale });
+  } catch (error) {
+    await reportControlledErrorOccurrence({
+      surface: "assessment",
+      operationCode: "assessment_response_saved",
+      locale,
+      category: "unexpected_domain",
+      retryable: true,
+      clientMutationId: input.clientMutationId,
+    });
+    throw error;
+  }
+  if (result.state === "saved") {
+    await captureSuccessfulProductAction({
+      surface: "assessment",
+      operationCode: "assessment_response_saved",
+      locale,
+      clientMutationId: input.clientMutationId,
+    });
+  }
   revalidatePath(persistedAssessmentPath(locale));
   return result;
 }

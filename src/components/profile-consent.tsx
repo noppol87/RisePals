@@ -1,4 +1,5 @@
 import { Stack } from "@/components/primitives/stack";
+import { MeasurementConsentSection } from "@/components/measurement-consent-section";
 import type { Locale } from "@/lib/i18n/config";
 import { privacyNotice } from "@/modules/consent/notice";
 import { ClerkLogoutControl } from "@/modules/identity/providers/clerk/client-boundary";
@@ -9,7 +10,11 @@ import {
   profileVocabulary,
   profileVocabularyLabels,
 } from "@/modules/profile/vocabulary";
-import { recordConsentAction, saveProfileAction } from "@/app/[locale]/profile/actions";
+import {
+  recordConsentAction,
+  recordMeasurementConsentAction,
+  saveProfileAction,
+} from "@/app/[locale]/profile/actions";
 
 function SelectField({
   label,
@@ -126,6 +131,12 @@ export function ProfileConsent({
         </form>
         <p className="boundary-note">{copy.withdrawalBoundary}</p>
       </section>
+
+      <MeasurementConsentSection
+        locale={locale}
+        consent={state.measurementConsent}
+        formAction={recordMeasurementConsentAction}
+      />
 
       {canEditProfile ? (
         <section className="surface-card profile-panel" aria-labelledby="profile-fields-heading">
