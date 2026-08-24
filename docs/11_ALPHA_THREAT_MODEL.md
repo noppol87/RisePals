@@ -1,6 +1,6 @@
 # Rise Pals Synthetic-Alpha Threat Model
 
-Status: RP-TURN-018 implementation evidence pending Project Codex review.
+Status: Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract only.
 
 This model applies only to repository-controlled synthetic identities, explicitly Clerk-disabled browser automation and disposable PostgreSQL. It is not a legal review, a production security approval or authorization to collect real user or career data.
 
@@ -23,7 +23,7 @@ This model applies only to repository-controlled synthetic identities, explicitl
 
 | Threat | Mitigation and verified evidence | Residual risk / stop condition | Owner and status |
 |---|---|---|---|
-| IDOR or cross-owner access | Every private table keeps enabled and forced RLS. Export queries include an exact owner predicate and fixed row limit. Database tests exercise wrong/missing/malformed context and another-owner preservation. | Stop if any private query can return a row under another owner context or if a new table lacks forced RLS. | Engineering; implemented pending review |
+| IDOR or cross-owner access | Every private table keeps enabled and forced RLS. Export queries include an exact owner predicate and fixed row limit. Database tests exercise wrong/missing/malformed context and another-owner preservation. | Stop if any private query can return a row under another owner context or if a new table lacks forced RLS. | Engineering; Accepted for synthetic alpha |
 | Migration-role or RLS bypass | Application, resolver and privacy roles are non-superuser and `NOBYPASSRLS`; privacy and resolver roles are `NOLOGIN NOINHERIT`; bootstrap memberships are revoked after migration. | Production role provisioning and staff access remain undecided. Stop if any runtime credential can assume migration/privacy roles. | Security/operations; production decision open |
 | CSRF and unsafe mutation | Existing owner mutations remain explicit Server Actions with origin/session controls; export/erasure have no route, Client Component or browser action. | A user-facing export/deletion request flow needs a separate CSRF, re-authentication and confirmation decision. | Product/security; out of scope |
 | XSS or malicious locale/redirect/input | Locales and return targets use fixed allowlists; content publication rejects executable/HTML constructs; client DTOs are controlled. | Stop on raw HTML, executable MDX or externally supplied redirect destinations. | Engineering; accepted controls preserved |
@@ -52,4 +52,4 @@ Stop synthetic-alpha operation and escalate without collecting payloads through 
 
 ## Decision boundary
 
-RTO, RPO, retention periods, legal basis, privacy notice, provider suitability, staff/operator access, deletion ledger, backup expiry, production secrets, external monitoring, infrastructure and deployment remain undecided. Project Codex review of RP-TURN-018 is required before this threat model can be recorded as accepted, and acceptance would still be synthetic-alpha only.
+RTO, RPO, retention periods, legal basis, privacy notice, provider suitability, staff/operator access, deletion ledger, backup expiry, restore reconciliation, production secrets, external monitoring, infrastructure and deployment remain undecided. Project Codex acceptance of RP-TURN-018 is synthetic-alpha only and does not authorize launch, real-user collection or production operation.

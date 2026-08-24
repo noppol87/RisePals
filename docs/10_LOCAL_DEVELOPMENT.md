@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-018  
-**Status:** Alpha Hardening and Recovery implementation complete, pending Project Codex review; no real users, external telemetry, production database/service or deployment exists  
+**Status:** RP-TURN-018 Accepted by Project Codex for bounded synthetic alpha; no real users, external telemetry, production database/service or deployment exists  
 **Checked:** 2026-08-24
 
 ## Confirmed host role and separation rule
@@ -758,7 +758,7 @@ Project Codex Accepted the implementation and deterministic/database/browser/rea
 - No paid or Production cloud resource, production database, persistent local database, Windows service, production account or deployment was created. The Development-only synthetic identity and completed disposable cluster/credentials were removed.
 - CI and branch protection remain separately authorized work even though the repository supplies reproducible local browser checks.
 - Assessment methodology/validation, confidence semantics, proficiency mapping, personalized priority logic, lesson efficacy/external validation, production content operations, exact visual identity, final color/typography, localization operations, the Pal character system, credentials and production readiness remain open.
-- No real profile/data, validated score/result/recommendation, saved XP, file proof, object storage or share flow exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority; RP-TURN-015 adds only synthetic-alpha lesson/practice/progress state; RP-TURN-016 adds one private controlled synthetic note; RP-TURN-017 adds only optional pseudonymous first-party events and redacted occurrences under its Accepted bounded synthetic-alpha contract. RP-TURN-018 implements only dry-run export/erasure and disposable recovery evidence pending review; production retention/export/erasure and use remain open.
+- No real profile/data, validated score/result/recommendation, saved XP, file proof, object storage or share flow exists. RP-TURN-012 stores synthetic-alpha raw selected-option revision history; RP-TURN-013 stores only synthetic-alpha reproducible derived evidence and a bounded provisional priority; RP-TURN-015 adds only synthetic-alpha lesson/practice/progress state; RP-TURN-016 adds one private controlled synthetic note; RP-TURN-017 adds only optional pseudonymous first-party events and redacted occurrences under its Accepted bounded synthetic-alpha contract. Accepted RP-TURN-018 adds only dry-run export/erasure and disposable recovery evidence; production retention/export/erasure and use remain open.
 
 ## RP-TURN-013 reproducible synthetic result verification
 
@@ -783,7 +783,7 @@ The fourth migration adds exactly `scoring_runs`, `competency_scores`, `multipli
 | final smoke cleanup | PASS — the synthetic identity was deleted and re-queried absent; PostgreSQL processes/services, smoke Node and Playwright browser processes, listeners and disposable child resources were zero; the isolated build and temporary data/logs/credentials were removed; `.env.local` remained ignored and untracked. |
 | Clerk Development session-refresh warning | KNOWN DEVELOPMENT ISSUE — the recurring redirect-loop message with a generic possible key-mismatch suggestion was caught by the retained diagnostic guard after the complete flow passed. It did not disrupt navigation/session restoration, and the frontend-created identity was found/deleted through the Backend API with the authenticated subject matching the internal mapping. This is not production-provider approval; production Clerk suitability and session behavior remain unresolved. |
 
-Project Codex Accepted RP-TURN-013 through RP-TURN-017 for their bounded synthetic-alpha contracts. RP-TURN-017 acceptance covers only its separate optional first-party measurement/redacted-error boundary at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, external telemetry, production retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment. RP-TURN-018 is implemented separately under its bounded authorization and remains pending Project Codex review.
+Project Codex Accepted RP-TURN-013 through RP-TURN-018 for their bounded synthetic-alpha contracts. RP-TURN-017 acceptance covers only its separate optional first-party measurement/redacted-error boundary at reviewed implementation head `4d6fb73e33202379401b5a72763e27a71fdecda2`; RP-TURN-018 acceptance covers only its non-production hardening/recovery evidence at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80`. This does not approve validated assessment/proficiency or learning-efficacy claims, a credential or externally verifiable proof, real users or career data, production Clerk/PostgreSQL, external telemetry, production retention/export/erasure operations, uploads/sharing, CI, infrastructure or deployment.
 
 ## RP-TURN-014 trusted content publication verification
 
@@ -877,7 +877,7 @@ No real Clerk Development smoke, identity, durable/production database, external
 
 ## RP-TURN-018 alpha hardening and recovery verification
 
-Status: implementation complete on `agent/alpha-hardening-recovery`, pending Project Codex review. Technical completion does not authorize a real-user alpha, production resources or RP-TURN-019.
+Status: Accepted by Project Codex at reviewed implementation head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract. Acceptance does not authorize a real-user alpha, launch, production resources or RP-TURN-019.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

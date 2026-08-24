@@ -247,7 +247,7 @@ Gate:
 
 Outcome: complete assessment-to-practice regression suite, deletion/export dry runs, threat review, performance/accessibility audit and operational runbook.
 
-Implementation status: Authorized and implemented on `agent/alpha-hardening-recovery`, pending Project Codex review. The bounded change adds a server-only canonical export, operator-only synthetic erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal, desktop/320px/reduced-motion browser projects, threat model and bilingual-aware support/recovery runbook. No real Clerk smoke, user, production resource, dependency, CI, infrastructure or deployment is included. RP-TURN-019 remains unauthorized.
+Implementation status: Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract. The change adds a server-only canonical export, operator-only synthetic erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore/invalid-recovery rehearsal, desktop/320px/reduced-motion browser projects, threat model and bilingual-aware support/recovery runbook. These remain non-production dry-run evidence and do not authorize launch or real-user collection. Production retention, deletion ledger, backup expiry, restore reconciliation, legal/privacy/provider suitability, RTO/RPO and staff/operator access remain open. No real Clerk smoke, user, production resource, dependency, CI, infrastructure or deployment is included. RP-TURN-019 is recommended only, unstarted and unauthorized.
 
 Gate:
 

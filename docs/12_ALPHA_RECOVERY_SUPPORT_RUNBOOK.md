@@ -1,6 +1,6 @@
 # Rise Pals Synthetic-Alpha Recovery and Support Runbook
 
-Status: RP-TURN-018 implementation evidence pending Project Codex review.
+Status: Accepted by Project Codex at reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80` for the bounded synthetic-alpha contract only.
 
 This runbook is bilingual-aware: preserve the user's locale (`th` or `en`) in support communication, use the Thai/English controlled UI copy where available and record only redacted operational facts. It is limited to repository-controlled synthetic identities and disposable local resources.
 
@@ -108,4 +108,4 @@ Do not delete a broad or computed path. Cleanup code must first resolve and veri
 
 ## Open production blockers
 
-RTO, RPO, retention periods, legal basis, privacy notice, provider suitability, staff access, operator dual control, deletion ledger, backup expiry, off-host/encrypted backup, production monitoring, CI, infrastructure and deployment are undecided. This runbook does not authorize real users, public launch or production resources.
+RTO, RPO, retention periods, legal basis, privacy notice, provider suitability, staff access, operator dual control, deletion ledger, backup expiry, restore reconciliation, off-host/encrypted backup, production monitoring, CI, infrastructure and deployment are undecided. This Accepted synthetic-alpha runbook does not authorize real users, public launch or production resources. RP-TURN-019 is recommended only, unstarted and unauthorized.
