@@ -1,8 +1,8 @@
 import "server-only";
 import type {
+  ProductMeasurementCandidate,
   ProductEventClass,
   RedactedErrorOccurrence,
-  SuccessfulProductAction,
 } from "./contract";
 
 export type MeasurementCaptureResult = Readonly<{
@@ -15,7 +15,7 @@ export type ErrorReportResult = Readonly<{
 }>;
 
 export interface ProductMeasurementAdapter {
-  recordSuccessfulAction(input: SuccessfulProductAction): Promise<MeasurementCaptureResult>;
+  recordSuccessfulAction(input: ProductMeasurementCandidate): Promise<MeasurementCaptureResult>;
 }
 
 export interface RedactedErrorReporter {

@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import {
   MEASUREMENT_CONSENT_PURPOSE,
@@ -11,12 +12,12 @@ import type {
   MeasurementMonitoringAdapter,
 } from "./adapter";
 import {
-  actionDigest,
   MEASUREMENT_SCHEMA_VERSION,
   MEASUREMENT_SUBJECT_SCHEMA_VERSION,
+  parseProductMeasurementCandidate,
   parseRedactedErrorOccurrence,
+  type ProductMeasurementCandidate,
   type RedactedErrorOccurrence,
-  type SuccessfulProductAction,
 } from "./contract";
 
 type Options = Readonly<{
@@ -49,6 +50,12 @@ function utcDate(value: Date): string {
 function stringId(value: unknown, label: string): string {
   if (typeof value !== "string") throw new Error(`${label} is invalid.`);
   return value;
+}
+
+function ownerActionDigest(candidateDigest: string, userId: string): string {
+  return createHash("sha256")
+    .update([MEASUREMENT_SCHEMA_VERSION, userId, candidateDigest].join("\u0000"), "utf8")
+    .digest("hex");
 }
 
 export function createPostgresqlMeasurementMonitoringAdapter(
@@ -93,23 +100,18 @@ export function createPostgresqlMeasurementMonitoringAdapter(
 
   return {
     async recordSuccessfulAction(
-      input: SuccessfulProductAction,
+      input: ProductMeasurementCandidate,
     ): Promise<MeasurementCaptureResult> {
-      const digest = actionDigest(input);
+      const candidate = parseProductMeasurementCandidate(input);
       const occurredAt = validDate(clock());
       const result = await runAuthorized(async (client, userId) => {
         const subjectId = await currentSubject(client, userId);
         if (!subjectId) return { state: "skipped" } as const;
+        const digest = ownerActionDigest(candidate.actionDigest, userId);
         await client.query(
           `SELECT pg_advisory_xact_lock(hashtextextended('measurement-subject:' || $1, 0))`,
           [subjectId],
         );
-        const replay = await client.query(
-          `SELECT id FROM product_events
-             WHERE measurement_subject_id=$1 AND action_digest=$2`,
-          [subjectId, digest],
-        );
-        if (replay.rowCount) return { state: "skipped" } as const;
         const activation = await client.query<{ occurred_at: unknown }>(
           `SELECT occurred_at FROM product_events
              WHERE measurement_subject_id=$1 AND event_class='activation_completed'
@@ -124,21 +126,24 @@ export function createPostgresqlMeasurementMonitoringAdapter(
               ? "meaningful_return_completed"
               : null;
         if (!eventClass) return { state: "skipped" } as const;
-        await client.query(
+        const inserted = await client.query(
           `INSERT INTO product_events
               (measurement_subject_id, schema_version, event_class, surface_code,
                operation_code, action_digest, occurred_at)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+             VALUES ($1,$2,$3,$4,$5,$6,$7)
+             ON CONFLICT (action_digest) DO NOTHING
+             RETURNING id`,
           [
             subjectId,
             MEASUREMENT_SCHEMA_VERSION,
             eventClass,
-            input.surface,
-            input.operationCode,
+            candidate.surface,
+            candidate.operationCode,
             digest,
             occurredAt,
           ],
         );
+        if (!inserted.rowCount) return { state: "skipped" } as const;
         return { state: "recorded", eventClass } as const;
       });
       return result.state === "authorized" ? result.value : { state: "skipped" };

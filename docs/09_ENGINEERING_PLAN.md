@@ -233,7 +233,7 @@ Gate:
 
 Outcome: allowlisted activation/return events and redacted operational monitoring behind adapters.
 
-Implementation status: Complete pending Project Codex review. One seventh migration adds exactly `measurement_subjects`, `product_events` and `error_occurrences`, producing twenty-six tables. A separate optional versioned consent controls a pseudonymous per-grant subject. Server-only repository-local PostgreSQL and disabled adapters accept only two event classes, four surfaces, controlled operations and redacted occurrence fields. Capture follows successful explicit persisted actions only, is replay-safe and non-authoritative. No external provider, dependency, environment variable, browser tracker, production approval or retention/export/erasure operation exists. RP-TURN-018 is recommended only and not authorized.
+Implementation status: Complete pending Project Codex review after R1. One seventh migration adds exactly `measurement_subjects`, `product_events` and `error_occurrences`, producing twenty-six tables. A separate optional versioned consent controls a pseudonymous per-grant subject. Server-only repository-local PostgreSQL and disabled adapters receive only a prehashed exact controlled candidate; a private applied/replayed/non-applied envelope limits capture to newly committed actions. Owner-bound global digest uniqueness rejects exact replay across consent rotation. Controlled unexpected failures do not forward or rethrow raw errors. No external provider, dependency, environment variable, browser tracker, production approval or retention/export/erasure operation exists. RP-TURN-018 is recommended only and not authorized.
 
 Gate:
 

@@ -54,7 +54,7 @@ CREATE UNIQUE INDEX "error_occurrences_correlation_unique" ON "error_occurrences
 CREATE INDEX "error_occurrences_subject_occurred_idx" ON "error_occurrences" USING btree ("measurement_subject_id","occurred_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "measurement_subjects_owner_consent_unique" ON "measurement_subjects" USING btree ("user_id","consent_record_id");--> statement-breakpoint
 CREATE INDEX "measurement_subjects_owner_created_idx" ON "measurement_subjects" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "product_events_subject_action_unique" ON "product_events" USING btree ("measurement_subject_id","action_digest");--> statement-breakpoint
+CREATE UNIQUE INDEX "product_events_action_unique" ON "product_events" USING btree ("action_digest");--> statement-breakpoint
 CREATE INDEX "product_events_subject_occurred_idx" ON "product_events" USING btree ("measurement_subject_id","occurred_at");
 --> statement-breakpoint
 CREATE FUNCTION "rise_pals_private"."is_current_measurement_consent"(

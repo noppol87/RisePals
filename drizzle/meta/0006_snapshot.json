@@ -3431,15 +3431,9 @@
         }
       },
       "indexes": {
-        "product_events_subject_action_unique": {
-          "name": "product_events_subject_action_unique",
+        "product_events_action_unique": {
+          "name": "product_events_action_unique",
           "columns": [
-            {
-              "expression": "measurement_subject_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
             {
               "expression": "action_digest",
               "isExpression": false,

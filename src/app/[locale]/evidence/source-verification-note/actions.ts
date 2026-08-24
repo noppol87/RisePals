@@ -9,8 +9,8 @@ import {
 } from "@/lib/i18n/config";
 import type { EvidenceLifecycleInput, EvidenceSaveInput } from "@/modules/evidence/types";
 import {
-  mutateEvidenceLifecycle,
-  saveEvidenceArtifact,
+  mutateEvidenceLifecycleWithExecution,
+  saveEvidenceArtifactWithExecution,
   startEvidenceArtifact,
 } from "@/modules/evidence/dal";
 import {
@@ -37,21 +37,23 @@ export async function startEvidenceArtifactAction(localeInput: string, clientMut
 
 export async function saveEvidenceArtifactAction(input: EvidenceSaveInput) {
   const locale = localeValue(input.locale);
-  let result: Awaited<ReturnType<typeof saveEvidenceArtifact>>;
+  let execution: Awaited<ReturnType<typeof saveEvidenceArtifactWithExecution>>;
   try {
-    result = await saveEvidenceArtifact({ ...input, locale });
-  } catch (error) {
-    await reportControlledErrorOccurrence({
-      surface: "private_evidence",
-      operationCode: "private_evidence_saved",
-      locale,
-      category: "unexpected_domain",
-      retryable: true,
-      clientMutationId: input.clientMutationId,
-    });
-    throw error;
+    execution = await saveEvidenceArtifactWithExecution({ ...input, locale });
+  } catch {
+    try {
+      await reportControlledErrorOccurrence({
+        surface: "private_evidence",
+        operationCode: "private_evidence_saved",
+        locale,
+        category: "unexpected_domain",
+        retryable: true,
+        clientMutationId: input.clientMutationId,
+      });
+    } catch {}
+    return { state: "not-ready" } as const;
   }
-  if (result.state === "saved" || result.state === "ready" || result.state === "withdrawn") {
+  if (execution.disposition === "applied") {
     await captureSuccessfulProductAction({
       surface: "private_evidence",
       operationCode: "private_evidence_saved",
@@ -60,7 +62,7 @@ export async function saveEvidenceArtifactAction(input: EvidenceSaveInput) {
     });
   }
   revalidateEvidence(locale);
-  return result;
+  return execution.result;
 }
 
 export async function mutateEvidenceLifecycleAction(input: EvidenceLifecycleInput) {
@@ -69,21 +71,23 @@ export async function mutateEvidenceLifecycleAction(input: EvidenceLifecycleInpu
     input.intent === "ready"
       ? ("private_evidence_marked_ready" as const)
       : ("private_evidence_withdrawn" as const);
-  let result: Awaited<ReturnType<typeof mutateEvidenceLifecycle>>;
+  let execution: Awaited<ReturnType<typeof mutateEvidenceLifecycleWithExecution>>;
   try {
-    result = await mutateEvidenceLifecycle({ ...input, locale });
-  } catch (error) {
-    await reportControlledErrorOccurrence({
-      surface: "private_evidence",
-      operationCode,
-      locale,
-      category: "unexpected_domain",
-      retryable: true,
-      clientMutationId: input.clientMutationId,
-    });
-    throw error;
+    execution = await mutateEvidenceLifecycleWithExecution({ ...input, locale });
+  } catch {
+    try {
+      await reportControlledErrorOccurrence({
+        surface: "private_evidence",
+        operationCode,
+        locale,
+        category: "unexpected_domain",
+        retryable: true,
+        clientMutationId: input.clientMutationId,
+      });
+    } catch {}
+    return { state: "not-ready" } as const;
   }
-  if (result.state === "ready" || result.state === "withdrawn") {
+  if (execution.disposition === "applied") {
     await captureSuccessfulProductAction({
       surface: "private_evidence",
       operationCode,
@@ -92,5 +96,5 @@ export async function mutateEvidenceLifecycleAction(input: EvidenceLifecycleInpu
     });
   }
   revalidateEvidence(locale);
-  return result;
+  return execution.result;
 }

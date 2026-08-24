@@ -22,21 +22,21 @@ vi.mock("@/modules/measurement/server", () => ({
   reportControlledErrorOccurrence: mocks.report,
 }));
 vi.mock("@/modules/assessment/persistence/dal", () => ({
-  savePersistedAssessmentResponse: mocks.saveAssessment,
+  savePersistedAssessmentResponseWithExecution: mocks.saveAssessment,
   startPersistedAssessment: vi.fn(),
   submitPersistedAssessment: vi.fn(),
 }));
 vi.mock("@/modules/assessment/persisted-result/dal", () => ({
-  generatePersistedResult: mocks.generateResult,
+  generatePersistedResultWithExecution: mocks.generateResult,
 }));
 vi.mock("@/modules/lesson/persistence/dal", () => ({
-  mutatePersistedLesson: mocks.mutateLesson,
+  mutatePersistedLessonWithExecution: mocks.mutateLesson,
   startPersistedLesson: mocks.startLesson,
 }));
 vi.mock("@/modules/evidence/dal", () => ({
   startEvidenceArtifact: mocks.startEvidence,
-  saveEvidenceArtifact: mocks.saveEvidence,
-  mutateEvidenceLifecycle: mocks.mutateEvidence,
+  saveEvidenceArtifactWithExecution: mocks.saveEvidence,
+  mutateEvidenceLifecycleWithExecution: mocks.mutateEvidence,
 }));
 
 import { savePersistedAssessmentResponseAction } from "@/app/[locale]/assessment/attempt/actions";
@@ -46,6 +46,10 @@ import { mutatePersistedLessonAction } from "@/app/[locale]/lessons/source-verif
 
 const mutationId = "10000000-0000-4000-8000-000000000001";
 
+function execution<T>(result: T, disposition: "applied" | "replayed" | "not-applied" = "applied") {
+  return { result, disposition } as const;
+}
+
 describe("non-authoritative action instrumentation", () => {
   beforeEach(() => {
     for (const mock of Object.values(mocks)) mock.mockReset();
@@ -53,7 +57,7 @@ describe("non-authoritative action instrumentation", () => {
     mocks.report.mockResolvedValue({ state: "recorded" });
   });
 
-  it("captures only a successful persisted assessment save and never sends answer content", async () => {
+  it("captures only a newly applied assessment save and never sends answer content", async () => {
     const input = {
       locale: "th" as const,
       itemKey: "verify-ai-summary-source",
@@ -61,13 +65,17 @@ describe("non-authoritative action instrumentation", () => {
       expectedRevision: 0,
       clientMutationId: mutationId,
     };
-    mocks.saveAssessment.mockResolvedValue({ state: "conflict", selection: null });
+    mocks.saveAssessment.mockResolvedValue(
+      execution({ state: "conflict", selection: null }, "not-applied"),
+    );
     await expect(savePersistedAssessmentResponseAction(input)).resolves.toMatchObject({
       state: "conflict",
     });
     expect(mocks.capture).not.toHaveBeenCalled();
 
-    mocks.saveAssessment.mockResolvedValue({ state: "saved", selection: { revision: 1 } });
+    mocks.saveAssessment.mockResolvedValue(
+      execution({ state: "saved", selection: { revision: 1 } }),
+    );
     await savePersistedAssessmentResponseAction(input);
     expect(mocks.capture).toHaveBeenCalledWith({
       surface: "assessment",
@@ -80,35 +88,60 @@ describe("non-authoritative action instrumentation", () => {
     expect(captured).not.toContain(input.selectedOptionId);
   });
 
-  it("reports a controlled occurrence and rethrows the original unexpected failure", async () => {
-    const original = new Error("raw database message must not be reported");
-    mocks.saveAssessment.mockRejectedValue(original);
-    await expect(
-      savePersistedAssessmentResponseAction({
-        locale: "en",
-        itemKey: "verify-ai-summary-source",
-        selectedOptionId: "ask-for-source",
-        expectedRevision: 0,
-        clientMutationId: mutationId,
-      }),
-    ).rejects.toBe(original);
-    expect(mocks.report).toHaveBeenCalledWith({
-      surface: "assessment",
-      operationCode: "assessment_response_saved",
-      locale: "en",
-      category: "unexpected_domain",
-      retryable: true,
+  it("never captures exact replay before grant, under the same grant or after subject rotation", async () => {
+    const input = {
+      locale: "th" as const,
+      itemKey: "verify-ai-summary-source",
+      selectedOptionId: "ask-for-source",
+      expectedRevision: 0,
       clientMutationId: mutationId,
-    });
-    expect(JSON.stringify(mocks.report.mock.calls[0])).not.toContain(original.message);
+    };
+    const replay = execution({ state: "saved", selection: { revision: 1 } }, "replayed");
+    mocks.saveAssessment.mockResolvedValue(replay);
+    await savePersistedAssessmentResponseAction(input);
+    await savePersistedAssessmentResponseAction(input);
+    await savePersistedAssessmentResponseAction(input);
     expect(mocks.capture).not.toHaveBeenCalled();
+
+    mocks.saveAssessment.mockResolvedValue(
+      execution({ state: "saved", selection: { revision: 2 } }),
+    );
+    await savePersistedAssessmentResponseAction({
+      ...input,
+      expectedRevision: 1,
+      clientMutationId: "10000000-0000-4000-8000-000000000002",
+    });
+    expect(mocks.capture).toHaveBeenCalledOnce();
   });
 
-  it("does not label failed result generation as a successful outcome", async () => {
-    mocks.generateResult.mockResolvedValue({ state: "failed" });
+  it("captures at most once when concurrent identical mutations converge", async () => {
+    const input = {
+      locale: "en" as const,
+      itemKey: "verify-ai-summary-source",
+      selectedOptionId: "ask-for-source",
+      expectedRevision: 0,
+      clientMutationId: mutationId,
+    };
+    mocks.saveAssessment
+      .mockResolvedValueOnce(execution({ state: "saved", selection: { revision: 1 } }))
+      .mockResolvedValueOnce(execution({ state: "saved", selection: { revision: 1 } }, "replayed"));
+    await Promise.all([
+      savePersistedAssessmentResponseAction(input),
+      savePersistedAssessmentResponseAction(input),
+    ]);
+    expect(mocks.capture).toHaveBeenCalledOnce();
+  });
+
+  it("does not label replayed or failed result generation as newly successful", async () => {
     const form = new FormData();
     form.set("locale", "th");
     form.set("mutationId", mutationId);
+
+    mocks.generateResult.mockResolvedValue(execution({ state: "ready" }, "replayed"));
+    await generatePersistedResultAction({ state: "idle" }, form);
+    expect(mocks.capture).not.toHaveBeenCalled();
+
+    mocks.generateResult.mockResolvedValue(execution({ state: "failed" }, "not-applied"));
     await expect(generatePersistedResultAction({ state: "idle" }, form)).resolves.toEqual({
       state: "failed",
     });
@@ -116,22 +149,24 @@ describe("non-authoritative action instrumentation", () => {
     expect(mocks.report).toHaveBeenCalledOnce();
   });
 
-  it("maps lesson intent to a controlled operation and ignores denial/conflict", async () => {
+  it("maps lesson intent to a controlled operation and ignores replay/denial/conflict", async () => {
     const input = {
       locale: "en" as const,
       intent: "retry" as const,
       expectedRevision: 2,
       clientMutationId: mutationId,
     };
-    mocks.mutateLesson.mockResolvedValue({ state: "not-ready" });
+    mocks.mutateLesson.mockResolvedValue(execution({ state: "not-ready" }, "not-applied"));
+    await mutatePersistedLessonAction(input);
+    mocks.mutateLesson.mockResolvedValue(
+      execution({ state: "saved", revision: 3, selections: [], results: null }, "replayed"),
+    );
     await mutatePersistedLessonAction(input);
     expect(mocks.capture).not.toHaveBeenCalled();
-    mocks.mutateLesson.mockResolvedValue({
-      state: "saved",
-      revision: 3,
-      selections: [],
-      results: null,
-    });
+
+    mocks.mutateLesson.mockResolvedValue(
+      execution({ state: "saved", revision: 3, selections: [], results: null }),
+    );
     await mutatePersistedLessonAction(input);
     expect(mocks.capture).toHaveBeenCalledWith({
       surface: "lesson_practice",
@@ -141,17 +176,20 @@ describe("non-authoritative action instrumentation", () => {
     });
   });
 
-  it("captures only successful ready/withdrawn evidence lifecycle outcomes", async () => {
+  it("captures only a newly applied evidence lifecycle outcome", async () => {
     const input = {
       locale: "th" as const,
       intent: "ready" as const,
       expectedRevision: 2,
       clientMutationId: mutationId,
     };
-    mocks.mutateEvidence.mockResolvedValue({ state: "conflict" });
+    mocks.mutateEvidence.mockResolvedValue(execution({ state: "conflict" }, "not-applied"));
+    await mutateEvidenceLifecycleAction(input);
+    mocks.mutateEvidence.mockResolvedValue(execution({ state: "ready", artifact: {} }, "replayed"));
     await mutateEvidenceLifecycleAction(input);
     expect(mocks.capture).not.toHaveBeenCalled();
-    mocks.mutateEvidence.mockResolvedValue({ state: "ready", artifact: {} });
+
+    mocks.mutateEvidence.mockResolvedValue(execution({ state: "ready", artifact: {} }));
     await mutateEvidenceLifecycleAction(input);
     expect(mocks.capture).toHaveBeenCalledWith({
       surface: "private_evidence",
@@ -159,5 +197,57 @@ describe("non-authoritative action instrumentation", () => {
       locale: "th",
       clientMutationId: mutationId,
     });
+  });
+
+  it("contains unexpected assessment, lesson and evidence errors without raw propagation", async () => {
+    const sentinel = "RP17_PROHIBITED_SENTINEL_MESSAGE";
+    const original = new Error(sentinel, { cause: new Error(`${sentinel}_CAUSE`) });
+    const reporterFailure = new Error(`${sentinel}_REPORTER`);
+    const consoleSpies = [
+      vi.spyOn(console, "error").mockImplementation(() => undefined),
+      vi.spyOn(console, "warn").mockImplementation(() => undefined),
+      vi.spyOn(console, "log").mockImplementation(() => undefined),
+    ];
+    mocks.report.mockRejectedValue(reporterFailure);
+
+    mocks.saveAssessment.mockRejectedValue(original);
+    const assessmentResult = await savePersistedAssessmentResponseAction({
+      locale: "en",
+      itemKey: "verify-ai-summary-source",
+      selectedOptionId: "ask-for-source",
+      expectedRevision: 0,
+      clientMutationId: mutationId,
+    });
+    mocks.mutateLesson.mockRejectedValue(original);
+    const lessonResult = await mutatePersistedLessonAction({
+      locale: "en",
+      intent: "retry",
+      expectedRevision: 2,
+      clientMutationId: mutationId,
+    });
+    mocks.mutateEvidence.mockRejectedValue(original);
+    const evidenceResult = await mutateEvidenceLifecycleAction({
+      locale: "th",
+      intent: "ready",
+      expectedRevision: 2,
+      clientMutationId: mutationId,
+    });
+
+    expect([assessmentResult, lessonResult, evidenceResult]).toEqual([
+      { state: "not-ready" },
+      { state: "not-ready" },
+      { state: "not-ready" },
+    ]);
+    expect(mocks.report).toHaveBeenCalledTimes(3);
+    expect(mocks.capture).not.toHaveBeenCalled();
+    const observed = JSON.stringify({
+      results: [assessmentResult, lessonResult, evidenceResult],
+      reporterInputs: mocks.report.mock.calls,
+      console: consoleSpies.flatMap((spy) => spy.mock.calls),
+    });
+    expect(observed).not.toContain(sentinel);
+    expect(observed).not.toContain("stack");
+    expect(observed).not.toContain("cause");
+    for (const spy of consoleSpies) spy.mockRestore();
   });
 });

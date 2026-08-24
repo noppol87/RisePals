@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isLocale, persistedAssessmentPath, type Locale } from "@/lib/i18n/config";
 import {
-  savePersistedAssessmentResponse,
+  savePersistedAssessmentResponseWithExecution,
   startPersistedAssessment,
   submitPersistedAssessment,
 } from "@/modules/assessment/persistence/dal";
@@ -29,21 +29,23 @@ export async function startPersistedAssessmentAction(formData: FormData) {
 
 export async function savePersistedAssessmentResponseAction(input: SavePersistedResponseInput) {
   const locale = readLocale(input.locale);
-  let result: Awaited<ReturnType<typeof savePersistedAssessmentResponse>>;
+  let execution: Awaited<ReturnType<typeof savePersistedAssessmentResponseWithExecution>>;
   try {
-    result = await savePersistedAssessmentResponse({ ...input, locale });
-  } catch (error) {
-    await reportControlledErrorOccurrence({
-      surface: "assessment",
-      operationCode: "assessment_response_saved",
-      locale,
-      category: "unexpected_domain",
-      retryable: true,
-      clientMutationId: input.clientMutationId,
-    });
-    throw error;
+    execution = await savePersistedAssessmentResponseWithExecution({ ...input, locale });
+  } catch {
+    try {
+      await reportControlledErrorOccurrence({
+        surface: "assessment",
+        operationCode: "assessment_response_saved",
+        locale,
+        category: "unexpected_domain",
+        retryable: true,
+        clientMutationId: input.clientMutationId,
+      });
+    } catch {}
+    return { state: "not-ready" } as const;
   }
-  if (result.state === "saved") {
+  if (execution.disposition === "applied") {
     await captureSuccessfulProductAction({
       surface: "assessment",
       operationCode: "assessment_response_saved",
@@ -52,7 +54,7 @@ export async function savePersistedAssessmentResponseAction(input: SavePersisted
     });
   }
   revalidatePath(persistedAssessmentPath(locale));
-  return result;
+  return execution.result;
 }
 
 export async function submitPersistedAssessmentAction(localeValue: string) {

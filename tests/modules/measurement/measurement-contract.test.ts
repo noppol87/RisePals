@@ -1,8 +1,7 @@
-import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import type { MeasurementMonitoringAdapter } from "@/modules/measurement/adapter";
+import { disabledMeasurementMonitoringAdapter } from "@/modules/measurement/disabled-adapter";
 import {
-  actionDigest,
   createRedactedErrorOccurrence,
   ERROR_OCCURRENCE_SCHEMA_VERSION,
   errorCategories,
@@ -10,6 +9,7 @@ import {
   errorSeverities,
   measurementOperationCodes,
   measurementSurfaces,
+  parseProductMeasurementCandidate,
   parseRedactedErrorOccurrence,
   productEventClasses,
   type RedactedErrorOccurrence,
@@ -54,32 +54,105 @@ describe("measurement and redacted error contract", () => {
     expect(errorSeverities).toEqual(["warning", "error"]);
   });
 
-  it("creates a deterministic context-bound digest without retaining the mutation UUID", () => {
-    const input = {
+  it("accepts only the exact controlled product-measurement candidate", () => {
+    const candidate = {
+      schemaVersion: "product-measurement-v1" as const,
       surface: "assessment" as const,
       operationCode: "assessment_response_saved" as const,
       locale: "th" as const,
-      clientMutationId: mutationId,
+      actionDigest: "a".repeat(64),
     };
-    const digest = actionDigest(input);
-    const independent = createHash("sha256")
-      .update(
-        [
-          "product-measurement-v1",
-          "assessment",
-          "assessment_response_saved",
-          "th",
-          mutationId,
-        ].join("\u0000"),
-        "utf8",
-      )
-      .digest("hex");
-    expect(digest).toBe(independent);
-    expect(digest).toMatch(/^[0-9a-f]{64}$/);
-    expect(digest).not.toContain(mutationId);
-    expect(() => actionDigest({ ...input, clientMutationId: "not-a-uuid" })).toThrow(
-      "outside the allowlist",
+    expect(parseProductMeasurementCandidate(candidate)).toEqual(candidate);
+    expect(() =>
+      parseProductMeasurementCandidate({ ...candidate, actionDigest: "not-a-digest" }),
+    ).toThrow("controlled schema");
+    expect(() =>
+      parseProductMeasurementCandidate({ ...candidate, clientMutationId: mutationId }),
+    ).toThrow("unexpected field");
+  });
+
+  it("hashes and validates the mutation before every injected adapter boundary", async () => {
+    const recordSuccessfulAction = vi.fn(
+      async (input: Parameters<MeasurementMonitoringAdapter["recordSuccessfulAction"]>[0]) => {
+        void input;
+        return { state: "recorded" as const };
+      },
     );
+    const reportOccurrence = vi.fn(
+      async (input: Parameters<MeasurementMonitoringAdapter["reportOccurrence"]>[0]) => {
+        void input;
+        return { state: "recorded" as const };
+      },
+    );
+    const adapter: MeasurementMonitoringAdapter = {
+      recordSuccessfulAction,
+      reportOccurrence,
+    };
+    await expect(
+      captureSuccessfulProductAction(
+        {
+          surface: "assessment",
+          operationCode: "assessment_response_saved",
+          locale: "th",
+          clientMutationId: mutationId,
+        },
+        adapter,
+      ),
+    ).resolves.toEqual({ state: "recorded" });
+
+    expect(recordSuccessfulAction).toHaveBeenCalledOnce();
+    const boundaryInput = recordSuccessfulAction.mock.calls[0]?.[0];
+    expect(Object.keys(boundaryInput ?? {}).sort()).toEqual(
+      ["schemaVersion", "surface", "operationCode", "locale", "actionDigest"].sort(),
+    );
+    expect(boundaryInput?.actionDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(boundaryInput)).not.toContain(mutationId);
+    for (const prohibited of ["itemKey", "selectedOptionId", "payload", "formData"]) {
+      expect(JSON.stringify(boundaryInput)).not.toContain(prohibited);
+    }
+
+    recordSuccessfulAction.mockClear();
+    await expect(
+      captureSuccessfulProductAction(
+        {
+          surface: "assessment",
+          operationCode: "assessment_response_saved",
+          locale: "th",
+          clientMutationId: "not-a-uuid",
+        },
+        adapter,
+      ),
+    ).resolves.toEqual({ state: "skipped" });
+    expect(recordSuccessfulAction).not.toHaveBeenCalled();
+
+    await expect(
+      captureSuccessfulProductAction(
+        {
+          surface: "assessment",
+          operationCode: "assessment_response_saved",
+          locale: "th",
+          clientMutationId: mutationId,
+        },
+        disabledMeasurementMonitoringAdapter,
+      ),
+    ).resolves.toEqual({ state: "disabled" });
+
+    await expect(
+      reportControlledErrorOccurrence(
+        {
+          surface: "assessment",
+          operationCode: "assessment_response_saved",
+          locale: "th",
+          category: "unexpected_database",
+          retryable: true,
+          clientMutationId: mutationId,
+        },
+        adapter,
+      ),
+    ).resolves.toEqual({ state: "recorded" });
+    const occurrence = reportOccurrence.mock.calls[0]?.[0];
+    expect(JSON.stringify(occurrence)).not.toContain(mutationId);
+    expect(occurrence?.mutationDigest).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("creates only the controlled redacted occurrence fields", () => {
@@ -90,7 +163,7 @@ describe("measurement and redacted error contract", () => {
       category: "unexpected_domain",
       severity: "error",
       retryable: true,
-      clientMutationId: mutationId,
+      mutationDigest: "b".repeat(64),
       now: new Date("2026-08-24T12:00:00.000Z"),
     });
     expect(Object.keys(occurrence).sort()).toEqual(

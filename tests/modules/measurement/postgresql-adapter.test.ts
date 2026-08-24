@@ -9,7 +9,16 @@ import { createPostgresqlMeasurementMonitoringAdapter } from "@/modules/measurem
 const userId = "10000000-0000-4000-8000-000000000001";
 const consentId = "20000000-0000-4000-8000-000000000001";
 const subjectId = "30000000-0000-4000-8000-000000000001";
-const mutationId = "40000000-0000-4000-8000-000000000001";
+
+function candidate(actionDigest = "a".repeat(64)) {
+  return {
+    schemaVersion: "product-measurement-v1" as const,
+    surface: "assessment" as const,
+    operationCode: "assessment_response_saved" as const,
+    locale: "th" as const,
+    actionDigest,
+  };
+}
 
 function transactionRunner(client: PoolClient) {
   return async <T>(operation: (value: PoolClient, owner: string) => Promise<T>) => ({
@@ -19,6 +28,23 @@ function transactionRunner(client: PoolClient) {
 }
 
 describe("PostgreSQL measurement adapter", () => {
+  it("rejects a malformed or expanded candidate before starting authorization", async () => {
+    const transaction = vi.fn();
+    const adapter = createPostgresqlMeasurementMonitoringAdapter({
+      transactionRunner: transaction,
+    });
+    await expect(
+      adapter.recordSuccessfulAction({
+        ...candidate(),
+        clientMutationId: "40000000-0000-4000-8000-000000000001",
+      } as never),
+    ).rejects.toThrow("unexpected field");
+    await expect(
+      adapter.recordSuccessfulAction({ ...candidate(), actionDigest: "invalid" }),
+    ).rejects.toThrow("controlled schema");
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it("fails closed without an exact current granted measurement consent", async () => {
     const queries: string[] = [];
     const client = {
@@ -39,14 +65,9 @@ describe("PostgreSQL measurement adapter", () => {
     const adapter = createPostgresqlMeasurementMonitoringAdapter({
       transactionRunner: transactionRunner(client),
     });
-    await expect(
-      adapter.recordSuccessfulAction({
-        surface: "assessment",
-        operationCode: "assessment_response_saved",
-        locale: "th",
-        clientMutationId: mutationId,
-      }),
-    ).resolves.toEqual({ state: "skipped" });
+    await expect(adapter.recordSuccessfulAction(candidate())).resolves.toEqual({
+      state: "skipped",
+    });
     expect(queries).toHaveLength(1);
     expect(queries[0]).toContain("FROM consent_records");
   });
@@ -76,9 +97,6 @@ describe("PostgreSQL measurement adapter", () => {
         if (sql.includes("SELECT id FROM measurement_subjects"))
           return { rows: [{ id: subjectId }] };
         if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
-        if (sql.includes("action_digest=$2")) {
-          return { rows: events.filter((event) => event.actionDigest === params[1]) };
-        }
         if (sql.includes("event_class='activation_completed'")) {
           const activation = events.find((event) => event.eventClass === "activation_completed");
           return { rows: activation ? [{ occurred_at: activation.occurredAt }] : [] };
@@ -89,7 +107,7 @@ describe("PostgreSQL measurement adapter", () => {
             actionDigest: String(params[5]),
             occurredAt: params[6] as Date,
           });
-          return { rows: [] };
+          return { rows: [{ id: String(events.length) }], rowCount: 1 };
         }
         throw new Error(`Unexpected query: ${sql}`);
       }),
@@ -98,12 +116,7 @@ describe("PostgreSQL measurement adapter", () => {
       transactionRunner: transactionRunner(client),
       now: () => new Date("2026-08-24T23:59:59.000Z"),
     });
-    const action = {
-      surface: "assessment" as const,
-      operationCode: "assessment_response_saved" as const,
-      locale: "th" as const,
-      clientMutationId: mutationId,
-    };
+    const action = candidate();
     await expect(dayOne.recordSuccessfulAction(action)).resolves.toEqual({
       state: "recorded",
       eventClass: "activation_completed",
@@ -112,7 +125,7 @@ describe("PostgreSQL measurement adapter", () => {
     await expect(
       dayOne.recordSuccessfulAction({
         ...action,
-        clientMutationId: "40000000-0000-4000-8000-000000000002",
+        actionDigest: "b".repeat(64),
       }),
     ).resolves.toEqual({ state: "skipped" });
     const dayTwo = createPostgresqlMeasurementMonitoringAdapter({
@@ -124,13 +137,75 @@ describe("PostgreSQL measurement adapter", () => {
         ...action,
         surface: "result",
         operationCode: "result_generated",
-        clientMutationId: "40000000-0000-4000-8000-000000000003",
+        actionDigest: "c".repeat(64),
       }),
     ).resolves.toEqual({ state: "recorded", eventClass: "meaningful_return_completed" });
     expect(events.map((event) => event.eventClass)).toEqual([
       "activation_completed",
       "meaningful_return_completed",
     ]);
+  });
+
+  it("preserves mutation provenance across withdrawal and re-grant subject rotation", async () => {
+    const subjectA = subjectId;
+    const subjectB = "30000000-0000-4000-8000-000000000002";
+    let currentSubject = subjectA;
+    const storedDigests = new Set<string>();
+    const activations = new Set<string>();
+    const client = {
+      query: vi.fn(async (sql: string, params: readonly unknown[] = []) => {
+        if (sql.includes("FROM consent_records")) {
+          const { measurementNoticeProofDigest } = await import("@/modules/consent/notice");
+          return {
+            rows: [
+              {
+                id:
+                  currentSubject === subjectA ? consentId : "20000000-0000-4000-8000-000000000002",
+                decision: "granted",
+                notice_version: "alpha-measurement-monitoring-v1",
+                proof_digest: measurementNoticeProofDigest,
+              },
+            ],
+          };
+        }
+        if (sql.includes("INSERT INTO measurement_subjects")) return { rows: [] };
+        if (sql.includes("SELECT id FROM measurement_subjects")) {
+          return { rows: [{ id: currentSubject }] };
+        }
+        if (sql.includes("pg_advisory_xact_lock")) return { rows: [] };
+        if (sql.includes("event_class='activation_completed'")) {
+          return {
+            rows: activations.has(currentSubject)
+              ? [{ occurred_at: new Date("2026-08-24T12:00:00.000Z") }]
+              : [],
+          };
+        }
+        if (sql.includes("INSERT INTO product_events")) {
+          const digest = String(params[5]);
+          if (storedDigests.has(digest)) return { rows: [], rowCount: 0 };
+          storedDigests.add(digest);
+          activations.add(currentSubject);
+          return { rows: [{ id: String(storedDigests.size) }], rowCount: 1 };
+        }
+        throw new Error(`Unexpected query: ${sql}`);
+      }),
+    } as unknown as PoolClient;
+    const adapter = createPostgresqlMeasurementMonitoringAdapter({
+      transactionRunner: transactionRunner(client),
+      now: () => new Date("2026-08-24T12:00:00.000Z"),
+    });
+    const original = candidate();
+    await expect(adapter.recordSuccessfulAction(original)).resolves.toMatchObject({
+      state: "recorded",
+    });
+    currentSubject = subjectB;
+    await expect(adapter.recordSuccessfulAction(original)).resolves.toEqual({ state: "skipped" });
+    expect(activations.has(subjectB)).toBe(false);
+    await expect(adapter.recordSuccessfulAction(candidate("d".repeat(64)))).resolves.toMatchObject({
+      state: "recorded",
+    });
+    expect(activations.has(subjectB)).toBe(true);
+    expect(storedDigests).toHaveLength(2);
   });
 
   it("persists only controlled redacted error parameters", async () => {
@@ -171,13 +246,13 @@ describe("PostgreSQL measurement adapter", () => {
       category: "unexpected_internal",
       severity: "error",
       retryable: false,
-      clientMutationId: mutationId,
+      mutationDigest: "e".repeat(64),
       now: new Date("2026-08-24T12:00:00.000Z"),
     });
     await expect(adapter.reportOccurrence(occurrence)).resolves.toEqual({ state: "recorded" });
     expect(inserted).toHaveLength(1);
     const serialized = JSON.stringify(inserted[0]);
-    expect(serialized).not.toContain(mutationId);
+    expect(serialized).not.toContain("40000000-0000-4000-8000-000000000001");
     for (const prohibited of ["message", "stack", "token", "answer", "score", "email"])
       expect(serialized).not.toContain(prohibited);
   });

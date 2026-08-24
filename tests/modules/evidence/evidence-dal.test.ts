@@ -19,7 +19,9 @@ vi.mock("@/modules/identity/providers/clerk/server", () => ({
 import {
   loadEvidencePageState,
   mutateEvidenceLifecycle,
+  mutateEvidenceLifecycleWithExecution,
   saveEvidenceArtifact,
+  saveEvidenceArtifactWithExecution,
   startEvidenceArtifact,
 } from "@/modules/evidence/dal";
 
@@ -237,7 +239,7 @@ describe("private evidence DAL", () => {
       } as unknown as PoolClient;
       authorize(client);
       await expect(
-        saveEvidenceArtifact(
+        saveEvidenceArtifactWithExecution(
           {
             locale: "en",
             intent: "save",
@@ -248,8 +250,11 @@ describe("private evidence DAL", () => {
           provider,
         ),
       ).resolves.toMatchObject({
-        state: expectedState,
-        artifact: { status, revision: 2, payload: currentPayload },
+        disposition: "replayed",
+        result: {
+          state: expectedState,
+          artifact: { status, revision: 2, payload: currentPayload },
+        },
       });
       expect(writes).toEqual([]);
       expect(storedTimestamps).toEqual(before);
@@ -316,7 +321,7 @@ describe("private evidence DAL", () => {
     } as unknown as PoolClient;
     authorize(client);
     await expect(
-      mutateEvidenceLifecycle(
+      mutateEvidenceLifecycleWithExecution(
         {
           locale: "en",
           intent: "ready",
@@ -326,8 +331,11 @@ describe("private evidence DAL", () => {
         provider,
       ),
     ).resolves.toMatchObject({
-      state: "withdrawn",
-      artifact: { status: "withdrawn", revision: 1 },
+      disposition: "replayed",
+      result: {
+        state: "withdrawn",
+        artifact: { status: "withdrawn", revision: 1 },
+      },
     });
   });
 

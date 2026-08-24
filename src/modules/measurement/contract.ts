@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { Locale } from "@/lib/i18n/config";
 
 export const MEASUREMENT_SCHEMA_VERSION = "product-measurement-v1" as const;
@@ -44,11 +44,12 @@ export type ErrorCategory = (typeof errorCategories)[number];
 export const errorSeverities = ["warning", "error"] as const;
 export type ErrorSeverity = (typeof errorSeverities)[number];
 
-export type SuccessfulProductAction = Readonly<{
+export type ProductMeasurementCandidate = Readonly<{
+  schemaVersion: typeof MEASUREMENT_SCHEMA_VERSION;
   surface: MeasurementSurface;
   operationCode: MeasurementOperationCode;
   locale: Locale;
-  clientMutationId: string;
+  actionDigest: string;
 }>;
 
 export type RedactedErrorOccurrence = Readonly<{
@@ -74,15 +75,19 @@ function oneOf<const T extends readonly string[]>(
   return typeof value === "string" && allowlist.includes(value);
 }
 
-function exactObject(value: unknown, keys: readonly string[]): Readonly<Record<string, unknown>> {
+function exactObject(
+  value: unknown,
+  keys: readonly string[],
+  label: string,
+): Readonly<Record<string, unknown>> {
   if (!value || typeof value !== "object" || Array.isArray(value) || value instanceof Error) {
-    throw new Error("Redacted error input must be one controlled object.");
+    throw new Error(`${label} must be one controlled object.`);
   }
   const candidate = value as Readonly<Record<string, unknown>>;
   const actual = Object.keys(candidate).sort();
   const expected = [...keys].sort();
   if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
-    throw new Error("Redacted error input contains an unexpected field.");
+    throw new Error(`${label} contains an unexpected field.`);
   }
   return candidate;
 }
@@ -95,68 +100,42 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_PATTERN.test(value);
 }
 
-export function actionDigest(input: SuccessfulProductAction): string {
+export function parseProductMeasurementCandidate(value: unknown): ProductMeasurementCandidate {
+  const candidate = exactObject(
+    value,
+    ["schemaVersion", "surface", "operationCode", "locale", "actionDigest"],
+    "Product measurement candidate",
+  );
   if (
-    !oneOf(input.surface, measurementSurfaces) ||
-    !oneOf(input.operationCode, measurementOperationCodes) ||
-    !oneOf(input.locale, ["th", "en"] as const) ||
-    !isUuid(input.clientMutationId)
+    candidate.schemaVersion !== MEASUREMENT_SCHEMA_VERSION ||
+    !oneOf(candidate.surface, measurementSurfaces) ||
+    !oneOf(candidate.operationCode, measurementOperationCodes) ||
+    !oneOf(candidate.locale, ["th", "en"] as const) ||
+    typeof candidate.actionDigest !== "string" ||
+    !SHA256_PATTERN.test(candidate.actionDigest)
   ) {
-    throw new Error("Product measurement action is outside the allowlist.");
+    throw new Error("Product measurement candidate does not match the controlled schema.");
   }
-  return createHash("sha256")
-    .update(
-      [
-        MEASUREMENT_SCHEMA_VERSION,
-        input.surface,
-        input.operationCode,
-        input.locale,
-        input.clientMutationId.toLowerCase(),
-      ].join("\u0000"),
-      "utf8",
-    )
-    .digest("hex");
-}
-
-export function mutationDigest(
-  surface: MeasurementSurface,
-  operationCode: ErrorOperationCode,
-  clientMutationId: string | null,
-): string | null {
-  if (clientMutationId === null) return null;
-  if (
-    !oneOf(surface, measurementSurfaces) ||
-    !oneOf(operationCode, errorOperationCodes) ||
-    !isUuid(clientMutationId)
-  ) {
-    throw new Error("Error mutation context is outside the allowlist.");
-  }
-  return createHash("sha256")
-    .update(
-      [
-        ERROR_OCCURRENCE_SCHEMA_VERSION,
-        surface,
-        operationCode,
-        clientMutationId.toLowerCase(),
-      ].join("\u0000"),
-      "utf8",
-    )
-    .digest("hex");
+  return candidate as ProductMeasurementCandidate;
 }
 
 export function parseRedactedErrorOccurrence(value: unknown): RedactedErrorOccurrence {
-  const candidate = exactObject(value, [
-    "schemaVersion",
-    "correlationId",
-    "operationCode",
-    "surface",
-    "locale",
-    "category",
-    "severity",
-    "retryable",
-    "occurredAt",
-    "mutationDigest",
-  ]);
+  const candidate = exactObject(
+    value,
+    [
+      "schemaVersion",
+      "correlationId",
+      "operationCode",
+      "surface",
+      "locale",
+      "category",
+      "severity",
+      "retryable",
+      "occurredAt",
+      "mutationDigest",
+    ],
+    "Redacted error input",
+  );
   if (
     candidate.schemaVersion !== ERROR_OCCURRENCE_SCHEMA_VERSION ||
     !isUuid(candidate.correlationId) ||
@@ -185,7 +164,7 @@ export function createRedactedErrorOccurrence(input: {
   category: ErrorCategory;
   severity: ErrorSeverity;
   retryable: boolean;
-  clientMutationId?: string | null;
+  mutationDigest?: string | null;
   now?: Date;
 }): RedactedErrorOccurrence {
   return parseRedactedErrorOccurrence({
@@ -198,10 +177,6 @@ export function createRedactedErrorOccurrence(input: {
     severity: input.severity,
     retryable: input.retryable,
     occurredAt: input.now ?? new Date(),
-    mutationDigest: mutationDigest(
-      input.surface,
-      input.operationCode,
-      input.clientMutationId ?? null,
-    ),
+    mutationDigest: input.mutationDigest ?? null,
   });
 }

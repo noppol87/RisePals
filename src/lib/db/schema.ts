@@ -1293,10 +1293,7 @@ export const productEvents = pgTable(
     occurredAt: utcTimestamp("occurred_at").notNull(),
   },
   (table) => [
-    uniqueIndex("product_events_subject_action_unique").on(
-      table.measurementSubjectId,
-      table.actionDigest,
-    ),
+    uniqueIndex("product_events_action_unique").on(table.actionDigest),
     index("product_events_subject_occurred_idx").on(table.measurementSubjectId, table.occurredAt),
     check("product_events_schema_check", sql`${table.schemaVersion} = 'product-measurement-v1'`),
     check(

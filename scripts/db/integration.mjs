@@ -3527,6 +3527,50 @@ async function verifyMeasurementMonitoringContract() {
   );
   assert.notEqual(rotated.rows[0].id, subjectAId, "re-grant rotates the pseudonymous subject");
 
+  await expectDatabaseRejection(
+    () =>
+      withApplicationUser(measurementUserA, (client) =>
+        client.query(
+          `INSERT INTO product_events
+            (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+             action_digest,occurred_at)
+           VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+                   'assessment_response_saved',$2,'2026-08-24T12:02:00Z')`,
+          [rotated.rows[0].id, "2".repeat(64)],
+        ),
+      ),
+    "cross-consent action-digest replay after subject rotation",
+    "23505",
+  );
+  assert.equal(
+    (
+      await withApplicationUser(measurementUserA, (client) =>
+        client.query(`SELECT id FROM product_events`),
+      )
+    ).rowCount,
+    0,
+    "cross-consent replay leaves the rotated subject without a retroactive event",
+  );
+  await withApplicationUser(measurementUserA, (client) =>
+    client.query(
+      `INSERT INTO product_events
+        (measurement_subject_id,schema_version,event_class,surface_code,operation_code,
+         action_digest,occurred_at)
+       VALUES ($1,'product-measurement-v1','activation_completed','assessment',
+               'assessment_response_saved',$2,'2026-08-24T12:03:00Z')`,
+      [rotated.rows[0].id, "6".repeat(64)],
+    ),
+  );
+  assert.equal(
+    (
+      await withApplicationUser(measurementUserA, (client) =>
+        client.query(`SELECT id FROM product_events`),
+      )
+    ).rowCount,
+    1,
+    "a distinct new action after re-grant may activate the rotated subject",
+  );
+
   await withApplicationUser(measurementUserA, (client) =>
     client.query(
       `INSERT INTO consent_records

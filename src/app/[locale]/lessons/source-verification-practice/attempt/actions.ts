@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { isLocale, persistedLessonAttemptPath, type Locale } from "@/lib/i18n/config";
 import type { PersistedLessonMutationInput } from "@/modules/lesson/persistence/contract";
-import { mutatePersistedLesson, startPersistedLesson } from "@/modules/lesson/persistence/dal";
+import {
+  mutatePersistedLessonWithExecution,
+  startPersistedLesson,
+} from "@/modules/lesson/persistence/dal";
 import {
   captureSuccessfulProductAction,
   reportControlledErrorOccurrence,
@@ -29,25 +32,23 @@ export async function mutatePersistedLessonAction(input: PersistedLessonMutation
       : input.intent === "evaluate"
         ? ("lesson_practice_evaluated" as const)
         : ("lesson_practice_retry_started" as const);
-  let result: Awaited<ReturnType<typeof mutatePersistedLesson>>;
+  let execution: Awaited<ReturnType<typeof mutatePersistedLessonWithExecution>>;
   try {
-    result = await mutatePersistedLesson({ ...input, locale });
-  } catch (error) {
-    await reportControlledErrorOccurrence({
-      surface: "lesson_practice",
-      operationCode,
-      locale,
-      category: "unexpected_domain",
-      retryable: true,
-      clientMutationId: input.clientMutationId,
-    });
-    throw error;
+    execution = await mutatePersistedLessonWithExecution({ ...input, locale });
+  } catch {
+    try {
+      await reportControlledErrorOccurrence({
+        surface: "lesson_practice",
+        operationCode,
+        locale,
+        category: "unexpected_domain",
+        retryable: true,
+        clientMutationId: input.clientMutationId,
+      });
+    } catch {}
+    return { state: "not-ready" } as const;
   }
-  if (
-    result.state === "saved" ||
-    result.state === "needs-retry" ||
-    result.state === "demonstrated"
-  ) {
+  if (execution.disposition === "applied") {
     await captureSuccessfulProductAction({
       surface: "lesson_practice",
       operationCode,
@@ -56,5 +57,5 @@ export async function mutatePersistedLessonAction(input: PersistedLessonMutation
     });
   }
   revalidatePath(persistedLessonAttemptPath(locale));
-  return result;
+  return execution.result;
 }
