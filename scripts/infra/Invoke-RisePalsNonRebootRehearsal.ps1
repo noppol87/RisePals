@@ -160,7 +160,7 @@ function Assert-RisePalsAclModel {
 
 function Test-RisePalsByteSequence {
   param(
-    [Parameter(Mandatory = $true)][byte[]]$Haystack,
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][byte[]]$Haystack,
     [Parameter(Mandatory = $true)][byte[]]$Needle
   )
 
