@@ -3,6 +3,7 @@ export const liveHealthPayload = Object.freeze({ status: "ok" as const });
 export const rehearsalStreamChunks = Object.freeze(["probe-start\n", "probe-mid\n", "probe-end\n"]);
 
 const loopbackHosts = new Set(["127.0.0.1", "::1", "localhost"]);
+const loopbackForwardedAddresses = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 
 export function hasLoopbackRequestHost(request: Request): boolean {
   const hostHeader = request.headers.get("host")?.trim() || new URL(request.url).host;
@@ -14,7 +15,14 @@ export function hasLoopbackRequestHost(request: Request): boolean {
 }
 
 export function isLoopbackRequest(request: Request): boolean {
-  return hasLoopbackRequestHost(request) && !request.headers.has("x-forwarded-for");
+  if (!hasLoopbackRequestHost(request)) {
+    return false;
+  }
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor === null) {
+    return true;
+  }
+  return loopbackForwardedAddresses.has(forwardedFor.trim().toLowerCase());
 }
 
 export function isInfrastructureRehearsalEnabled(

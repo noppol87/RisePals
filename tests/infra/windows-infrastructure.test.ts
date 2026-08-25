@@ -140,6 +140,8 @@ describe("Windows infrastructure contract", () => {
 
     expect(common).toContain("[IO.FileAttributes]::ReparsePoint");
     expect(common).toContain("[IO.Directory]::Delete($EntryPath)");
+    expect(common).toContain("[IO.Directory]::Delete($validated)");
+    expect(common).toContain("requires an explicit validated recursive cleanup");
     expect(common).toContain("EnumerateFileSystemEntries($EntryPath)");
     expect(rehearsal).toContain('"^build-[a-f0-9]{32}$"');
     expect(rehearsal).toContain("unexpectedly active before staging recovery");

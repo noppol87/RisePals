@@ -78,7 +78,17 @@ function Remove-RisePalsValidatedChild {
   }
 
   if (-not $Recurse) {
-    Remove-Item -LiteralPath $validated -Force
+    $attributes = [IO.File]::GetAttributes($validated)
+    $isDirectory = ($attributes -band [IO.FileAttributes]::Directory) -ne 0
+    $isReparsePoint = ($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    if ($isDirectory -and $isReparsePoint) {
+      [IO.Directory]::Delete($validated)
+    } elseif ($isDirectory) {
+      throw "A real directory requires an explicit validated recursive cleanup."
+    } else {
+      [IO.File]::SetAttributes($validated, [IO.FileAttributes]::Normal)
+      [IO.File]::Delete($validated)
+    }
     return
   }
 

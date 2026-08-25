@@ -18,13 +18,34 @@ describe("infrastructure health contract", () => {
     );
   });
 
-  it("accepts only direct loopback requests", () => {
+  it("accepts direct and standalone-normalized loopback requests only", () => {
     expect(isLoopbackRequest(new Request("http://127.0.0.1:3100/health/ready"))).toBe(true);
     expect(isLoopbackRequest(new Request("http://localhost:3100/health/ready"))).toBe(true);
     expect(
       isLoopbackRequest(
         new Request("http://127.0.0.1:3100/health/ready", {
           headers: { "x-forwarded-for": "127.0.0.1" },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isLoopbackRequest(
+        new Request("http://127.0.0.1:3100/health/ready", {
+          headers: { "x-forwarded-for": "::ffff:127.0.0.1" },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isLoopbackRequest(
+        new Request("http://127.0.0.1:3100/health/ready", {
+          headers: { "x-forwarded-for": "127.0.0.1, 203.0.113.1" },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isLoopbackRequest(
+        new Request("http://127.0.0.1:3100/health/ready", {
+          headers: { "x-forwarded-for": "203.0.113.1" },
         }),
       ),
     ).toBe(false);
