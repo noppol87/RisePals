@@ -104,6 +104,8 @@ WinSW has `autoRefresh=false`, bounded roll-by-size logs, two restart attempts f
 | Caddy rehearsal HTTPS | `127.0.0.1:8443` |
 | Caddy admin API | `127.0.0.1:2019` |
 
+Both proxy site blocks use explicit `bind 127.0.0.1`; a host label in a Caddy site address is a request matcher and does not itself restrict the socket interface. IPv4 or IPv6 wildcard listeners fail the readiness gate.
+
 Caddy replaces incoming forwarded headers, caps headers at 32 KB and request bodies at 1 MB, uses bounded timeouts, disables response buffering for the streaming probe and removes credential headers plus selected sensitive query values from access logs. `/health/ready` is blocked at the proxy. The certificate is Caddy's local internal rehearsal certificate; clients pass its CA explicitly. Do not add it to a permanent machine-wide trust store.
 
 No firewall mutation is part of the rehearsal. The future rule template remains disabled and proxy-only. Before any later launch, an externally executed scan must prove that only separately approved ports are reachable.

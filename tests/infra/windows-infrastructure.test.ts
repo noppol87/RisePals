@@ -32,6 +32,7 @@ describe("Windows infrastructure contract", () => {
     expect(caddy).toContain("admin 127.0.0.1:2019");
     expect(caddy).toContain("http://127.0.0.1:8080");
     expect(caddy).toContain("https://127.0.0.1:8443");
+    expect(caddy.match(/bind 127\.0\.0\.1/g)).toHaveLength(2);
     expect(caddy).toContain("reverse_proxy 127.0.0.1:3100");
     expect(caddy).toContain("persist_config off");
     expect(caddy).toContain("local_certs");
