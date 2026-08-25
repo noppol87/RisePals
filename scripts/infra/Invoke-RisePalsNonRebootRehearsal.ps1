@@ -188,6 +188,25 @@ function Assert-RisePalsCanaryNotExposed {
     [Parameter(Mandatory = $true)][string]$Repository
   )
 
+  function Read-RisePalsSharedFileBytes {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $stream = [IO.FileStream]::new(
+      $Path,
+      [IO.FileMode]::Open,
+      [IO.FileAccess]::Read,
+      ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete)
+    )
+    $memory = [IO.MemoryStream]::new()
+    try {
+      $stream.CopyTo($memory)
+      return ,$memory.ToArray()
+    } finally {
+      $memory.Dispose()
+      $stream.Dispose()
+    }
+  }
+
   $secretPath = Join-Path $ValidatedRoot "shared\secrets\rehearsal.canary"
   $secretBytes = [IO.File]::ReadAllBytes($secretPath)
   if ($secretBytes.Length -ne 64) {
@@ -211,7 +230,7 @@ function Assert-RisePalsCanaryNotExposed {
     }
   }
   foreach ($path in $files) {
-    $bytes = [IO.File]::ReadAllBytes($path)
+    [byte[]]$bytes = Read-RisePalsSharedFileBytes -Path $path
     if (Test-RisePalsByteSequence -Haystack $bytes -Needle $secretBytes) {
       throw "The synthetic canary was found in a prohibited file boundary."
     }

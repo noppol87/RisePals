@@ -174,6 +174,8 @@ The orchestrator creates three exact-commit releases, performs forward/failed/ma
 
 The canary is random, exactly 64 bytes and never printed. It exists only at `C:\RisePals\shared\secrets\rehearsal.canary`, outside Git/releases. Exercise Create, app readiness, proxy DACL denial, Rotate, Revoke and Delete. Scan repository, service definitions, process commands and logs for leakage. Final cleanup requires the file and temporary variants to be absent.
 
+Active WinSW/Caddy logs are scanned through a read-only handle that shares existing writers and deletion/rotation. The scanner does not modify or lock the logs and still fails closed if it cannot read a file or detects any raw, Base64 or hex canary form.
+
 ## Database and recovery
 
 Only the accepted disposable PostgreSQL 18.4 harness is allowed. It remains loopback-only, uses separate migration/application roles and removes child databases, credentials, logs and processes. Re-run:
