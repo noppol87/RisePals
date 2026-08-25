@@ -57,6 +57,15 @@ describe("Windows infrastructure contract", () => {
     expect(xml).not.toMatch(/LocalSystem|NetworkService|roll-by-size-time|password/i);
   });
 
+  it("passes SCM option names and values as distinct native arguments", async () => {
+    const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
+    expect(installer).toContain('"binPath=",');
+    expect(installer).toContain('"start=",');
+    expect(installer).toContain('"demand",');
+    expect(installer).toContain('"obj=",');
+    expect(installer).not.toContain('"start= demand"');
+  });
+
   it("keeps future firewall rules disabled and proxy-only", async () => {
     const template = JSON.parse(
       await text("infra/windows/firewall/future-public-proxy-rules.json"),

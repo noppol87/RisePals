@@ -59,11 +59,18 @@ try {
   $appInstalled = $true
 
   $proxyCommand = ('"{0}" run --config "{1}" --adapter caddyfile' -f $caddy, $caddyConfig)
-  & sc.exe create RisePalsProxy "binPath= $proxyCommand" "start= demand" `
-    "obj= NT SERVICE\RisePalsProxy" "DisplayName= Rise Pals Proxy"
-  if ($LASTEXITCODE -ne 0) {
-    throw "Caddy proxy-service installation failed."
-  }
+  Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(
+    "create",
+    "RisePalsProxy",
+    "binPath=",
+    $proxyCommand,
+    "start=",
+    "demand",
+    "obj=",
+    "NT SERVICE\RisePalsProxy",
+    "DisplayName=",
+    "Rise Pals Proxy"
+  )
   $proxyInstalled = $true
   Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(
     "failure",
