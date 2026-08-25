@@ -57,6 +57,7 @@ describe("Windows infrastructure contract", () => {
     expect(probe).toContain("rejectUnauthorized: true");
     expect(health).toContain('--body-base64 "eyJzdGF0dXMiOiJvayJ9"');
     expect(probe).toContain('input["body-base64"]');
+    expect(probe).toContain("Unexpected loopback HTTPS status: ${result.status}");
     expect(probe).toContain("maximumFirstByteMs");
     expect(probe).toContain("minimumTotalMs");
   });

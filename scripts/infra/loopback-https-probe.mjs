@@ -106,7 +106,9 @@ export async function runLoopbackHttpsProbe(input) {
     else probe.end();
   });
 
-  if (result.status !== expectedStatus) throw new Error("Unexpected loopback HTTPS status.");
+  if (result.status !== expectedStatus) {
+    throw new Error(`Unexpected loopback HTTPS status: ${result.status}.`);
+  }
   const expectedBody =
     input["body-base64"] === undefined
       ? undefined
