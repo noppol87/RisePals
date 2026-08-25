@@ -45,6 +45,20 @@ describe("Windows infrastructure contract", () => {
     expect(caddy).not.toMatch(/(^|\s)(0\.0\.0\.0|:80\s|:443\s)/m);
   });
 
+  it("uses pinned Node and an explicit local CA for every HTTPS behavior probe", async () => {
+    const health = await text("scripts/infra/Test-RisePalsHealth.ps1");
+    const probe = await text("scripts/infra/loopback-https-probe.mjs");
+
+    expect(health).toContain("tools\\node\\24.18.1\\node.exe");
+    expect(health.match(/& \$node \$probe --ca \$ca/g)).toHaveLength(4);
+    expect(health).not.toContain("curl.exe --silent --show-error --cacert");
+    expect(probe).toContain('url.hostname !== "127.0.0.1"');
+    expect(probe).toContain('url.port !== "8443"');
+    expect(probe).toContain("rejectUnauthorized: true");
+    expect(probe).toContain("maximumFirstByteMs");
+    expect(probe).toContain("minimumTotalMs");
+  });
+
   it("keeps WinSW stable, manual, least-privilege and bounded", async () => {
     const xml = await text("infra/windows/winsw/RisePalsApp.xml");
     expect(xml).toContain("<id>RisePalsApp</id>");

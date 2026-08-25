@@ -7,9 +7,11 @@ $ErrorActionPreference = "Stop"
 
 $validatedRoot = Get-RisePalsValidatedRoot -Root $Root
 $caddy = Join-Path $validatedRoot "tools\caddy\2.11.4\caddy.exe"
+$node = Join-Path $validatedRoot "tools\node\24.18.1\node.exe"
 $config = Join-Path $validatedRoot "shared\config\Caddyfile"
 $ca = Join-Path $validatedRoot "shared\cache\caddy\pki\authorities\local\root.crt"
-foreach ($path in @($caddy, $config, $ca)) {
+$probe = Join-Path $PSScriptRoot "loopback-https-probe.mjs"
+foreach ($path in @($caddy, $node, $config, $ca, $probe)) {
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
     throw "Required proxy health artifact is absent."
   }
@@ -30,9 +32,10 @@ if ($LASTEXITCODE -ne 0 -or ($redirectHeaders -join "`n") -notmatch "HTTP/1\.1 3
   throw "Loopback HTTP-to-HTTPS redirect verification failed."
 }
 
-$httpsBody = & curl.exe --silent --show-error --cacert $ca `
-  "https://127.0.0.1:8443/health/live?token=synthetic-redaction-probe"
-if ($LASTEXITCODE -ne 0 -or $httpsBody -ne '{"status":"ok"}') {
+& $node $probe --ca $ca --url `
+  "https://127.0.0.1:8443/health/live?token=synthetic-redaction-probe" `
+  --status 200 --body '{"status":"ok"}'
+if ($LASTEXITCODE -ne 0) {
   throw "Explicit-local-CA HTTPS liveness verification failed."
 }
 $accessLog = Join-Path $validatedRoot "logs\proxy\access.json"
@@ -45,38 +48,24 @@ if ($accessBytes.Contains("synthetic-redaction-probe") -or -not $accessBytes.Con
   throw "Proxy access-log query redaction failed."
 }
 
-$internalCode = & curl.exe --silent --show-error --cacert $ca --output NUL --write-out "%{http_code}" `
-  "https://127.0.0.1:8443/health/ready"
-if ($LASTEXITCODE -ne 0 -or $internalCode -ne "404") {
+& $node $probe --ca $ca --url "https://127.0.0.1:8443/health/ready" --status 404
+if ($LASTEXITCODE -ne 0) {
   throw "The proxy exposed internal readiness."
 }
 
-$oversized = Join-Path $validatedRoot "rehearsal\oversized-request.bin"
-try {
-  [IO.File]::WriteAllBytes($oversized, [byte[]]::new(1048577))
-  $oversizedCode = & curl.exe --silent --show-error --cacert $ca --output NUL --write-out "%{http_code}" `
-    --request POST --data-binary "@$oversized" "https://127.0.0.1:8443/health/live"
-  if ($LASTEXITCODE -ne 0 -or $oversizedCode -ne "413") {
-    throw "Oversized-request rejection failed."
-  }
-} finally {
-  if (Test-Path -LiteralPath $oversized) {
-    Remove-RisePalsValidatedChild -Root $validatedRoot -Path $oversized
-  }
+& $node $probe --ca $ca --url "https://127.0.0.1:8443/health/live" --status 413 `
+  --method POST --body-bytes 1048577
+if ($LASTEXITCODE -ne 0) {
+  throw "Oversized-request rejection failed."
 }
 
-$timing = & curl.exe --silent --show-error --no-buffer --cacert $ca --output NUL `
+& $node $probe --ca $ca --url "https://127.0.0.1:8443/health/stream" --status 200 `
   --header "X-Forwarded-For: 203.0.113.1" `
   --header "X-Forwarded-Host: attacker.invalid" `
   --header "X-Forwarded-Proto: http" `
-  --write-out "%{time_starttransfer} %{time_total}" `
-  "https://127.0.0.1:8443/health/stream"
+  --max-first-byte-ms 300 --min-total-ms 250
 if ($LASTEXITCODE -ne 0) {
   throw "Streaming probe request failed."
-}
-$parts = $timing.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
-if ($parts.Count -ne 2 -or [double]$parts[0] -ge 0.30 -or [double]$parts[1] -lt 0.25) {
-  throw "Streaming appears buffered or did not preserve the intended timing."
 }
 
 & $caddy reload --config $config --adapter caddyfile --force | Out-Null

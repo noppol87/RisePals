@@ -164,7 +164,7 @@ The orchestrator creates three exact-commit releases, performs forward/failed/ma
 - direct-loopback `/health/ready` returns only `ready`/`unavailable` and requires rehearsal mode, release manifest and readable 64-byte synthetic canary. Next standalone may normalize the loopback socket into one exact loopback `x-forwarded-for` value; only `127.0.0.1`, `::1` or mapped `::ffff:127.0.0.1` is accepted, while chains/non-loopback values fail closed and Caddy still blocks the route with 404.
 - `/health/stream` is 404 unless rehearsal mode is exact; in rehearsal it emits three fixed chunks and validates forwarded-header replacement.
 - proxy readiness is 404.
-- health tooling verifies redirect, explicit-CA HTTPS, 413 oversized body, unbuffered streaming, admin reload and exact loopback listeners.
+- health tooling uses pinned Node 24 with the explicit Caddy local CA (never an insecure TLS bypass) to verify HTTPS status/body, 413 oversized body and unbuffered streaming; it also verifies redirect, admin reload and exact loopback listeners. This avoids depending on the host's legacy Windows curl TLS backend.
 - stop/restart checks must prove no orphan tool process or listener.
 - three consecutive unexpected failures must exhaust the bounded restart plan instead of looping indefinitely.
 
