@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   createReleaseManifest,
   releaseManifestSchema,
+  verifyReleaseManifest,
   writeReleaseManifest,
 } from "../../scripts/infra/release-manifest.mjs";
 
@@ -53,6 +54,39 @@ describe("release manifest", () => {
     await writeReleaseManifest({ root, ...metadata });
     const second = await readFile(join(root, "release-manifest.json"));
     expect(second).toEqual(first);
+  });
+
+  it("verifies exact existing identity and file inventory before reuse", async () => {
+    const root = await createRoot();
+    const written = await writeReleaseManifest({ root, ...metadata });
+    await expect(
+      verifyReleaseManifest({
+        root,
+        sourceCommit: metadata.sourceCommit,
+        releaseId: metadata.releaseId,
+      }),
+    ).resolves.toEqual(written);
+
+    await writeFile(join(root, "server.js"), "changed\n", "utf8");
+    await expect(
+      verifyReleaseManifest({
+        root,
+        sourceCommit: metadata.sourceCommit,
+        releaseId: metadata.releaseId,
+      }),
+    ).rejects.toThrow("existing release files or deterministic manifest");
+  });
+
+  it("rejects reuse under a different source identity", async () => {
+    const root = await createRoot();
+    await writeReleaseManifest({ root, ...metadata });
+    await expect(
+      verifyReleaseManifest({
+        root,
+        sourceCommit: "b".repeat(40),
+        releaseId: metadata.releaseId,
+      }),
+    ).rejects.toThrow("existing release identity");
   });
 
   it.each([".env.local", "credential.pem", "private.key"])(

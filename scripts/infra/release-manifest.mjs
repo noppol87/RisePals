@@ -135,6 +135,32 @@ export async function writeReleaseManifest(input) {
   return manifest;
 }
 
+export async function verifyReleaseManifest(input) {
+  const root = resolve(input.root);
+  const destination = join(root, "release-manifest.json");
+  const manifest = JSON.parse(await readFile(destination, "utf8"));
+  if (
+    manifest.schemaVersion !== releaseManifestSchema ||
+    manifest.sourceCommit !== input.sourceCommit ||
+    manifest.releaseId !== input.releaseId
+  ) {
+    throw new Error("The existing release identity does not match the exact approved source.");
+  }
+  const rebuilt = await createReleaseManifest({
+    root,
+    sourceCommit: manifest.sourceCommit,
+    releaseId: manifest.releaseId,
+    nodeVersion: manifest.runtime?.node,
+    npmVersion: manifest.runtime?.npm,
+    nextVersion: manifest.runtime?.next,
+    configurationTemplateVersion: manifest.configurationTemplateVersion,
+  });
+  if (JSON.stringify(rebuilt) !== JSON.stringify(manifest)) {
+    throw new Error("The existing release files or deterministic manifest do not match.");
+  }
+  return rebuilt;
+}
+
 function parseArguments(arguments_) {
   const values = new Map();
   for (let index = 0; index < arguments_.length; index += 2) {
@@ -150,16 +176,23 @@ function parseArguments(arguments_) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const arguments_ = parseArguments(process.argv.slice(2));
-  const manifest = await writeReleaseManifest({
-    root: arguments_.root,
-    sourceCommit: arguments_["source-commit"],
-    releaseId: arguments_["release-id"],
-    nodeVersion: arguments_["node-version"],
-    npmVersion: arguments_["npm-version"],
-    nextVersion: arguments_["next-version"],
-    configurationTemplateVersion: arguments_["configuration-template-version"],
-  });
+  const manifest =
+    arguments_.mode === "verify"
+      ? await verifyReleaseManifest({
+          root: arguments_.root,
+          sourceCommit: arguments_["source-commit"],
+          releaseId: arguments_["release-id"],
+        })
+      : await writeReleaseManifest({
+          root: arguments_.root,
+          sourceCommit: arguments_["source-commit"],
+          releaseId: arguments_["release-id"],
+          nodeVersion: arguments_["node-version"],
+          npmVersion: arguments_["npm-version"],
+          nextVersion: arguments_["next-version"],
+          configurationTemplateVersion: arguments_["configuration-template-version"],
+        });
   process.stdout.write(
-    `Release manifest PASS: ${basename(resolve(arguments_.root))}, ${manifest.files.length} files, ${manifest.inventoryDigest}\n`,
+    `Release manifest ${arguments_.mode === "verify" ? "verification" : "creation"} PASS: ${basename(resolve(arguments_.root))}, ${manifest.files.length} files, ${manifest.inventoryDigest}\n`,
   );
 }

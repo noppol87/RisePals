@@ -130,6 +130,8 @@ describe("Windows infrastructure contract", () => {
 
     expect(release).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "ReadAndExecute"');
     expect(release).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "Modify"');
+    expect(release).toContain("ReuseExactExisting");
+    expect(release).toContain("--mode verify");
     expect(release).toContain('"release-created"');
     expect(release).toContain("RehearsalDenyManifestRead");
     expect(release).toContain('"release-created-unready"');

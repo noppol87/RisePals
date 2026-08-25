@@ -380,28 +380,35 @@ try {
   $evidence.serviceIdentity = $true
   $existingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
     Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
-  if ($existingListeners.Count -ne 0 -or (Get-RisePalsCurrentReleaseId -ValidatedRoot $validatedRoot) -ne "") {
-    throw "A pre-existing listener or current release conflicts with the fresh rehearsal."
+  $existingCurrent = Get-RisePalsCurrentReleaseId -ValidatedRoot $validatedRoot
+  if ($existingListeners.Count -ne 0 -or
+    ($existingCurrent -ne "" -and $existingCurrent -notin $evidence.releases)) {
+    throw "A pre-existing listener or unrelated current release conflicts with the rehearsal."
   }
-  foreach ($releaseId in $evidence.releases) {
-    if (Test-Path -LiteralPath (Join-Path $validatedRoot "releases\$releaseId")) {
-      throw "A deterministic rehearsal release identifier already exists."
-    }
-  }
-
   & (Join-Path $PSScriptRoot "Write-RisePalsHostManifest.ps1") -Root $validatedRoot -Confirm:$false
   & (Join-Path $PSScriptRoot "Set-RisePalsRehearsalSecret.ps1") `
     -Action Create -Root $validatedRoot -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
-    -ReleaseId $lastKnownGood -Root $validatedRoot -RepositoryRoot $repository -Confirm:$false
+    -ReleaseId $lastKnownGood -Root $validatedRoot -RepositoryRoot $repository `
+    -ReuseExactExisting -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
-    -ReleaseId $forward -Root $validatedRoot -RepositoryRoot $repository -Confirm:$false
+    -ReleaseId $forward -Root $validatedRoot -RepositoryRoot $repository `
+    -ReuseExactExisting -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
     -ReleaseId $failed -Root $validatedRoot -RepositoryRoot $repository `
-    -RehearsalDenyManifestRead -Confirm:$false
+    -RehearsalDenyManifestRead -ReuseExactExisting -Confirm:$false
 
   Assert-RisePalsAclModel -ValidatedRoot $validatedRoot -ReleaseId $lastKnownGood `
     -Repository $repository
+  Assert-RisePalsExactAclPrincipals -Path (Join-Path $validatedRoot "releases\$forward") `
+    -ExpectedPrincipals @(
+      "BUILTIN\Administrators",
+      "NT AUTHORITY\SYSTEM",
+      "NT SERVICE\RisePalsApp"
+    )
+  Assert-RisePalsExactAclPrincipals `
+    -Path (Join-Path $validatedRoot "releases\$failed\release-manifest.json") `
+    -ExpectedPrincipals @("BUILTIN\Administrators", "NT AUTHORITY\SYSTEM")
   $evidence.aclModel = $true
   Assert-RisePalsCanaryNotExposed -ValidatedRoot $validatedRoot -Repository $repository
 

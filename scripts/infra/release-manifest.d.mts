@@ -20,5 +20,14 @@ export type ReleaseManifest = Readonly<{
   files: readonly Readonly<{ path: string; length: number; sha256: string }>[];
 }>;
 
+export type ReleaseManifestVerificationInput = Readonly<{
+  root: string;
+  sourceCommit: string;
+  releaseId: string;
+}>;
+
 export function createReleaseManifest(input: ReleaseManifestInput): Promise<ReleaseManifest>;
 export function writeReleaseManifest(input: ReleaseManifestInput): Promise<ReleaseManifest>;
+export function verifyReleaseManifest(
+  input: ReleaseManifestVerificationInput,
+): Promise<ReleaseManifest>;

@@ -3,7 +3,8 @@ param(
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-z0-9][a-z0-9.-]{2,63}$")][string]$ReleaseId,
   [string]$Root = "C:\RisePals",
   [string]$RepositoryRoot = "",
-  [switch]$RehearsalDenyManifestRead
+  [switch]$RehearsalDenyManifestRead,
+  [switch]$ReuseExactExisting
 )
 
 Set-StrictMode -Version Latest
@@ -37,8 +38,29 @@ $staging = Get-RisePalsValidatedChildPath -Root $validatedRoot -Path (
 $destination = Get-RisePalsValidatedChildPath -Root $validatedRoot -Path (
   Join-Path $validatedRoot "releases\$ReleaseId"
 )
-if ((Test-Path -LiteralPath $staging) -or (Test-Path -LiteralPath $destination)) {
+$stagingExists = Test-Path -LiteralPath $staging
+$destinationExists = Test-Path -LiteralPath $destination
+if (($stagingExists -or $destinationExists) -and -not $ReuseExactExisting) {
   throw "The release identifier already exists in staging or releases."
+}
+if ($ReuseExactExisting -and $stagingExists) {
+  Assert-RisePalsAdministrator
+  Remove-RisePalsValidatedChild -Root $validatedRoot -Path $staging -Recurse
+}
+if ($ReuseExactExisting -and $destinationExists) {
+  Assert-RisePalsAdministrator
+  $node = Join-Path $validatedRoot "tools\node\24.18.1\node.exe"
+  $manifestTool = Join-Path $repository "scripts\infra\release-manifest.mjs"
+  & $node $manifestTool `
+    --mode verify `
+    --root $destination `
+    --source-commit $sourceCommit `
+    --release-id $ReleaseId
+  if ($LASTEXITCODE -ne 0) {
+    throw "The existing release failed exact committed-inventory verification."
+  }
+  Write-Output "Exact existing committed release reuse PASS: $ReleaseId at $sourceCommit"
+  return
 }
 
 if (-not $PSCmdlet.ShouldProcess($destination, "Package and publish committed standalone release")) {
