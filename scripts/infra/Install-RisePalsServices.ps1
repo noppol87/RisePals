@@ -119,7 +119,14 @@ try {
     @{ Identity = "NT SERVICE\RisePalsApp"; Rights = "Read" },
     @{ Identity = "NT SERVICE\RisePalsProxy"; Rights = "Read" }
   )
-  Set-RisePalsProtectedAcl -Path (Join-Path $validatedRoot "shared\secrets") -Rules $systemAdmin
+  Set-RisePalsProtectedAcl -Path (Join-Path $validatedRoot "shared\secrets") -Rules @(
+    $systemAdmin[0], $systemAdmin[1],
+    @{
+      Identity = "NT SERVICE\RisePalsApp"
+      Rights = "Traverse"
+      InheritanceFlags = "None"
+    }
+  )
   Set-RisePalsProtectedAcl -Path (Join-Path $validatedRoot "shared\cache") -Rules $systemAdmin
   Set-RisePalsProtectedAcl -Path (Join-Path $validatedRoot "shared\cache\caddy") -Rules @(
     $systemAdmin[0], $systemAdmin[1],

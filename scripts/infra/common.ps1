@@ -121,17 +121,24 @@ function Set-RisePalsProtectedAcl {
   foreach ($rule in $Rules) {
     $identity = [Security.Principal.NTAccount]::new([string]$rule.Identity)
     [void]$identity.Translate([Security.Principal.SecurityIdentifier])
-    $inheritance = if ($acl -is [Security.AccessControl.DirectorySecurity]) {
+    $inheritance = if ($rule.ContainsKey("InheritanceFlags")) {
+      [Security.AccessControl.InheritanceFlags]$rule.InheritanceFlags
+    } elseif ($acl -is [Security.AccessControl.DirectorySecurity]) {
       [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
         [Security.AccessControl.InheritanceFlags]::ObjectInherit
     } else {
       [Security.AccessControl.InheritanceFlags]::None
     }
+    $propagation = if ($rule.ContainsKey("PropagationFlags")) {
+      [Security.AccessControl.PropagationFlags]$rule.PropagationFlags
+    } else {
+      [Security.AccessControl.PropagationFlags]::None
+    }
     $accessRule = [Security.AccessControl.FileSystemAccessRule]::new(
       $identity,
       [Security.AccessControl.FileSystemRights]$rule.Rights,
       $inheritance,
-      [Security.AccessControl.PropagationFlags]::None,
+      $propagation,
       [Security.AccessControl.AccessControlType]::Allow
     )
     [void]$acl.AddAccessRule($accessRule)

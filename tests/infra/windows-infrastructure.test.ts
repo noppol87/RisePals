@@ -58,6 +58,22 @@ describe("Windows infrastructure contract", () => {
     expect(xml).not.toMatch(/LocalSystem|NetworkService|roll-by-size-time|password/i);
   });
 
+  it("grants only non-inheriting application traversal at the secret directory", async () => {
+    const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
+    const repair = await text("scripts/infra/Repair-RisePalsSecretTraversal.ps1");
+
+    for (const script of [installer, repair]) {
+      expect(script).toContain('Identity = "NT SERVICE\\RisePalsApp"');
+      expect(script).toContain('Rights = "Traverse"');
+      expect(script).toContain('InheritanceFlags = "None"');
+    }
+    expect(repair).toContain("$_.IdentityReference.Value");
+    expect(repair).toContain('"NT SERVICE\\RisePalsProxy"');
+    expect(repair).not.toMatch(
+      /Identity\s*=\s*"NT SERVICE\\RisePalsApp"\s+Rights\s*=\s*"(Read|ReadAndExecute|Modify|FullControl)"/,
+    );
+  });
+
   it("passes SCM option names and values as distinct native arguments", async () => {
     const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
     expect(installer).toContain('"binPath=",');
@@ -143,6 +159,7 @@ describe("Windows infrastructure contract", () => {
     expect(release).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "Modify"');
     expect(release).toContain("ReuseExactExisting");
     expect(release).toContain("--mode verify");
+    expect(release).toContain("merge-base --is-ancestor");
     expect(release).toContain('"release-created"');
     expect(release).toContain("RehearsalDenyManifestRead");
     expect(release).toContain('"release-created-unready"');

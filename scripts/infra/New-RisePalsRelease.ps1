@@ -3,6 +3,7 @@ param(
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-z0-9][a-z0-9.-]{2,63}$")][string]$ReleaseId,
   [string]$Root = "C:\RisePals",
   [string]$RepositoryRoot = "",
+  [ValidatePattern("^$|^[a-f0-9]{40}$")][string]$SourceCommit = "",
   [switch]$RehearsalDenyManifestRead,
   [switch]$ReuseExactExisting
 )
@@ -23,9 +24,15 @@ if (-not (Test-Path -LiteralPath $git -PathType Leaf)) {
   throw "The verified repository Git executable is unavailable."
 }
 
-$sourceCommit = (& $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0 -or $sourceCommit -notmatch "^[a-f0-9]{40}$") {
+$headCommit = (& $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $headCommit -notmatch "^[a-f0-9]{40}$") {
   throw "Unable to resolve the exact source commit."
+}
+$sourceCommit = if ([string]::IsNullOrWhiteSpace($SourceCommit)) { $headCommit } else { $SourceCommit }
+& $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository `
+  merge-base --is-ancestor $sourceCommit $headCommit
+if ($LASTEXITCODE -ne 0) {
+  throw "The requested release source is not a committed ancestor of the current feature head."
 }
 $worktree = @(& $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository status --porcelain --untracked-files=all)
 if ($LASTEXITCODE -ne 0 -or $worktree.Count -ne 0) {

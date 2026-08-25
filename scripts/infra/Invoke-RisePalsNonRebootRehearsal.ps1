@@ -1,7 +1,8 @@
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
 param(
   [string]$Root = "C:\RisePals",
-  [string]$RepositoryRoot = ""
+  [string]$RepositoryRoot = "",
+  [ValidatePattern("^$|^[a-f0-9]{40}$")][string]$ReleaseSourceCommit = ""
 )
 
 Set-StrictMode -Version Latest
@@ -114,6 +115,17 @@ function Assert-RisePalsAclModel {
     -ExpectedPrincipals ($systemAdmin + @("NT SERVICE\RisePalsApp", "NT SERVICE\RisePalsProxy"))
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\secrets\rehearsal.canary") `
     -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsApp")
+  Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\secrets") `
+    -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsApp")
+  $secretDirectoryAcl = Get-Acl -LiteralPath (Join-Path $ValidatedRoot "shared\secrets")
+  $secretTraverse = @($secretDirectoryAcl.Access | Where-Object {
+    $_.IdentityReference.Value -eq "NT SERVICE\RisePalsApp"
+  })
+  if ($secretTraverse.Count -ne 1 -or
+    (($secretTraverse[0].FileSystemRights -band [Security.AccessControl.FileSystemRights]::Traverse) -eq 0) -or
+    $secretTraverse[0].InheritanceFlags -ne [Security.AccessControl.InheritanceFlags]::None) {
+    throw "The application secret-directory rule is not exact non-inheriting Traverse."
+  }
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\cache\caddy") `
     -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsProxy")
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "logs\app") `
@@ -334,7 +346,17 @@ if ($LASTEXITCODE -ne 0 -or $head -notmatch "^[a-f0-9]{40}$" -or
   $branch -ne "agent/windows-vps-infrastructure-readiness" -or $worktree.Count -ne 0) {
   throw "The exact clean RP-TURN-019 feature branch is required."
 }
-$short = $head.Substring(0, 12)
+$releaseSource = if ([string]::IsNullOrWhiteSpace($ReleaseSourceCommit)) {
+  $head
+} else {
+  $ReleaseSourceCommit
+}
+& $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository `
+  merge-base --is-ancestor $releaseSource $head
+if ($LASTEXITCODE -ne 0) {
+  throw "The rehearsal release source is not a committed ancestor of the current feature head."
+}
+$short = $releaseSource.Substring(0, 12)
 $lastKnownGood = "rp19-lkg-$short"
 $forward = "rp19-forward-$short"
 $failed = "rp19-fail-$short"
@@ -348,7 +370,8 @@ if (-not $PSCmdlet.ShouldProcess($validatedRoot, "Run the bounded non-reboot Ris
 Assert-RisePalsAdministrator
 $evidence = [ordered]@{
   schemaVersion = "rise-pals-non-reboot-rehearsal-v1"
-  sourceCommit = $head
+  orchestratorCommit = $head
+  sourceCommit = $releaseSource
   startedAtUtc = [DateTime]::UtcNow.ToString("o")
   completed = $false
   releases = @($lastKnownGood, $forward, $failed)
@@ -378,6 +401,8 @@ try {
     }
   }
   $evidence.serviceIdentity = $true
+  & (Join-Path $PSScriptRoot "Repair-RisePalsSecretTraversal.ps1") `
+    -Root $validatedRoot -Confirm:$false
   $existingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
     Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
   $existingCurrent = Get-RisePalsCurrentReleaseId -ValidatedRoot $validatedRoot
@@ -401,13 +426,13 @@ try {
     -Action Create -Root $validatedRoot -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
     -ReleaseId $lastKnownGood -Root $validatedRoot -RepositoryRoot $repository `
-    -ReuseExactExisting -Confirm:$false
+    -SourceCommit $releaseSource -ReuseExactExisting -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
     -ReleaseId $forward -Root $validatedRoot -RepositoryRoot $repository `
-    -ReuseExactExisting -Confirm:$false
+    -SourceCommit $releaseSource -ReuseExactExisting -Confirm:$false
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
     -ReleaseId $failed -Root $validatedRoot -RepositoryRoot $repository `
-    -RehearsalDenyManifestRead -ReuseExactExisting -Confirm:$false
+    -SourceCommit $releaseSource -RehearsalDenyManifestRead -ReuseExactExisting -Confirm:$false
 
   Assert-RisePalsAclModel -ValidatedRoot $validatedRoot -ReleaseId $lastKnownGood `
     -Repository $repository
