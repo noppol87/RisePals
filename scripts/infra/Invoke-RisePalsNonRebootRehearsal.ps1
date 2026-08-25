@@ -406,8 +406,31 @@ try {
   $existingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
     Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
   $existingCurrent = Get-RisePalsCurrentReleaseId -ValidatedRoot $validatedRoot
-  if ($existingListeners.Count -ne 0 -or
-    ($existingCurrent -ne "" -and $existingCurrent -notin $evidence.releases)) {
+  $existingCurrentIsVerifiedAncestor = $true
+  if ($existingCurrent -ne "" -and $existingCurrent -notin $evidence.releases) {
+    $existingRelease = Join-Path $validatedRoot "releases\$existingCurrent"
+    $existingManifestPath = Join-Path $existingRelease "release-manifest.json"
+    $existingCurrentIsVerifiedAncestor = $false
+    if (Test-Path -LiteralPath $existingManifestPath -PathType Leaf) {
+      $existingManifest = Get-Content -LiteralPath $existingManifestPath -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+      if ($existingManifest.schemaVersion -eq "rise-pals-release-manifest-v1" -and
+        $existingManifest.releaseId -eq $existingCurrent -and
+        [string]$existingManifest.sourceCommit -match "^[a-f0-9]{40}$") {
+        & $git -c "safe.directory=C:/Codex PC SG2/Jeff/risepals" -C $repository `
+          merge-base --is-ancestor ([string]$existingManifest.sourceCommit) $head
+        if ($LASTEXITCODE -eq 0) {
+          $runtimeNode = Join-Path $validatedRoot "tools\node\24.18.1\node.exe"
+          $releaseManifestTool = Join-Path $repository "scripts\infra\release-manifest.mjs"
+          & $runtimeNode $releaseManifestTool --mode verify --root $existingRelease `
+            --source-commit ([string]$existingManifest.sourceCommit) `
+            --release-id $existingCurrent
+          $existingCurrentIsVerifiedAncestor = $LASTEXITCODE -eq 0
+        }
+      }
+    }
+  }
+  if ($existingListeners.Count -ne 0 -or -not $existingCurrentIsVerifiedAncestor) {
     throw "A pre-existing listener or unrelated current release conflicts with the rehearsal."
   }
   $rootProcesses = @(Get-RisePalsRootProcesses -ValidatedRoot $validatedRoot)

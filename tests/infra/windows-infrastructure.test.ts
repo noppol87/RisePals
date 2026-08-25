@@ -203,6 +203,11 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("certificateReissueAndReload");
     expect(rehearsal).toContain("Set-RisePalsRehearsalSecret.ps1");
     expect(rehearsal).toContain("Clear-RisePalsRehearsal.ps1");
+    expect(rehearsal).toContain("existingCurrentIsVerifiedAncestor");
+    expect(rehearsal).toContain(
+      "merge-base --is-ancestor ([string]$existingManifest.sourceCommit) $head",
+    );
+    expect(rehearsal).toContain("--mode verify --root $existingRelease");
     expect(rehearsal).toContain("[AllowEmptyCollection()][byte[]]$Haystack");
     expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
   });
