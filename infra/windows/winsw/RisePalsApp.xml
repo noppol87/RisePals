@@ -6,7 +6,8 @@
   <arguments>C:\RisePals\current\server.js</arguments>
   <workingdirectory>C:\RisePals\current</workingdirectory>
   <serviceaccount>
-    <username>NT SERVICE\RisePalsApp</username>
+    <domain>NT SERVICE</domain>
+    <user>RisePalsApp</user>
   </serviceaccount>
   <startmode>Manual</startmode>
   <autoRefresh>false</autoRefresh>

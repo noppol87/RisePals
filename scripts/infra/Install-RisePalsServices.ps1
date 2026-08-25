@@ -57,6 +57,12 @@ try {
     throw "WinSW application-service installation failed."
   }
   $appInstalled = $true
+  Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(
+    "config",
+    "RisePalsApp",
+    "obj=",
+    "NT SERVICE\RisePalsApp"
+  )
 
   $proxyCommand = ('"{0}" run --config "{1}" --adapter caddyfile' -f $caddy, $caddyConfig)
   Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(

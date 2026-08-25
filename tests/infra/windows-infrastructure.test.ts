@@ -48,7 +48,8 @@ describe("Windows infrastructure contract", () => {
   it("keeps WinSW stable, manual, least-privilege and bounded", async () => {
     const xml = await text("infra/windows/winsw/RisePalsApp.xml");
     expect(xml).toContain("<id>RisePalsApp</id>");
-    expect(xml).toContain("<username>NT SERVICE\\RisePalsApp</username>");
+    expect(xml).toContain("<domain>NT SERVICE</domain>");
+    expect(xml).toContain("<user>RisePalsApp</user>");
     expect(xml).toContain("<startmode>Manual</startmode>");
     expect(xml).toContain("<autoRefresh>false</autoRefresh>");
     expect(xml).toContain('<log mode="roll-by-size">');
@@ -63,6 +64,7 @@ describe("Windows infrastructure contract", () => {
     expect(installer).toContain('"start=",');
     expect(installer).toContain('"demand",');
     expect(installer).toContain('"obj=",');
+    expect(installer).toContain('"NT SERVICE\\RisePalsApp"');
     expect(installer).not.toContain('"start= demand"');
   });
 
