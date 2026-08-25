@@ -38,7 +38,10 @@ describe("Windows infrastructure contract", () => {
     expect(caddy).toContain("max_header_size 32KB");
     expect(caddy).toContain("max_size 1MB");
     expect(caddy).toContain("flush_interval -1");
-    expect(caddy).toContain("header_up -X-Forwarded-*");
+    expect(caddy).not.toContain("header_up -X-Forwarded-*");
+    expect(caddy).toContain("header_up X-Forwarded-For {remote_host}");
+    expect(caddy).toContain("header_up X-Forwarded-Host {host}");
+    expect(caddy).toContain("header_up X-Forwarded-Proto https");
     expect(caddy).toContain("request>headers>Authorization delete");
     expect(caddy).toContain("replace token REDACTED");
     expect(caddy).toContain("respond @internal 404");
@@ -220,6 +223,8 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("certificateReissueAndReload");
     expect(rehearsal).toContain("Set-RisePalsRehearsalSecret.ps1");
     expect(rehearsal).toContain("Clear-RisePalsRehearsal.ps1");
+    expect(rehearsal).toContain("stopped-service Caddy configuration synchronization PASS");
+    expect(rehearsal).toContain("[IO.File]::WriteAllBytes($installedCaddyConfig");
     expect(rehearsal).toContain("existingCurrentIsVerifiedAncestor");
     expect(rehearsal).toContain(
       "merge-base --is-ancestor ([string]$existingManifest.sourceCommit) $head",

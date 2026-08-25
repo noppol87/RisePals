@@ -437,6 +437,18 @@ try {
   if ($rootProcesses.Count -ne 0) {
     throw "A Rise Pals process is unexpectedly active before staging recovery."
   }
+  & (Join-Path $PSScriptRoot "Test-RisePalsCaddyConfig.ps1") -RepositoryRoot $repository
+  if ($LASTEXITCODE -ne 0) {
+    throw "The reviewed Caddy configuration did not validate before host synchronization."
+  }
+  $reviewedCaddyConfig = Join-Path $repository "infra\windows\caddy\Caddyfile"
+  $installedCaddyConfig = Join-Path $validatedRoot "shared\config\Caddyfile"
+  [IO.File]::WriteAllBytes($installedCaddyConfig, [IO.File]::ReadAllBytes($reviewedCaddyConfig))
+  if ((Get-FileHash -LiteralPath $installedCaddyConfig -Algorithm SHA256).Hash -ne
+    (Get-FileHash -LiteralPath $reviewedCaddyConfig -Algorithm SHA256).Hash) {
+    throw "The installed Caddy configuration does not match the reviewed template."
+  }
+  Write-Output "Reviewed stopped-service Caddy configuration synchronization PASS"
   $stagingRoot = Join-Path $validatedRoot "staging"
   Get-ChildItem -LiteralPath $stagingRoot -Directory -Force | Where-Object {
     $_.Name -match "^build-[a-f0-9]{32}$"
