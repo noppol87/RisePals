@@ -55,6 +55,8 @@ describe("Windows infrastructure contract", () => {
     expect(probe).toContain('url.hostname !== "127.0.0.1"');
     expect(probe).toContain('url.port !== "8443"');
     expect(probe).toContain("rejectUnauthorized: true");
+    expect(health).toContain('--body-base64 "eyJzdGF0dXMiOiJvayJ9"');
+    expect(probe).toContain('input["body-base64"]');
     expect(probe).toContain("maximumFirstByteMs");
     expect(probe).toContain("minimumTotalMs");
   });

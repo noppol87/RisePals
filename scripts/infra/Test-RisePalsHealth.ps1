@@ -34,7 +34,7 @@ if ($LASTEXITCODE -ne 0 -or ($redirectHeaders -join "`n") -notmatch "HTTP/1\.1 3
 
 & $node $probe --ca $ca --url `
   "https://127.0.0.1:8443/health/live?token=synthetic-redaction-probe" `
-  --status 200 --body '{"status":"ok"}'
+  --status 200 --body-base64 "eyJzdGF0dXMiOiJvayJ9"
 if ($LASTEXITCODE -ne 0) {
   throw "Explicit-local-CA HTTPS liveness verification failed."
 }

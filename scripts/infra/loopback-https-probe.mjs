@@ -107,7 +107,11 @@ export async function runLoopbackHttpsProbe(input) {
   });
 
   if (result.status !== expectedStatus) throw new Error("Unexpected loopback HTTPS status.");
-  if (input.body !== undefined && result.body !== input.body) {
+  const expectedBody =
+    input["body-base64"] === undefined
+      ? undefined
+      : Buffer.from(input["body-base64"], "base64").toString("utf8");
+  if (expectedBody !== undefined && result.body !== expectedBody) {
     throw new Error("Unexpected loopback HTTPS body.");
   }
   if (result.firstByteMs >= maximumFirstByteMs || result.totalMs < minimumTotalMs) {
