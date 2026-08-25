@@ -76,7 +76,10 @@ if ($LASTEXITCODE -ne 0) {
 $listeners = @(Get-NetTCPConnection -State Listen |
   Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
 if ($listeners.Count -ne 4 -or @($listeners | Where-Object { $_.LocalAddress -notin @("127.0.0.1", "::1") }).Count -ne 0) {
-  throw "Rise Pals listeners are not exactly the four approved loopback endpoints."
+  $observedListeners = (($listeners | Sort-Object LocalPort, LocalAddress | ForEach-Object {
+    "{0}:{1}" -f $_.LocalAddress, $_.LocalPort
+  }) -join ",")
+  throw "Rise Pals listeners are not exactly the four approved loopback endpoints: $observedListeners."
 }
 
 Write-Output "Loopback health/proxy/TLS/limits/streaming/reload PASS"
