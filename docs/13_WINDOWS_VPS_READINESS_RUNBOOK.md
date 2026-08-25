@@ -78,6 +78,7 @@ The development workspace remains `C:\Codex PC SG2\Jeff\risepals` and is never s
 - secret lifecycle: `Set-RisePalsRehearsalSecret.ps1`
 - start/health/cleanup: `Start-RisePalsRehearsal.ps1`, `Test-RisePalsHealth.ps1`, `Clear-RisePalsRehearsal.ps1`
 - one-command non-reboot rehearsal: `Invoke-RisePalsNonRebootRehearsal.ps1`
+- bounded non-listening app-identity diagnosis: `Invoke-RisePalsReadinessDiagnostic.ps1`
 - separately authorized reboot preparation/completion: `Prepare-RisePalsRebootCheckpoint.ps1`, `Complete-RisePalsRebootCheckpoint.ps1`
 - sanitized host-change evidence: `Write-RisePalsHostManifest.ps1`
 

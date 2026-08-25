@@ -74,6 +74,17 @@ describe("Windows infrastructure contract", () => {
     );
   });
 
+  it("diagnoses readiness under the real app identity without opening a listener", async () => {
+    const diagnostic = await text("scripts/infra/Invoke-RisePalsReadinessDiagnostic.ps1");
+
+    expect(diagnostic).toContain("RISE_PALS_INFRA_REHEARSAL");
+    expect(diagnostic).toContain("markerReadable");
+    expect(diagnostic).toContain("canaryReadable");
+    expect(diagnostic).toContain("setInterval(() => {}, 1000)");
+    expect(diagnostic).toContain("[IO.File]::WriteAllBytes($installedConfig, $originalConfig)");
+    expect(diagnostic).not.toMatch(/Start-RisePalsRehearsal|New-NetFirewallRule|Restart-Computer/);
+  });
+
   it("passes SCM option names and values as distinct native arguments", async () => {
     const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
     expect(installer).toContain('"binPath=",');
