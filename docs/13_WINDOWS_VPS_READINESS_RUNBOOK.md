@@ -77,6 +77,8 @@ The development workspace remains `C:\Codex PC SG2\Jeff\risepals` and is never s
 - activation/rollback: `Switch-RisePalsRelease.ps1`, `Rollback-RisePalsRelease.ps1`
 - secret lifecycle: `Set-RisePalsRehearsalSecret.ps1`
 - start/health/cleanup: `Start-RisePalsRehearsal.ps1`, `Test-RisePalsHealth.ps1`, `Clear-RisePalsRehearsal.ps1`
+- one-command non-reboot rehearsal: `Invoke-RisePalsNonRebootRehearsal.ps1`
+- separately authorized reboot preparation/completion: `Prepare-RisePalsRebootCheckpoint.ps1`, `Complete-RisePalsRebootCheckpoint.ps1`
 - sanitized host-change evidence: `Write-RisePalsHostManifest.ps1`
 
 Every mutating PowerShell entry point supports `-WhatIf`, uses strict error handling, resolves the exact approved root and validates child paths before recursive removal.
@@ -147,6 +149,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Rollback-RiseP
 
 A switch with health checking automatically restores the prior junction on failure. Never delete the last-known-good release.
 
+After host setup and service-identity repair pass, run every authorized non-reboot host mutation and cleanup through one elevated command from a clean committed feature branch:
+
+```powershell
+& "C:\Codex PC SG2\Jeff\risepals\scripts\infra\Invoke-RisePalsNonRebootRehearsal.ps1" -RepositoryRoot "C:\Codex PC SG2\Jeff\risepals" -Confirm:$false
+```
+
+The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. It writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
+
 ## Health and failure evidence
 
 - `/health/live` returns only `{"status":"ok"}`.
@@ -190,5 +200,7 @@ Cleanup stops and disables both services, deletes the canary and validated rehea
 ## Reboot checkpoint and remaining launch blockers
 
 This turn cannot reboot without a later explicit Jeff confirmation through Project Codex. After every non-reboot gate passes, the handoff must request one controlled reboot with exact affected services, downtime and recovery commands. Only after confirmation may automatic service recovery be tested. The final state is both services Stopped and Disabled.
+
+The versioned checkpoint scripts do not reboot the host themselves. After separate authorization, preparation requires the exact approved source commit, creates one temporary canary, starts only the two loopback services as Automatic and writes a sanitized checkpoint. Completion proves Windows booted after that checkpoint, verifies automatic recovery and local health, and restores the Stopped/Disabled/no-canary final state.
 
 Even a successful reboot rehearsal does not approve public deployment. Remaining blockers include DNS and public certificate lifecycle, external port scan, production identity/database/privacy/legal/data residency, production secrets, off-host backup/RTO/RPO, monitoring/alert ownership, staff/operator access, CI/deployment transport and a separately reviewed launch decision.

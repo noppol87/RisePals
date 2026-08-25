@@ -149,4 +149,30 @@ describe("Windows infrastructure contract", () => {
     expect(tls).toContain("rise_pals_tls_app");
     expect(tls).toContain("[IO.Directory]::Delete($resolvedTemporary, $true)");
   });
+
+  it("orchestrates bounded non-reboot evidence and cleanup without public mutations", async () => {
+    const rehearsal = await text("scripts/infra/Invoke-RisePalsNonRebootRehearsal.ps1");
+
+    expect(rehearsal).toContain('branch -ne "agent/windows-vps-infrastructure-readiness"');
+    expect(rehearsal).toContain("RehearsalDenyManifestRead");
+    expect(rehearsal).toContain("automaticRollback");
+    expect(rehearsal).toContain("boundedCrashRecovery");
+    expect(rehearsal).toContain("certificateReissueAndReload");
+    expect(rehearsal).toContain("Set-RisePalsRehearsalSecret.ps1");
+    expect(rehearsal).toContain("Clear-RisePalsRehearsal.ps1");
+    expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
+  });
+
+  it("keeps the reboot checkpoint separate, explicit and cleanup-bound", async () => {
+    const prepare = await text("scripts/infra/Prepare-RisePalsRebootCheckpoint.ps1");
+    const complete = await text("scripts/infra/Complete-RisePalsRebootCheckpoint.ps1");
+
+    expect(prepare).toContain("ExpectedSourceCommit");
+    expect(prepare).toContain('"start=", "auto"');
+    expect(prepare).toContain("no reboot was initiated");
+    expect(prepare).not.toContain("Restart-Computer");
+    expect(complete).toContain("LastBootUpTime");
+    expect(complete).toContain("Clear-RisePalsRehearsal.ps1");
+    expect(complete).toContain('finalServiceState = "Stopped/Disabled"');
+  });
 });
