@@ -385,6 +385,17 @@ try {
     ($existingCurrent -ne "" -and $existingCurrent -notin $evidence.releases)) {
     throw "A pre-existing listener or unrelated current release conflicts with the rehearsal."
   }
+  $rootProcesses = @(Get-RisePalsRootProcesses -ValidatedRoot $validatedRoot)
+  if ($rootProcesses.Count -ne 0) {
+    throw "A Rise Pals process is unexpectedly active before staging recovery."
+  }
+  $stagingRoot = Join-Path $validatedRoot "staging"
+  Get-ChildItem -LiteralPath $stagingRoot -Directory -Force | Where-Object {
+    $_.Name -match "^build-[a-f0-9]{32}$"
+  } | ForEach-Object {
+    $abandonedBuild = Get-RisePalsValidatedChildPath -Root $validatedRoot -Path $_.FullName
+    Remove-RisePalsValidatedChild -Root $validatedRoot -Path $abandonedBuild -Recurse
+  }
   & (Join-Path $PSScriptRoot "Write-RisePalsHostManifest.ps1") -Root $validatedRoot -Confirm:$false
   & (Join-Path $PSScriptRoot "Set-RisePalsRehearsalSecret.ps1") `
     -Action Create -Root $validatedRoot -Confirm:$false

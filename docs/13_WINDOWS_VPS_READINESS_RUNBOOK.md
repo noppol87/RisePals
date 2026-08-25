@@ -155,7 +155,7 @@ After host setup and service-identity repair pass, run every authorized non-rebo
 & "C:\Codex PC SG2\Jeff\risepals\scripts\infra\Invoke-RisePalsNonRebootRehearsal.ps1" -RepositoryRoot "C:\Codex PC SG2\Jeff\risepals" -Confirm:$false
 ```
 
-The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. An interrupted rerun may reuse a deterministic release only after its canonical manifest identity and complete file inventory are independently regenerated and matched; a modified or ambiguous release fails closed. It writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
+The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. An interrupted rerun may reuse a deterministic release only after its canonical manifest identity and complete file inventory are independently regenerated and matched; a modified or ambiguous release fails closed. Abandoned exact `staging\build-<GUID>` children are removed only while both services and every pinned-root process are stopped, and recursive cleanup deletes reparse points themselves without traversing their targets. The script writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
 
 ## Health and failure evidence
 

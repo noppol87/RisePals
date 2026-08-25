@@ -107,6 +107,17 @@ describe("Windows infrastructure contract", () => {
     }
   });
 
+  it("deletes validated staging trees without traversing reparse-point targets", async () => {
+    const common = await text("scripts/infra/common.ps1");
+    const rehearsal = await text("scripts/infra/Invoke-RisePalsNonRebootRehearsal.ps1");
+
+    expect(common).toContain("[IO.FileAttributes]::ReparsePoint");
+    expect(common).toContain("[IO.Directory]::Delete($EntryPath)");
+    expect(common).toContain("EnumerateFileSystemEntries($EntryPath)");
+    expect(rehearsal).toContain('"^build-[a-f0-9]{32}$"');
+    expect(rehearsal).toContain("unexpectedly active before staging recovery");
+  });
+
   it("prepares and launches the same secret-free standalone runtime used by releases", async () => {
     const packageJson = JSON.parse(await text("package.json")) as {
       scripts: Record<string, string>;

@@ -77,11 +77,33 @@ function Remove-RisePalsValidatedChild {
     return
   }
 
-  if ($Recurse) {
-    Remove-Item -LiteralPath $validated -Force -Recurse
-  } else {
+  if (-not $Recurse) {
     Remove-Item -LiteralPath $validated -Force
+    return
   }
+
+  function Remove-RisePalsDirectoryEntry {
+    param([Parameter(Mandatory = $true)][string]$EntryPath)
+
+    $attributes = [IO.File]::GetAttributes($EntryPath)
+    $isDirectory = ($attributes -band [IO.FileAttributes]::Directory) -ne 0
+    $isReparsePoint = ($attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    if (-not $isDirectory) {
+      [IO.File]::SetAttributes($EntryPath, [IO.FileAttributes]::Normal)
+      [IO.File]::Delete($EntryPath)
+      return
+    }
+    if ($isReparsePoint) {
+      [IO.Directory]::Delete($EntryPath)
+      return
+    }
+    foreach ($child in [IO.Directory]::EnumerateFileSystemEntries($EntryPath)) {
+      Remove-RisePalsDirectoryEntry -EntryPath $child
+    }
+    [IO.Directory]::Delete($EntryPath)
+  }
+
+  Remove-RisePalsDirectoryEntry -EntryPath $validated
 }
 
 function Set-RisePalsProtectedAcl {
