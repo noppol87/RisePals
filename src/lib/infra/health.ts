@@ -36,9 +36,10 @@ export function hasSafeRehearsalForwardedHeaders(request: Request): boolean {
   if (forwardedFor === null) {
     return true;
   }
+  const forwardedHost = request.headers.get("x-forwarded-host");
   return (
     forwardedFor === "127.0.0.1" &&
-    request.headers.get("x-forwarded-host") === "127.0.0.1" &&
+    (forwardedHost === "127.0.0.1" || forwardedHost === "127.0.0.1:8443") &&
     request.headers.get("x-forwarded-proto") === "https"
   );
 }

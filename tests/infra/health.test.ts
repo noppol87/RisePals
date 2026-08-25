@@ -76,6 +76,28 @@ describe("infrastructure health contract", () => {
       hasSafeRehearsalForwardedHeaders(
         new Request("http://127.0.0.1/", {
           headers: {
+            "x-forwarded-for": "127.0.0.1",
+            "x-forwarded-host": "127.0.0.1:8443",
+            "x-forwarded-proto": "https",
+          },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      hasSafeRehearsalForwardedHeaders(
+        new Request("http://127.0.0.1/", {
+          headers: {
+            "x-forwarded-for": "127.0.0.1",
+            "x-forwarded-host": "127.0.0.1:8444",
+            "x-forwarded-proto": "https",
+          },
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      hasSafeRehearsalForwardedHeaders(
+        new Request("http://127.0.0.1/", {
+          headers: {
             "x-forwarded-for": "203.0.113.1",
             "x-forwarded-host": "attacker.invalid",
             "x-forwarded-proto": "http",
