@@ -291,9 +291,9 @@ function Invoke-RisePalsGracefulStopProbe {
   $output = Join-Path $ValidatedRoot "rehearsal\graceful-stream.out"
   $errorOutput = Join-Path $ValidatedRoot "rehearsal\graceful-stream.err"
   $process = Start-Process -FilePath "curl.exe" -ArgumentList @(
-    "--silent", "--show-error", "--no-buffer", "--cacert", $ca,
+    "--silent", "--show-error", "--no-buffer", "--output", $output, "--cacert", $ca,
     "https://127.0.0.1:8443/health/stream"
-  ) -RedirectStandardOutput $output -RedirectStandardError $errorOutput -PassThru
+  ) -RedirectStandardError $errorOutput -PassThru
   $streamStarted = $false
   $streamDeadline = [DateTime]::UtcNow.AddSeconds(15)
   do {

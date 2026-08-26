@@ -239,6 +239,8 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("[IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete");
     expect(rehearsal).toContain('$partialBody.StartsWith("probe-start`n"');
     expect(rehearsal).toContain("if (-not $streamStarted)");
+    expect(rehearsal).toContain('"--no-buffer", "--output", $output');
+    expect(rehearsal).not.toContain("-RedirectStandardOutput $output");
     expect(rehearsal).toContain("Read-RisePalsSharedFileBytes -Path $path");
     expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
   });
