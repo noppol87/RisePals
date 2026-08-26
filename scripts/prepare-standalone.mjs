@@ -7,6 +7,11 @@ const staticSource = resolve(".next/static");
 const staticDestination = resolve(outputRoot, ".next/static");
 const publicSource = resolve("public");
 const publicDestination = resolve(outputRoot, "public");
+const infrastructureRuntimeFiles = Object.freeze([
+  "drain-control.mjs",
+  "request-rise-pals-drain.mjs",
+  "rise-pals-standalone-server.mjs",
+]);
 
 async function requireFile(path, description) {
   const details = await stat(path).catch(() => undefined);
@@ -30,6 +35,10 @@ await cp(staticSource, staticDestination, { force: true, recursive: true });
 const publicDetails = await stat(publicSource).catch(() => undefined);
 if (publicDetails?.isDirectory()) {
   await cp(publicSource, publicDestination, { force: true, recursive: true });
+}
+
+for (const name of infrastructureRuntimeFiles) {
+  await cp(resolve("scripts/infra", name), resolve(outputRoot, name), { force: true });
 }
 
 const pending = [outputRoot];

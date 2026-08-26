@@ -63,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
   --header "X-Forwarded-For: 203.0.113.1" `
   --header "X-Forwarded-Host: attacker.invalid" `
   --header "X-Forwarded-Proto: http" `
-  --max-first-byte-ms 300 --min-total-ms 250
+  --max-first-byte-ms 300 --min-total-ms 1200
 if ($LASTEXITCODE -ne 0) {
   throw "Streaming probe request failed."
 }

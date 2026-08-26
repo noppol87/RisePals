@@ -7,9 +7,15 @@ import { pathToFileURL } from "node:url";
 const approvedFirstByteMarker = resolve(
   "C:\\RisePals\\rehearsal\\graceful-stream.started",
 ).toLowerCase();
+const approvedResultPaths = new Set(
+  [
+    "C:\\RisePals\\rehearsal\\graceful-stream.result.json",
+    "C:\\RisePals\\rehearsal\\drain-rejection.result.json",
+  ].map((path) => resolve(path).toLowerCase()),
+);
 
 function parseArguments(values) {
-  const parsed = { headers: [] };
+  const parsed = { headers: [], responseHeaders: [] };
   for (let index = 0; index < values.length; index += 2) {
     const name = values[index];
     const value = values[index + 1];
@@ -18,6 +24,7 @@ function parseArguments(values) {
     }
     const key = name.slice(2);
     if (key === "header") parsed.headers.push(value);
+    else if (key === "response-header") parsed.responseHeaders.push(value);
     else if (Object.hasOwn(parsed, key)) throw new Error(`Duplicate probe argument: ${name}`);
     else parsed[key] = value;
   }
@@ -50,6 +57,10 @@ function parseHeaders(values) {
   return headers;
 }
 
+function parseExpectedResponseHeaders(values) {
+  return Object.entries(parseHeaders(values)).map(([name, value]) => [name.toLowerCase(), value]);
+}
+
 export async function runLoopbackHttpsProbe(input) {
   const url = new URL(input.url);
   if (
@@ -77,6 +88,7 @@ export async function runLoopbackHttpsProbe(input) {
     15000,
   );
   const headers = parseHeaders(input.headers);
+  const expectedResponseHeaders = parseExpectedResponseHeaders(input.responseHeaders);
   if (bodyBytes > 0) headers["Content-Length"] = String(bodyBytes);
   const firstByteMarker = input["first-byte-marker"];
   if (
@@ -84,6 +96,10 @@ export async function runLoopbackHttpsProbe(input) {
     resolve(firstByteMarker).toLowerCase() !== approvedFirstByteMarker
   ) {
     throw new Error("The first-byte marker path is outside the approved rehearsal boundary.");
+  }
+  const resultPath = input["result-path"];
+  if (resultPath !== undefined && !approvedResultPaths.has(resolve(resultPath).toLowerCase())) {
+    throw new Error("The result path is outside the approved rehearsal boundary.");
   }
 
   const started = performance.now();
@@ -118,6 +134,12 @@ export async function runLoopbackHttpsProbe(input) {
           resolve({
             status: response.statusCode,
             body: Buffer.concat(chunks).toString("utf8"),
+            headers: Object.fromEntries(
+              Object.entries(response.headers).map(([name, value]) => [
+                name.toLowerCase(),
+                Array.isArray(value) ? value.join(", ") : (value ?? ""),
+              ]),
+            ),
             firstByteMs: firstByteMs ?? performance.now() - started,
             totalMs: performance.now() - started,
           });
@@ -133,6 +155,11 @@ export async function runLoopbackHttpsProbe(input) {
   if (result.status !== expectedStatus) {
     throw new Error(`Unexpected loopback HTTPS status: ${result.status}.`);
   }
+  for (const [name, value] of expectedResponseHeaders) {
+    if (result.headers[name] !== value) {
+      throw new Error(`Unexpected loopback HTTPS response header: ${name}.`);
+    }
+  }
   const expectedBody =
     input["body-base64"] === undefined
       ? undefined
@@ -143,6 +170,20 @@ export async function runLoopbackHttpsProbe(input) {
   if (result.firstByteMs >= maximumFirstByteMs || result.totalMs < minimumTotalMs) {
     throw new Error("Loopback HTTPS streaming timing is outside the approved bounds.");
   }
+  if (resultPath !== undefined) {
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify({
+        schemaVersion: "rise-pals-loopback-probe-result-v1",
+        status: result.status,
+        bodyBytes: Buffer.byteLength(result.body),
+        firstByteMs: Math.round(result.firstByteMs),
+        totalMs: Math.round(result.totalMs),
+      })}\n`,
+      { encoding: "utf8", flag: "wx" },
+    );
+  }
+  return result;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

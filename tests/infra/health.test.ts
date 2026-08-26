@@ -6,6 +6,7 @@ import {
   isInfrastructureRehearsalEnabled,
   isLoopbackRequest,
   liveHealthPayload,
+  parseInfrastructureDrainState,
   rehearsalStreamChunks,
 } from "@/lib/infra/health";
 
@@ -113,24 +114,35 @@ describe("infrastructure health contract", () => {
       rehearsalEnabled: true,
       releaseMarkerPresent: true,
       rehearsalSecretReadable: true,
+      drainState: "ready" as const,
     },
     {
       loopback: true,
       rehearsalEnabled: false,
       releaseMarkerPresent: true,
       rehearsalSecretReadable: true,
+      drainState: "ready" as const,
     },
     {
       loopback: true,
       rehearsalEnabled: true,
       releaseMarkerPresent: false,
       rehearsalSecretReadable: true,
+      drainState: "ready" as const,
     },
     {
       loopback: true,
       rehearsalEnabled: true,
       releaseMarkerPresent: true,
       rehearsalSecretReadable: false,
+      drainState: "ready" as const,
+    },
+    {
+      loopback: true,
+      rehearsalEnabled: true,
+      releaseMarkerPresent: true,
+      rehearsalSecretReadable: true,
+      drainState: "unavailable" as const,
     },
   ])("fails closed for an incomplete readiness boundary", (input) => {
     expect(evaluateInfrastructureReadiness(input)).toEqual({ ready: false, status: "unavailable" });
@@ -143,7 +155,64 @@ describe("infrastructure health contract", () => {
         rehearsalEnabled: true,
         releaseMarkerPresent: true,
         rehearsalSecretReadable: true,
+        drainState: "ready",
       }),
     ).toEqual({ ready: true, status: "ready" });
+  });
+
+  it("distinguishes a valid draining lifecycle from ready and malformed state", () => {
+    expect(
+      parseInfrastructureDrainState(
+        JSON.stringify({
+          schemaVersion: "rise-pals-drain-state-v1",
+          state: "ready",
+          recordedAtUtc: "2026-08-26T00:00:00.000Z",
+        }),
+      ),
+    ).toBe("ready");
+    expect(
+      parseInfrastructureDrainState(
+        JSON.stringify({
+          schemaVersion: "rise-pals-drain-state-v1",
+          state: "draining",
+          startedAtUtc: "2026-08-26T00:00:00.000Z",
+          deadlineAtUtc: "2026-08-26T00:00:15.000Z",
+        }),
+      ),
+    ).toBe("draining");
+    expect(parseInfrastructureDrainState('{"state":"ready"}')).toBe("unavailable");
+    expect(
+      parseInfrastructureDrainState(
+        JSON.stringify({
+          schemaVersion: "rise-pals-drain-state-v1",
+          state: "ready",
+          recordedAtUtc: "2026-08-26T00:00:00.000Z",
+          extra: true,
+        }),
+      ),
+    ).toBe("unavailable");
+    expect(
+      parseInfrastructureDrainState(
+        JSON.stringify({
+          schemaVersion: "rise-pals-drain-state-v1",
+          state: "draining",
+          startedAtUtc: "2026-08-26T00:00:00.000Z",
+          deadlineAtUtc: "2026-08-26T00:00:15.001Z",
+        }),
+      ),
+    ).toBe("unavailable");
+    expect(parseInfrastructureDrainState("not-json")).toBe("unavailable");
+  });
+
+  it("reports draining only inside the exact rehearsal loopback boundary", () => {
+    expect(
+      evaluateInfrastructureReadiness({
+        loopback: true,
+        rehearsalEnabled: true,
+        releaseMarkerPresent: true,
+        rehearsalSecretReadable: true,
+        drainState: "draining",
+      }),
+    ).toEqual({ ready: false, status: "draining" });
   });
 });

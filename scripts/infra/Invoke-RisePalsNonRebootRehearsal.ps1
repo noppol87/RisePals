@@ -113,6 +113,8 @@ function Assert-RisePalsAclModel {
     -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsApp")
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\config") `
     -ExpectedPrincipals ($systemAdmin + @("NT SERVICE\RisePalsApp", "NT SERVICE\RisePalsProxy"))
+  Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\control") `
+    -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsApp")
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\secrets\rehearsal.canary") `
     -ExpectedPrincipals ($systemAdmin + "NT SERVICE\RisePalsApp")
   Assert-RisePalsExactAclPrincipals -Path (Join-Path $ValidatedRoot "shared\secrets") `
@@ -291,9 +293,27 @@ function Invoke-RisePalsGracefulStopProbe {
   $output = Join-Path $ValidatedRoot "rehearsal\graceful-stream.out"
   $errorOutput = Join-Path $ValidatedRoot "rehearsal\graceful-stream.err"
   $startedMarker = Join-Path $ValidatedRoot "rehearsal\graceful-stream.started"
+  $streamResultPath = Join-Path $ValidatedRoot "rehearsal\graceful-stream.result.json"
+  $rejectionResultPath = Join-Path $ValidatedRoot "rehearsal\drain-rejection.result.json"
+  $firstStopOutput = Join-Path $ValidatedRoot "rehearsal\stop-service-first.out"
+  $firstStopError = Join-Path $ValidatedRoot "rehearsal\stop-service-first.err"
+  $secondStopOutput = Join-Path $ValidatedRoot "rehearsal\stop-service-second.out"
+  $secondStopError = Join-Path $ValidatedRoot "rehearsal\stop-service-second.err"
+  $drainStatePath = Join-Path $ValidatedRoot "shared\control\app-drain-state.json"
   $probe = Join-Path $ValidatedRoot "rehearsal\loopback-https-probe.mjs"
   $probeSource = Join-Path $PSScriptRoot "loopback-https-probe.mjs"
-  foreach ($path in @($output, $errorOutput, $startedMarker, $probe)) {
+  foreach ($path in @(
+    $output,
+    $errorOutput,
+    $startedMarker,
+    $streamResultPath,
+    $rejectionResultPath,
+    $firstStopOutput,
+    $firstStopError,
+    $secondStopOutput,
+    $secondStopError,
+    $probe
+  )) {
     if (Test-Path -LiteralPath $path) {
       throw "A graceful-stop probe path unexpectedly exists."
     }
@@ -303,6 +323,10 @@ function Invoke-RisePalsGracefulStopProbe {
     (Get-FileHash -LiteralPath $probeSource -Algorithm SHA256).Hash) {
     throw "The copied graceful-stop probe does not match the reviewed helper."
   }
+  $process = $null
+  $firstStop = $null
+  $secondStop = $null
+  try {
   $node = Join-Path $ValidatedRoot "tools\node\24.18.1\node.exe"
   $expectedBody = [Convert]::ToBase64String(
     [Text.Encoding]::UTF8.GetBytes("probe-start`nprobe-mid`nprobe-end`n")
@@ -310,7 +334,8 @@ function Invoke-RisePalsGracefulStopProbe {
   $process = Start-Process -FilePath $node -ArgumentList @(
     $probe, "--ca", $ca, "--url", "https://127.0.0.1:8443/health/stream",
     "--status", "200", "--body-base64", $expectedBody,
-    "--first-byte-marker", $startedMarker
+    "--first-byte-marker", $startedMarker,
+    "--result-path", $streamResultPath
   ) -RedirectStandardOutput $output -RedirectStandardError $errorOutput -PassThru
   $streamStarted = $false
   $streamDeadline = [DateTime]::UtcNow.AddSeconds(15)
@@ -336,8 +361,61 @@ function Invoke-RisePalsGracefulStopProbe {
     }
     throw "The in-flight streaming request did not start within the bounded window."
   }
-  Stop-Service -Name "RisePalsApp"
+  $stopStartedAt = [DateTime]::UtcNow
+  $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+  $firstStop = Start-Process -FilePath $powerShell -ArgumentList @(
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    "Stop-Service -Name 'RisePalsApp'"
+  ) -RedirectStandardOutput $firstStopOutput -RedirectStandardError $firstStopError -PassThru
+
+  $drainDeadline = [DateTime]::UtcNow.AddSeconds(5)
+  $draining = $null
+  do {
+    if (Test-Path -LiteralPath $drainStatePath -PathType Leaf) {
+      $candidate = Get-Content -LiteralPath $drainStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+      if ($candidate.schemaVersion -eq "rise-pals-drain-state-v1" -and
+        $candidate.state -eq "draining") {
+        $draining = $candidate
+        break
+      }
+    }
+    Start-Sleep -Milliseconds 25
+  } while ([DateTime]::UtcNow -lt $drainDeadline)
+  if ($null -eq $draining) {
+    throw "Direct Stop-Service did not enter the exact local Draining state."
+  }
+  Assert-RisePalsExactAclPrincipals -Path $drainStatePath -ExpectedPrincipals @(
+    "BUILTIN\Administrators",
+    "NT AUTHORITY\SYSTEM",
+    "NT SERVICE\RisePalsApp"
+  )
+
+  $secondStop = Start-Process -FilePath $powerShell -ArgumentList @(
+    "-NoProfile",
+    "-NonInteractive",
+    "-Command",
+    "Stop-Service -Name 'RisePalsApp' -ErrorAction SilentlyContinue"
+  ) -RedirectStandardOutput $secondStopOutput -RedirectStandardError $secondStopError -PassThru
+
+  $expectedDrainingBody = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes("{`"status`":`"draining`"}`n")
+  )
+  & $node $probe --ca $ca --url "https://127.0.0.1:8443/th" --status 503 `
+    --body-base64 $expectedDrainingBody --response-header "Retry-After: 5" `
+    --result-path $rejectionResultPath
+  if ($LASTEXITCODE -ne 0) {
+    throw "A new request was not rejected deterministically during drain."
+  }
+
   (Get-Service -Name "RisePalsApp").WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+  if (-not $firstStop.WaitForExit(30000) -or -not $secondStop.WaitForExit(30000)) {
+    throw "A repeated Stop-Service command did not complete within the bounded window."
+  }
+  if ($firstStop.ExitCode -ne 0 -or $secondStop.ExitCode -ne 0) {
+    throw "A direct or repeated Stop-Service command failed."
+  }
   if (-not $process.WaitForExit(30000)) {
     Stop-Process -Id $process.Id -Force
     throw "The in-flight streaming request did not end within the graceful-stop bound."
@@ -352,9 +430,52 @@ function Invoke-RisePalsGracefulStopProbe {
   if (@(Get-RisePalsNodeProcess -ValidatedRoot $ValidatedRoot).Count -ne 0) {
     throw "Graceful stop left an orphan Node process."
   }
+  $stopped = Get-Content -LiteralPath $drainStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($stopped.schemaVersion -ne "rise-pals-drain-state-v1" -or
+    $stopped.state -ne "stopped" -or
+    $stopped.startedAtUtc -ne $draining.startedAtUtc -or
+    $stopped.deadlineAtUtc -ne $draining.deadlineAtUtc) {
+    throw "The repeated stop changed or corrupted the original drain transition."
+  }
+  $stopElapsedMs = [Math]::Round(([DateTime]::UtcNow - $stopStartedAt).TotalMilliseconds)
+  if ($stopElapsedMs -gt 20000) {
+    throw "The complete graceful service-stop path exceeded 20 seconds."
+  }
+  $streamResult = Get-Content -LiteralPath $streamResultPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $rejectionResult = Get-Content -LiteralPath $rejectionResultPath -Raw -Encoding UTF8 |
+    ConvertFrom-Json
+  if ($streamResult.status -ne 200 -or $streamResult.bodyBytes -ne 32 -or
+    $rejectionResult.status -ne 503) {
+    throw "Graceful-stream or drain-rejection evidence is incomplete."
+  }
   Start-Service -Name "RisePalsApp"
   (Get-Service -Name "RisePalsApp").WaitForStatus("Running", [TimeSpan]::FromSeconds(30))
   Wait-RisePalsReady -ExpectedReady $true
+  $ready = Get-Content -LiteralPath $drainStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($ready.schemaVersion -ne "rise-pals-drain-state-v1" -or $ready.state -ne "ready") {
+    throw "Startup did not reconcile the stopped drain state before readiness."
+  }
+  return [ordered]@{
+    stopElapsedMs = $stopElapsedMs
+    streamFirstByteMs = [int]$streamResult.firstByteMs
+    streamTotalMs = [int]$streamResult.totalMs
+    streamBodyBytes = [int]$streamResult.bodyBytes
+    drainRejectionStatus = [int]$rejectionResult.status
+    repeatedStopPreservedDeadline = $true
+    startupReconciledToReady = $true
+  }
+  } finally {
+    if ($null -ne $process -and -not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+    foreach ($stopProcess in @($firstStop, $secondStop)) {
+      if ($null -ne $stopProcess -and -not $stopProcess.HasExited) {
+        if (-not $stopProcess.WaitForExit(20000)) {
+          Stop-Process -Id $stopProcess.Id -Force -ErrorAction SilentlyContinue
+        }
+      }
+    }
+  }
 }
 
 function Invoke-RisePalsCrashRecoveryProbe {
@@ -369,29 +490,95 @@ function Invoke-RisePalsCrashRecoveryProbe {
   if ($node.Count -ne 1) {
     throw "Exactly one application Node process was expected before crash recovery."
   }
-  $first = [uint32]$node[0].ProcessId
-  Stop-Process -Id $first -Force
-  $second = Wait-RisePalsReplacementNode -ValidatedRoot $ValidatedRoot -PreviousProcessId $first
-  Stop-Process -Id $second -Force
-  $third = Wait-RisePalsReplacementNode -ValidatedRoot $ValidatedRoot -PreviousProcessId $second
-  Stop-Process -Id $third -Force
-
-  $deadline = [DateTime]::UtcNow.AddSeconds(35)
-  do {
-    $service = Get-CimInstance Win32_Service -Filter "Name='RisePalsApp'"
-    $nodeCount = @(Get-RisePalsNodeProcess -ValidatedRoot $ValidatedRoot).Count
-    if ($service.State -eq "Stopped" -and $nodeCount -eq 0) {
-      break
+  $drainStatePath = Join-Path $ValidatedRoot "shared\control\app-drain-state.json"
+  $appLogs = Join-Path $ValidatedRoot "logs\app"
+  $invalidMarker = "rise-pals-lifecycle startup-state-invalid fail-closed"
+  $countInvalidMarkers = {
+    $count = 0
+    Get-ChildItem -LiteralPath $appLogs -File -ErrorAction SilentlyContinue | ForEach-Object {
+      try {
+        $text = [Text.Encoding]::UTF8.GetString((Read-RisePalsSharedFileBytes -Path $_.FullName))
+        $count += [regex]::Matches($text, [regex]::Escape($invalidMarker)).Count
+      } catch {
+        # A concurrently rotated log is skipped; the bounded state/process assertions remain authoritative.
+      }
     }
-    Start-Sleep -Milliseconds 500
-  } while ([DateTime]::UtcNow -lt $deadline)
-  if ($service.State -ne "Stopped" -or $nodeCount -ne 0) {
-    throw "The third application crash entered an unbounded restart path."
+    return $count
   }
 
-  Start-Service -Name "RisePalsApp"
-  (Get-Service -Name "RisePalsApp").WaitForStatus("Running", [TimeSpan]::FromSeconds(30))
-  Wait-RisePalsReady -ExpectedReady $true
+  Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(
+    "failure",
+    "RisePalsApp",
+    "reset=",
+    "1",
+    "actions=",
+    "restart/5000/restart/15000//0"
+  )
+  try {
+    Start-Sleep -Seconds 2
+    $first = [uint32]$node[0].ProcessId
+    Stop-Process -Id $first -Force
+    $second = Wait-RisePalsReplacementNode -ValidatedRoot $ValidatedRoot -PreviousProcessId $first
+    $afterCrash = Get-Content -LiteralPath $drainStatePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($afterCrash.schemaVersion -ne "rise-pals-drain-state-v1" -or
+      $afterCrash.state -ne "ready") {
+      throw "Unexpected process exit did not recover through a fresh Ready lifecycle."
+    }
+
+    Start-Sleep -Seconds 2
+    Stop-Service -Name "RisePalsApp"
+    (Get-Service -Name "RisePalsApp").WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+    if (@(Get-RisePalsNodeProcess -ValidatedRoot $ValidatedRoot).Count -ne 0) {
+      throw "The pre-failure intentional drain left a Node process."
+    }
+
+    $beforeInvalid = & $countInvalidMarkers
+    [IO.File]::WriteAllText(
+      $drainStatePath,
+      "{`"schemaVersion`":`"rise-pals-drain-state-v1`",`"state`":`"invalid`"}`n",
+      [Text.UTF8Encoding]::new($false)
+    )
+    try {
+      Start-Service -Name "RisePalsApp" -ErrorAction SilentlyContinue
+      $failureDeadline = [DateTime]::UtcNow.AddSeconds(50)
+      do {
+        $service = Get-CimInstance Win32_Service -Filter "Name='RisePalsApp'"
+        $nodeCount = @(Get-RisePalsNodeProcess -ValidatedRoot $ValidatedRoot).Count
+        $invalidAttempts = (& $countInvalidMarkers) - $beforeInvalid
+        if ($service.State -eq "Stopped" -and $nodeCount -eq 0 -and $invalidAttempts -ge 3) {
+          break
+        }
+        Start-Sleep -Milliseconds 500
+      } while ([DateTime]::UtcNow -lt $failureDeadline)
+      if ($service.State -ne "Stopped" -or $nodeCount -ne 0 -or $invalidAttempts -ne 3) {
+        throw "Persistent startup failure did not reach the exact bounded three-attempt terminal state."
+      }
+    } finally {
+      if (Test-Path -LiteralPath $drainStatePath -PathType Leaf) {
+        Remove-RisePalsValidatedChild -Root $ValidatedRoot -Path $drainStatePath
+      }
+    }
+
+    Start-Service -Name "RisePalsApp"
+    (Get-Service -Name "RisePalsApp").WaitForStatus("Running", [TimeSpan]::FromSeconds(30))
+    Wait-RisePalsReady -ExpectedReady $true
+    return [ordered]@{
+      unexpectedExitRecovered = $true
+      replacementProcessChanged = $second -ne $first
+      persistentStartupAttempts = $invalidAttempts
+      persistentFailureTerminalState = "Stopped"
+      intentionalDrainSeparated = $true
+    }
+  } finally {
+    Invoke-RisePalsNativeCommand -FilePath "sc.exe" -Arguments @(
+      "failure",
+      "RisePalsApp",
+      "reset=",
+      "3600",
+      "actions=",
+      "restart/5000/restart/15000//0"
+    )
+  }
 }
 
 $validatedRoot = Get-RisePalsValidatedRoot -Root $Root
@@ -445,7 +632,9 @@ $evidence = [ordered]@{
   manualRollback = $false
   independentRestart = $false
   gracefulStop = $false
+  gracefulStopDetails = $null
   boundedCrashRecovery = $false
+  crashRecoveryDetails = $null
   certificateReissueAndReload = $false
   secretLifecycleAndNoLeak = $false
   loopbackProxyHealth = $false
@@ -464,6 +653,8 @@ try {
     }
   }
   $evidence.serviceIdentity = $true
+  & (Join-Path $PSScriptRoot "Update-RisePalsDrainControl.ps1") `
+    -Root $validatedRoot -RepositoryRoot $repository -Confirm:$false
   & (Join-Path $PSScriptRoot "Repair-RisePalsSecretTraversal.ps1") `
     -Root $validatedRoot -Confirm:$false
   $existingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
@@ -606,9 +797,11 @@ try {
 
   Invoke-RisePalsCertificateReissue -ValidatedRoot $validatedRoot
   $evidence.certificateReissueAndReload = $true
-  Invoke-RisePalsGracefulStopProbe -ValidatedRoot $validatedRoot
+  $evidence.gracefulStopDetails = Invoke-RisePalsGracefulStopProbe `
+    -ValidatedRoot $validatedRoot
   $evidence.gracefulStop = $true
-  Invoke-RisePalsCrashRecoveryProbe -ValidatedRoot $validatedRoot
+  $evidence.crashRecoveryDetails = Invoke-RisePalsCrashRecoveryProbe `
+    -ValidatedRoot $validatedRoot
   $evidence.boundedCrashRecovery = $true
 
   & (Join-Path $PSScriptRoot "Set-RisePalsRehearsalSecret.ps1") `

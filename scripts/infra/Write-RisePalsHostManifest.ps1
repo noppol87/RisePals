@@ -24,6 +24,7 @@ $approvedPaths = @(
   "releases",
   "current",
   "shared\config",
+  "shared\control",
   "shared\secrets",
   "shared\cache",
   "shared\cache\caddy",

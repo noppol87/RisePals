@@ -22,7 +22,7 @@ export function GET(request: Request): Response {
     async start(controller) {
       for (const chunk of rehearsalStreamChunks) {
         controller.enqueue(encoder.encode(chunk));
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, 750));
       }
       controller.close();
     },

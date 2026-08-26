@@ -75,6 +75,17 @@ describe("Windows infrastructure contract", () => {
     expect(xml).toContain("<user>RisePalsApp</user>");
     expect(xml).toContain("<startmode>Manual</startmode>");
     expect(xml).toContain("<autoRefresh>false</autoRefresh>");
+    expect(xml).toContain(
+      "<startarguments>C:\\RisePals\\current\\rise-pals-standalone-server.mjs</startarguments>",
+    );
+    expect(xml).toContain(
+      "<stopexecutable>C:\\RisePals\\tools\\node\\24.18.1\\node.exe</stopexecutable>",
+    );
+    expect(xml).toContain(
+      "<stoparguments>C:\\RisePals\\current\\request-rise-pals-drain.mjs</stoparguments>",
+    );
+    expect(xml).toContain("<stoptimeout>20 sec</stoptimeout>");
+    expect(xml).not.toContain("<arguments>");
     expect(xml).toContain('<log mode="roll-by-size">');
     expect(xml.match(/<onfailure /g)).toHaveLength(3);
     expect(xml).toContain('<onfailure action="none" />');
@@ -94,6 +105,29 @@ describe("Windows infrastructure contract", () => {
     expect(repair).toContain('"NT SERVICE\\RisePalsProxy"');
     expect(repair).not.toMatch(
       /Identity\s*=\s*"NT SERVICE\\RisePalsApp"\s+Rights\s*=\s*"(Read|ReadAndExecute|Modify|FullControl)"/,
+    );
+  });
+
+  it("restricts the local drain control to administrators, SYSTEM and the app identity", async () => {
+    const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
+    const updater = await text("scripts/infra/Update-RisePalsDrainControl.ps1");
+    const control = await text("scripts/infra/drain-control.mjs");
+    const launcher = await text("scripts/infra/rise-pals-standalone-server.mjs");
+    const stopHelper = await text("scripts/infra/request-rise-pals-drain.mjs");
+
+    for (const script of [installer, updater]) {
+      expect(script).toContain('"shared\\control"');
+      expect(script).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "Modify"');
+    }
+    expect(updater).toContain('@("RisePalsApp", "RisePalsProxy")');
+    expect(updater).not.toContain('Identity = "NT SERVICE\\RisePalsProxy"');
+    expect(updater).not.toMatch(/FullControl.*RisePalsApp|RisePalsProxy.*(Read|Modify)/);
+    expect(control).toContain('url === "/health/ready"');
+    expect(launcher).toContain('"Retry-After": "5"');
+    expect(launcher).toContain("activeRequests");
+    expect(stopHelper).toContain("requestDrain()");
+    expect(`${control}\n${launcher}\n${stopHelper}`).not.toMatch(
+      /token|secret|cookie|authorization/i,
     );
   });
 
@@ -183,6 +217,9 @@ describe("Windows infrastructure contract", () => {
     expect(runner).toContain('value !== "127.0.0.1"');
     expect(preparation).toContain('entry.name.startsWith(".env.")');
     expect(preparation).toContain('resolve(outputRoot, ".next/static")');
+    expect(preparation).toContain('"rise-pals-standalone-server.mjs"');
+    expect(preparation).toContain('"request-rise-pals-drain.mjs"');
+    expect(preparation).toContain('"drain-control.mjs"');
     expect(release).toContain("& $npm run build");
     expect(release).not.toContain('"scripts\\run-secret-free.mjs" build');
   });
@@ -241,6 +278,11 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("[IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete");
     expect(rehearsal).toContain('"tools\\node\\24.18.1\\node.exe"');
     expect(rehearsal).toContain('"--first-byte-marker", $startedMarker');
+    expect(rehearsal).toContain("Direct Stop-Service did not enter the exact local Draining state");
+    expect(rehearsal).toContain("Stop-Service -Name 'RisePalsApp'");
+    expect(rehearsal).toContain('response-header "Retry-After: 5"');
+    expect(rehearsal).toContain("persistentStartupAttempts");
+    expect(rehearsal).toContain("startup-state-invalid fail-closed");
     expect(rehearsal).toContain("if (-not $streamStarted)");
     expect(rehearsal).not.toContain('Start-Process -FilePath "curl.exe"');
     expect(rehearsal).toContain("Read-RisePalsSharedFileBytes -Path $path");

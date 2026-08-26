@@ -14,6 +14,7 @@ $relativeDirectories = @(
   "staging",
   "releases",
   "shared\config",
+  "shared\control",
   "shared\secrets",
   "shared\cache",
   "shared\cache\caddy",

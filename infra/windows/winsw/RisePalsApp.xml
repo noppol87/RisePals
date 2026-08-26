@@ -3,12 +3,14 @@
   <name>Rise Pals Application</name>
   <description>Bounded non-public Rise Pals Node application rehearsal service.</description>
   <executable>C:\RisePals\tools\node\24.18.1\node.exe</executable>
-  <arguments>C:\RisePals\current\server.js</arguments>
   <workingdirectory>C:\RisePals\current</workingdirectory>
   <serviceaccount>
     <domain>NT SERVICE</domain>
     <user>RisePalsApp</user>
   </serviceaccount>
+  <startarguments>C:\RisePals\current\rise-pals-standalone-server.mjs</startarguments>
+  <stopexecutable>C:\RisePals\tools\node\24.18.1\node.exe</stopexecutable>
+  <stoparguments>C:\RisePals\current\request-rise-pals-drain.mjs</stoparguments>
   <startmode>Manual</startmode>
   <autoRefresh>false</autoRefresh>
   <env name="HOSTNAME" value="127.0.0.1" />
@@ -17,6 +19,7 @@
   <env name="RISE_PALS_INFRA_REHEARSAL" value="1" />
   <env name="RISE_PALS_RELEASE_MARKER" value="C:\RisePals\current\release-manifest.json" />
   <env name="RISE_PALS_REHEARSAL_SECRET_FILE" value="C:\RisePals\shared\secrets\rehearsal.canary" />
+  <env name="RISE_PALS_DRAIN_STATE_FILE" value="C:\RisePals\shared\control\app-drain-state.json" />
   <logpath>C:\RisePals\logs\app</logpath>
   <log mode="roll-by-size">
     <sizeThreshold>10240</sizeThreshold>

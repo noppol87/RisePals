@@ -3,6 +3,7 @@ import {
   evaluateInfrastructureReadiness,
   isInfrastructureRehearsalEnabled,
   isLoopbackRequest,
+  parseInfrastructureDrainState,
 } from "@/lib/infra/health";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,22 @@ async function rehearsalSecretIsReadable(path: string | undefined): Promise<bool
   }
 }
 
+async function readDrainState(
+  path: string | undefined,
+): Promise<"ready" | "draining" | "unavailable"> {
+  if (
+    path !== "C:\\RisePals\\shared\\control\\app-drain-state.json" ||
+    !isInfrastructureRehearsalEnabled(process.env)
+  ) {
+    return "unavailable";
+  }
+  try {
+    return parseInfrastructureDrainState(await readFile(path, "utf8"));
+  } catch {
+    return "unavailable";
+  }
+}
+
 export async function GET(request: Request): Promise<Response> {
   const readiness = evaluateInfrastructureReadiness({
     loopback: isLoopbackRequest(request),
@@ -41,6 +58,7 @@ export async function GET(request: Request): Promise<Response> {
     rehearsalSecretReadable: await rehearsalSecretIsReadable(
       process.env.RISE_PALS_REHEARSAL_SECRET_FILE,
     ),
+    drainState: await readDrainState(process.env.RISE_PALS_DRAIN_STATE_FILE),
   });
 
   return Response.json(
