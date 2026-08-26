@@ -182,30 +182,30 @@ function Test-RisePalsByteSequence {
   return $false
 }
 
+function Read-RisePalsSharedFileBytes {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $stream = [IO.FileStream]::new(
+    $Path,
+    [IO.FileMode]::Open,
+    [IO.FileAccess]::Read,
+    ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete)
+  )
+  $memory = [IO.MemoryStream]::new()
+  try {
+    $stream.CopyTo($memory)
+    return ,$memory.ToArray()
+  } finally {
+    $memory.Dispose()
+    $stream.Dispose()
+  }
+}
+
 function Assert-RisePalsCanaryNotExposed {
   param(
     [Parameter(Mandatory = $true)][string]$ValidatedRoot,
     [Parameter(Mandatory = $true)][string]$Repository
   )
-
-  function Read-RisePalsSharedFileBytes {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    $stream = [IO.FileStream]::new(
-      $Path,
-      [IO.FileMode]::Open,
-      [IO.FileAccess]::Read,
-      ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete)
-    )
-    $memory = [IO.MemoryStream]::new()
-    try {
-      $stream.CopyTo($memory)
-      return ,$memory.ToArray()
-    } finally {
-      $memory.Dispose()
-      $stream.Dispose()
-    }
-  }
 
   $secretPath = Join-Path $ValidatedRoot "shared\secrets\rehearsal.canary"
   $secretBytes = [IO.File]::ReadAllBytes($secretPath)
@@ -294,14 +294,35 @@ function Invoke-RisePalsGracefulStopProbe {
     "--silent", "--show-error", "--no-buffer", "--cacert", $ca,
     "https://127.0.0.1:8443/health/stream"
   ) -RedirectStandardOutput $output -RedirectStandardError $errorOutput -PassThru
-  Start-Sleep -Milliseconds 200
+  $streamStarted = $false
+  $streamDeadline = [DateTime]::UtcNow.AddSeconds(15)
+  do {
+    if (Test-Path -LiteralPath $output -PathType Leaf) {
+      [byte[]]$partialBytes = Read-RisePalsSharedFileBytes -Path $output
+      $partialBody = [Text.Encoding]::UTF8.GetString($partialBytes)
+      if ($partialBody.StartsWith("probe-start`n", [StringComparison]::Ordinal)) {
+        $streamStarted = $true
+        break
+      }
+    }
+    if ($process.HasExited) {
+      break
+    }
+    Start-Sleep -Milliseconds 25
+  } while ([DateTime]::UtcNow -lt $streamDeadline)
+  if (-not $streamStarted) {
+    if (-not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force
+    }
+    throw "The in-flight streaming request did not start within the bounded window."
+  }
   Stop-Service -Name "RisePalsApp"
   (Get-Service -Name "RisePalsApp").WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
   if (-not $process.WaitForExit(30000)) {
     Stop-Process -Id $process.Id -Force
     throw "The in-flight streaming request did not end within the graceful-stop bound."
   }
-  $body = Get-Content -LiteralPath $output -Raw -Encoding UTF8
+  $body = [Text.Encoding]::UTF8.GetString((Read-RisePalsSharedFileBytes -Path $output))
   if ($process.ExitCode -ne 0 -or $body -ne "probe-start`nprobe-mid`nprobe-end`n") {
     throw "The in-flight request did not complete during the configured graceful stop."
   }

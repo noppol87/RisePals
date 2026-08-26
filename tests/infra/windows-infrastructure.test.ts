@@ -237,6 +237,8 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("--mode verify --root $existingRelease");
     expect(rehearsal).toContain("[AllowEmptyCollection()][byte[]]$Haystack");
     expect(rehearsal).toContain("[IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete");
+    expect(rehearsal).toContain('$partialBody.StartsWith("probe-start`n"');
+    expect(rehearsal).toContain("if (-not $streamStarted)");
     expect(rehearsal).toContain("Read-RisePalsSharedFileBytes -Path $path");
     expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
   });
