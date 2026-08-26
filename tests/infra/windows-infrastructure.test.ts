@@ -188,6 +188,7 @@ describe("Windows infrastructure contract", () => {
   it("keeps releases immutable, cache writable and switches with automatic service rollback", async () => {
     const release = await text("scripts/infra/New-RisePalsRelease.ps1");
     const switching = await text("scripts/infra/Switch-RisePalsRelease.ps1");
+    const readinessRoute = await text("src/app/health/ready/route.ts");
 
     expect(release).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "ReadAndExecute"');
     expect(release).toContain('Identity = "NT SERVICE\\RisePalsApp"; Rights = "Modify"');
@@ -201,6 +202,9 @@ describe("Windows infrastructure contract", () => {
     expect(switching).toContain('Start-Service -Name "RisePalsApp"');
     expect(switching).toContain('Event "automatic-rollback"');
     expect(switching).toContain("prior release did not recover readiness");
+    expect(readinessRoute).toContain("const marker = await readFile(path)");
+    expect(readinessRoute).toContain("return marker.byteLength > 0");
+    expect(readinessRoute).not.toContain("access(path, constants.R_OK)");
   });
 
   it("rehearses disposable PostgreSQL TLS with an explicit local CA", async () => {

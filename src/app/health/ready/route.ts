@@ -1,5 +1,4 @@
-import { access, readFile } from "node:fs/promises";
-import { constants } from "node:fs";
+import { readFile } from "node:fs/promises";
 import {
   evaluateInfrastructureReadiness,
   isInfrastructureRehearsalEnabled,
@@ -14,8 +13,8 @@ async function releaseMarkerExists(path: string | undefined): Promise<boolean> {
   }
 
   try {
-    await access(path, constants.R_OK);
-    return true;
+    const marker = await readFile(path);
+    return marker.byteLength > 0;
   } catch {
     return false;
   }
