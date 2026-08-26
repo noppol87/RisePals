@@ -251,7 +251,7 @@ No cloud resource is selected or created in RP-TURN-001. Application code must d
 
 ### Confirmed application host and feasible Windows approaches
 
-The intended production application target is this Windows Server 2022 VPS. This is a deployment constraint, not an exit path. The host is **not production-ready yet**. RP-TURN-019 authorizes a non-public rehearsal only. Its read-only inventory found the pinned development Node runtime but no Caddy, WinSW, IIS/ARR, Docker, conflicting service, approved-port listener, `C:\RisePals` path or Rise Pals firewall rule. Public DNS/TLS, public firewall changes, production credentials/database, real users/data, external monitoring and off-host backup remain prohibited or undecided.
+The intended production application target is this Windows Server 2022 VPS. This is a deployment constraint, not an exit path. The host is **not production-ready yet**. RP-TURN-019 authorizes a non-public rehearsal only. Its read-only inventory found the pinned development Node runtime but no Caddy, WinSW, IIS/ARR, Docker, conflicting service, approved-port listener, `C:\RisePals` path or Rise Pals firewall rule. The bounded rehearsal subsequently passed the release, loopback proxy/TLS, restart, canary and rollback gates but found that stable WinSW 2.12.0 did not preserve an active streamed response through service stop. Changing supervisor architecture or accepting weaker shutdown behavior requires a new Project Codex decision. Public DNS/TLS, public firewall changes, production credentials/database, real users/data, external monitoring and off-host backup remain prohibited or undecided.
 
 | Approach | Strength for Rise Pals | Trade-off / validation need | Status |
 |---|---|---|---|

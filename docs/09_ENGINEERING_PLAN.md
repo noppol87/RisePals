@@ -260,9 +260,9 @@ Gate:
 
 Outcome: prepare and rehearse the confirmed Windows Server 2022 production target without making the application publicly available unless a later deployment brief explicitly authorizes launch.
 
-Implementation status: Authorized and in progress on `agent/windows-vps-infrastructure-readiness`. The approved candidate is Next.js standalone on Node 24.18.1 behind standard Caddy 2.11.4, with WinSW 2.12.0 stable supervising Node and SCM supervising Caddy. Every runtime endpoint remains loopback-only. This turn may create version-pinned tools, two Disabled final-state virtual-account services, immutable rehearsal releases and local evidence under `C:\RisePals`; it may not enable public firewall rules, DNS, public certificates, production resources, real users/data, CI or deployment.
+Implementation status: Partial / Decision required on `agent/windows-vps-infrastructure-readiness`. The approved candidate is Next.js standalone on Node 24.18.1 behind standard Caddy 2.11.4, with WinSW 2.12.0 stable supervising Node and SCM supervising Caddy. Provenance, exact release inventories, loopback proxy/TLS/limits/streaming, independent restart, canary isolation, forward switch, failed-candidate automatic rollback, manual rollback and certificate reissue passed. A first-byte-synchronized pinned-Node request proved that WinSW 2.12.0 cut the active stream during bounded service stop, triggering the turn's explicit supervision stop condition. Bounded crash recovery and controlled reboot remain unrun. Both services are Stopped/Disabled with zero approved-port listeners and no canary. No public firewall rule, DNS, public certificate, production resource, real user/data, CI or deployment was created.
 
-One controlled reboot is a separate checkpoint after every non-reboot gate passes. RP-TURN-020 remains unauthorized.
+One controlled reboot remains prohibited until Project Codex resolves the supervision decision and every non-reboot gate passes. RP-TURN-020 remains unauthorized.
 
 Required gates:
 

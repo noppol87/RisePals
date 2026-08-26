@@ -1,8 +1,8 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** Windows VPS Infrastructure Readiness authorized and in progress; loopback-only non-public rehearsal, no real users/data, production database, CI or deployment  
-**Checked:** 2026-08-24
+**Status:** Windows VPS Infrastructure Readiness Partial / Decision required at the stable-WinSW graceful-stop gate; no real users/data, production database, CI or deployment  
+**Checked:** 2026-08-26
 
 ## Confirmed host role and separation rule
 
@@ -914,7 +914,9 @@ Initial deterministic results before host mutation:
 - Caddy 2.11.4 parsed and validated the repository Caddyfile successfully;
 - every `scripts/infra/*.ps1` file passed Windows PowerShell AST parsing.
 
-The full host rehearsal, release hashes, service/ACL/listener evidence, database/recovery reruns, security scans and separately authorized reboot disposition must be recorded before RP-TURN-019 can be called complete. RP-TURN-020 remains unauthorized.
+The bounded host run produced three exact committed release inventories from `f3250ec59aaa989d11098bf5387f3232ec3fe17b`: `rp19-lkg-f3250ec59aaa` (1,565 files, digest `0c7fcea722993ab8116fe074c87285c5a36da71377247c3cad59b3b1284ed672`), `rp19-forward-f3250ec59aaa` (1,565 files, digest `8285f76e1ffbf4b702141b73800532841163222b7a0690cae7a920f4d7afcd10`) and `rp19-fail-f3250ec59aaa` (1,565 files, digest `e28bba1aed3f7e123ad70621ae41c62b809990d73fbb328e39123d16c2e3f1d0`). Loopback health/proxy/TLS/limits/streaming/reload, independent restart, canary rotation/isolation, successful forward switch, failed-candidate 503 with automatic rollback, manual rollback and local-certificate reissue passed.
+
+The final first-byte-synchronized probe used pinned Node 24 and the explicit local CA, observed the first fixed streaming chunk and then invoked `Stop-Service`. WinSW 2.12.0 did not preserve the response through its bounded stop; the exact three-chunk body did not complete. The orchestrator failed closed before bounded crash recovery and before any reboot request. Its `finally` cleanup left `RisePalsApp` and `RisePalsProxy` Stopped/Disabled, approved-port listener count 0 and the canary absent. This is a Decision-required supervision blocker, not an acceptance claim. Draft PR #17 remains open, Draft and unmerged at `a69852a6eab66f84e349b93280bb08f70568b28d`, while local/origin `main` remains `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`. RP-TURN-020 remains unauthorized.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

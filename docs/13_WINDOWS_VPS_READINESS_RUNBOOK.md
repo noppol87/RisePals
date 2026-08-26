@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-26; supervision decision required
 
 ## Authorization boundary
 
@@ -159,6 +159,10 @@ After host setup and service-identity repair pass, run every authorized non-rebo
 ```
 
 The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. An interrupted rerun may reuse a deterministic release only after its canonical manifest identity and complete file inventory are independently regenerated and matched; a modified or ambiguous release fails closed. A separately supplied prior source commit must be a committed ancestor of the current clean feature head, allowing an already verified interrupted release trio to resume without unnecessary rebuilds after an infrastructure-script-only correction. A stopped/disabled `current` junction from a prior bounded run may be replaced only after its complete manifest verifies, its release ID matches its target and its source commit is an ancestor of the current feature head; an invalid or unrelated target stops the run before staging. Abandoned exact `staging\build-<GUID>` children are removed only while both services and every pinned-root process are stopped, and recursive cleanup deletes reparse points themselves without traversing their targets. The script writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
+
+### Current RP-TURN-019 stop condition
+
+The 2026-08-26 bounded run passed manifest reuse, exact loopback proxy/TLS/limits/streaming, independent restart, canary boundaries, forward switch, failed-candidate 503/automatic rollback, manual rollback and local-certificate reissue. The graceful-stop probe uses pinned Node 24 with the explicit local CA and writes one fixed marker only after receiving the first response byte. After that marker, `Stop-Service RisePalsApp` under stable WinSW 2.12.0 cut the stream before the helper received the exact three-chunk body. The gate therefore failed closed. Do not substitute a supervisor, add a drain/control channel or relax the in-flight assertion without Project Codex authorization. Bounded crash recovery and the separately authorized reboot checkpoint have not run. Cleanup verified both services Stopped/Disabled, no approved-port listener and no canary.
 
 ## Health and failure evidence
 

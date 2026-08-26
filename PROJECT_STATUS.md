@@ -1,8 +1,8 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-08-24  
+**Status date:** 2026-08-26  
 **Current phase:** RP-TURN-019 Windows VPS Infrastructure Readiness  
-**Current turn:** RP-TURN-019 is authorized and in progress on a non-public loopback-only rehearsal branch
+**Current turn:** RP-TURN-019 is Partial / Decision required after the stable WinSW candidate failed the in-flight graceful-stop gate; Draft PR #17 remains open, Draft and unmerged
 
 ## Locked decisions
 
@@ -163,9 +163,9 @@
 
 ## Current authorized action
 
-**RP-TURN-019 — Windows VPS Infrastructure Readiness (authorized and in progress)**
+**RP-TURN-019 — Windows VPS Infrastructure Readiness (Partial / Decision required)**
 
-RP-TURN-019 started from exact main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad` on `agent/windows-vps-infrastructure-readiness`. Phase A found no conflicting service/listener/path and made no host mutation. The turn is limited to version-pinned tools, immutable rehearsal releases, loopback endpoints, virtual-account services, local operational evidence and one separately confirmed reboot checkpoint. Draft PR #17 is open and unmerged. RP-TURN-020 is unstarted and unauthorized.
+RP-TURN-019 started from exact main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad` on `agent/windows-vps-infrastructure-readiness`. Phase A found no conflicting service/listener/path. The pinned tools, virtual-account services, immutable release manifests, loopback proxy/TLS/limits/streaming, independent restart, synthetic-canary boundaries, forward switch, failed-candidate automatic rollback, manual rollback and local certificate reissue passed. The first-byte-synchronized pinned-Node probe then proved that stable WinSW 2.12.0 did not preserve the active streaming response through `Stop-Service`; the request was cut before its exact body completed. The authorized stop condition therefore requires a Project Codex decision before changing supervision or weakening the gate. Bounded crash-recovery and controlled-reboot verification were not reached. Cleanup left both services Stopped/Disabled, zero approved-port listeners and no canary. Draft PR #17 remains open, Draft and unmerged at `a69852a6eab66f84e349b93280bb08f70568b28d`; `main` is unchanged. RP-TURN-020 is unstarted and unauthorized.
 
 RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-018 adds only non-production hardening evidence: a dry-run owner export, fake-adapter/operator-only erasure, disposable recovery rehearsal, threat model, runbook and browser/accessibility regression. Acceptance does not authorize launch or real-user collection. RP-TURN-019 preserves those boundaries and may not introduce real credentials/users/data, a production database, external monitoring, public firewall/DNS/TLS, CI or deployment. Standard build/check/E2E explicitly disable Clerk and allow only loopback. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged.
 
@@ -192,4 +192,4 @@ RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prot
 | 016 | Accepted | Reviewed head `50a31fe910f93f8a8e065f6b58069fa73bdc5475`: one private controlled synthetic source-verification artifact with demonstrated-practice eligibility, exact current consent, append-only revisions, current-state historical replay, deterministic ready/withdraw lifecycle, three-table forced-RLS migration and bilingual no-share/no-upload UI accepted by Project Codex |
 | 017 | Accepted | Separate optional measurement consent, provider-neutral server-only adapters, allowlisted activation/later-day-return events, redacted errors and three-table forced-RLS first-party persistence; no external telemetry or production approval |
 | 018 | Accepted | Reviewed head `5b21b56e2e268d794fcc8fd4b55d79ecaaca9c80`: bounded synthetic-alpha hardening with deterministic owner export, operator-only idempotent erasure, eighth no-new-table migration, disposable fresh/upgrade/backup/restore rehearsal, threat model, support runbook and Thai/English desktop/mobile/reduced-motion accessibility regression; no launch, real-user collection or production approval |
-| 019 | In progress | Authorized non-public Windows Server 2022 infrastructure readiness with pinned standalone/Node/Caddy/WinSW architecture, loopback-only rehearsal and separate controlled reboot checkpoint; no public launch or production resource |
+| 019 | Decision required | Non-public Windows rehearsal passed provenance, release, loopback proxy/TLS, restart, canary and rollback gates, but stable WinSW 2.12.0 cut an active stream during bounded service stop; services are Stopped/Disabled, listeners/canary are absent, reboot was not requested and no public launch or production resource exists |
