@@ -1,6 +1,12 @@
+import { writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { request } from "node:https";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+const approvedFirstByteMarker = resolve(
+  "C:\\RisePals\\rehearsal\\graceful-stream.started",
+).toLowerCase();
 
 function parseArguments(values) {
   const parsed = { headers: [] };
@@ -72,6 +78,13 @@ export async function runLoopbackHttpsProbe(input) {
   );
   const headers = parseHeaders(input.headers);
   if (bodyBytes > 0) headers["Content-Length"] = String(bodyBytes);
+  const firstByteMarker = input["first-byte-marker"];
+  if (
+    firstByteMarker !== undefined &&
+    resolve(firstByteMarker).toLowerCase() !== approvedFirstByteMarker
+  ) {
+    throw new Error("The first-byte marker path is outside the approved rehearsal boundary.");
+  }
 
   const started = performance.now();
   const result = await new Promise((resolve, reject) => {
@@ -86,8 +99,19 @@ export async function runLoopbackHttpsProbe(input) {
       (response) => {
         let firstByteMs;
         const chunks = [];
+        response.on("error", reject);
         response.on("data", (chunk) => {
-          firstByteMs ??= performance.now() - started;
+          if (firstByteMs === undefined) {
+            firstByteMs = performance.now() - started;
+            if (firstByteMarker !== undefined) {
+              try {
+                writeFileSync(firstByteMarker, "started\n", { encoding: "utf8", flag: "wx" });
+              } catch (error) {
+                response.destroy(error);
+                return;
+              }
+            }
+          }
           chunks.push(chunk);
         });
         response.on("end", () => {

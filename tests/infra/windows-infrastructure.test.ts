@@ -64,6 +64,8 @@ describe("Windows infrastructure contract", () => {
     expect(probe).toContain("Unexpected loopback HTTPS status: ${result.status}");
     expect(probe).toContain("maximumFirstByteMs");
     expect(probe).toContain("minimumTotalMs");
+    expect(probe).toContain("approvedFirstByteMarker");
+    expect(probe).toContain('writeFileSync(firstByteMarker, "started\\n"');
   });
 
   it("keeps WinSW stable, manual, least-privilege and bounded", async () => {
@@ -237,10 +239,10 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("--mode verify --root $existingRelease");
     expect(rehearsal).toContain("[AllowEmptyCollection()][byte[]]$Haystack");
     expect(rehearsal).toContain("[IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete");
-    expect(rehearsal).toContain('$partialBody.StartsWith("probe-start`n"');
+    expect(rehearsal).toContain('"tools\\node\\24.18.1\\node.exe"');
+    expect(rehearsal).toContain('"--first-byte-marker", $startedMarker');
     expect(rehearsal).toContain("if (-not $streamStarted)");
-    expect(rehearsal).toContain('"--no-buffer", "--output", $output');
-    expect(rehearsal).not.toContain("-RedirectStandardOutput $output");
+    expect(rehearsal).not.toContain('Start-Process -FilePath "curl.exe"');
     expect(rehearsal).toContain("Read-RisePalsSharedFileBytes -Path $path");
     expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
   });

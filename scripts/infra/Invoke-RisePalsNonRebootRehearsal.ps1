@@ -290,20 +290,40 @@ function Invoke-RisePalsGracefulStopProbe {
   $ca = Join-Path $ValidatedRoot "shared\cache\caddy\pki\authorities\local\root.crt"
   $output = Join-Path $ValidatedRoot "rehearsal\graceful-stream.out"
   $errorOutput = Join-Path $ValidatedRoot "rehearsal\graceful-stream.err"
-  $process = Start-Process -FilePath "curl.exe" -ArgumentList @(
-    "--silent", "--show-error", "--no-buffer", "--output", $output, "--cacert", $ca,
-    "https://127.0.0.1:8443/health/stream"
-  ) -RedirectStandardError $errorOutput -PassThru
+  $startedMarker = Join-Path $ValidatedRoot "rehearsal\graceful-stream.started"
+  $probe = Join-Path $ValidatedRoot "rehearsal\loopback-https-probe.mjs"
+  $probeSource = Join-Path $PSScriptRoot "loopback-https-probe.mjs"
+  foreach ($path in @($output, $errorOutput, $startedMarker, $probe)) {
+    if (Test-Path -LiteralPath $path) {
+      throw "A graceful-stop probe path unexpectedly exists."
+    }
+  }
+  [IO.File]::WriteAllBytes($probe, [IO.File]::ReadAllBytes($probeSource))
+  if ((Get-FileHash -LiteralPath $probe -Algorithm SHA256).Hash -ne
+    (Get-FileHash -LiteralPath $probeSource -Algorithm SHA256).Hash) {
+    throw "The copied graceful-stop probe does not match the reviewed helper."
+  }
+  $node = Join-Path $ValidatedRoot "tools\node\24.18.1\node.exe"
+  $expectedBody = [Convert]::ToBase64String(
+    [Text.Encoding]::UTF8.GetBytes("probe-start`nprobe-mid`nprobe-end`n")
+  )
+  $process = Start-Process -FilePath $node -ArgumentList @(
+    $probe, "--ca", $ca, "--url", "https://127.0.0.1:8443/health/stream",
+    "--status", "200", "--body-base64", $expectedBody,
+    "--first-byte-marker", $startedMarker
+  ) -RedirectStandardOutput $output -RedirectStandardError $errorOutput -PassThru
   $streamStarted = $false
   $streamDeadline = [DateTime]::UtcNow.AddSeconds(15)
   do {
-    if (Test-Path -LiteralPath $output -PathType Leaf) {
-      [byte[]]$partialBytes = Read-RisePalsSharedFileBytes -Path $output
-      $partialBody = [Text.Encoding]::UTF8.GetString($partialBytes)
-      if ($partialBody.StartsWith("probe-start`n", [StringComparison]::Ordinal)) {
-        $streamStarted = $true
-        break
+    if (Test-Path -LiteralPath $startedMarker -PathType Leaf) {
+      $marker = [Text.Encoding]::UTF8.GetString(
+        (Read-RisePalsSharedFileBytes -Path $startedMarker)
+      )
+      if ($marker -ne "started`n") {
+        throw "The graceful-stop first-byte marker is invalid."
       }
+      $streamStarted = $true
+      break
     }
     if ($process.HasExited) {
       break
@@ -322,8 +342,11 @@ function Invoke-RisePalsGracefulStopProbe {
     Stop-Process -Id $process.Id -Force
     throw "The in-flight streaming request did not end within the graceful-stop bound."
   }
-  $body = [Text.Encoding]::UTF8.GetString((Read-RisePalsSharedFileBytes -Path $output))
-  if ($process.ExitCode -ne 0 -or $body -ne "probe-start`nprobe-mid`nprobe-end`n") {
+  $probeResult = [Text.Encoding]::UTF8.GetString(
+    (Read-RisePalsSharedFileBytes -Path $output)
+  ).Trim()
+  if ($process.ExitCode -ne 0 -or
+    $probeResult -ne "Explicit-local-CA loopback HTTPS probe PASS") {
     throw "The in-flight request did not complete during the configured graceful stop."
   }
   if (@(Get-RisePalsNodeProcess -ValidatedRoot $ValidatedRoot).Count -ne 0) {
