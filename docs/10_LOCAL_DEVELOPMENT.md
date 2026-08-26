@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** Windows VPS Infrastructure Readiness Partial / Decision required at the stable-WinSW graceful-stop gate; no real users/data, production database, CI or deployment  
+**Status:** RP-TURN-019-R1 Decision required at the live rehearsal orchestration boundary; local drain code and repository gates complete, direct Stop-Service/crash proof unrun; no real users/data, production database, CI or deployment  
 **Checked:** 2026-08-26
 
 ## Confirmed host role and separation rule
@@ -900,7 +900,7 @@ Verified candidate provenance:
 
 The exact URLs, digest chain and operational limitation are recorded in `infra/windows/tool-manifest.json` and `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. No custom Caddy module, Caddy self-upgrade, WinSW v3 alpha, Docker, WSL, IIS or ARR is permitted.
 
-The application now builds with Next.js `output: "standalone"`. `/health/live` is fixed, `/health/ready` is direct-loopback/fail-closed and `/health/stream` is exact-rehearsal-only. Standard secret-free mode returns 503 readiness and 404 streaming. The isolated release build uses `git archive`, so ignored `.env.local` is absent from release build input; no value is read, copied or printed by infrastructure tooling.
+The application builds with Next.js `output: "standalone"`. `/health/live` is fixed, `/health/ready` is direct-loopback/fail-closed and distinguishes exact `ready`, `draining` and `unavailable` state, while `/health/stream` is exact-rehearsal-only. Standard secret-free mode returns 503 readiness and 404 streaming. The isolated release build uses `git archive`, so ignored `.env.local` is absent from release build input; infrastructure tooling does not copy or print its values.
 
 Initial deterministic results before host mutation:
 
@@ -916,7 +916,35 @@ Initial deterministic results before host mutation:
 
 The bounded host run produced three exact committed release inventories from `f3250ec59aaa989d11098bf5387f3232ec3fe17b`: `rp19-lkg-f3250ec59aaa` (1,565 files, digest `0c7fcea722993ab8116fe074c87285c5a36da71377247c3cad59b3b1284ed672`), `rp19-forward-f3250ec59aaa` (1,565 files, digest `8285f76e1ffbf4b702141b73800532841163222b7a0690cae7a920f4d7afcd10`) and `rp19-fail-f3250ec59aaa` (1,565 files, digest `e28bba1aed3f7e123ad70621ae41c62b809990d73fbb328e39123d16c2e3f1d0`). Loopback health/proxy/TLS/limits/streaming/reload, independent restart, canary rotation/isolation, successful forward switch, failed-candidate 503 with automatic rollback, manual rollback and local-certificate reissue passed.
 
-The final first-byte-synchronized probe used pinned Node 24 and the explicit local CA, observed the first fixed streaming chunk and then invoked `Stop-Service`. WinSW 2.12.0 did not preserve the response through its bounded stop; the exact three-chunk body did not complete. The orchestrator failed closed before bounded crash recovery and before any reboot request. Its `finally` cleanup left `RisePalsApp` and `RisePalsProxy` Stopped/Disabled, approved-port listener count 0 and the canary absent. This is a Decision-required supervision blocker, not an acceptance claim. Draft PR #17 remains open, Draft and unmerged at `a69852a6eab66f84e349b93280bb08f70568b28d`, while local/origin `main` remains `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`. RP-TURN-020 remains unauthorized.
+The original final first-byte-synchronized probe used pinned Node 24 and the explicit local CA, observed the first fixed streaming chunk and then invoked `Stop-Service`. Default WinSW 2.12.0 did not preserve the response through bounded stop; the exact body did not complete. Project Codex then authorized R1 to retain the supervisor and implement one local-only drain.
+
+RP-TURN-019-R1 implementation commit `ce13499ac4f879603eb8f1214b4a7129fba5004c` adds:
+
+- exact ACL-restricted `C:\RisePals\shared\control\app-drain-state.json` with strict schema/chronology and atomic writes;
+- `Ready → Draining → Stopped`, a fixed 15-second deadline, idempotent repeated drain without deadline extension, stale-state startup reconciliation and explicit `drain_timeout` failure;
+- a pinned-Node standalone launcher that admits only exact Ready state, tracks accepted requests, rejects new application work with fixed 503/`Retry-After: 5` during drain, preserves liveness and exits only after accepted work completes;
+- WinSW 2.12.0 `startarguments`, `stopexecutable` and `stoparguments` invoking the launcher and helper automatically through SCM Stop, with the existing 20-second service stop timeout;
+- exact control ACL limited to Administrators, SYSTEM and `NT SERVICE\RisePalsApp`; `RisePalsProxy` has no control access;
+- sanitized first-byte, rejection, repeated-stop, startup-reconciliation, bounded crash and persistent-startup-failure rehearsal assertions.
+
+Final deterministic R1 results before the host attempt:
+
+| Verification | Result |
+|---|---|
+| install/dependency policy | PASS — `npm ci` installed 573 packages and audited 574 with 0 vulnerabilities; no pending install scripts; `strict-allow-scripts=true`; nanoid 3.3.18, PostCSS 8.5.25 and Sharp 0.35.3 unchanged |
+| focused drain/control | PASS — 3 files / 34 tests; Node syntax, WinSW XML and all 22 infrastructure PowerShell AST parses pass |
+| `npm run check` | PASS — Prettier, lint, strict typechecks, 47 files / 433 tests and 27-route secret-free production build; standalone inventory 1,548 files |
+| browser | PASS — secret-free loopback Chromium 83/83 and alpha desktop/320px/reduced-motion 6/6 |
+| PostgreSQL | PASS — disposable PostgreSQL 18.4 integration applied 407 statements across 8 migrations / 26 tables; recovery fresh/upgrade/backup/restore rehearsal passed and removed temporary data/logs/credentials/processes |
+| publication/scoring | PASS — two publishes remained byte-identical; aggregate publication digest `d1d73e26afc718fcdc86c2dab54853ddbd488ad171c1c1f81e3d64e2f55c1525`, manifest SHA-256 `73A4AA24E29D8F67AC8E93530A76267E4FAC73EAB564006A640FFE603274A5D3`, registry SHA-256 `4DAB8A29B95011D2F5E2C12A2F17388DCD653321C11A913B7B61B19FB1EB5163` and scoring digest `10f2ab076828d50b228ff53d57332527dfe9d1b2769c4b57bd0476dd3c263157` remain unchanged |
+| audit/client boundary | PASS — both npm audits report 0 vulnerabilities; 41 client files contain 0 drain/control/helper/path markers while exact server markers remain in 2 server files |
+| Gitleaks 8.30.1 | PASS for candidate and exact staged patch (69.90 KB each) plus proposed and pushed branch history (27 commits / 268.34 KB); no leaks |
+
+One preliminary directory-mode Gitleaks diagnostic was incorrectly broader than the candidate scope: it inspected ignored `.next` output and `.env.local`, returned 41 fully redacted findings and exit 1, and displayed only file/rule summaries during diagnosis. No credential value was displayed, copied, staged or changed. The required candidate, staged, proposed-history and pushed-history scans exclude ignored files and pass, but this turn does not claim `.env.local` remained unread; it remains ignored, untracked and unmodified.
+
+The one authorized R1 live sequence installed byte-identical reviewed application XML and protected `shared\control` ACL, then verified the existing 1,565-file last-known-good manifest. Before service startup, the external elevated output-capture wrapper converted Caddy's informational stderr during repository configuration validation into a terminating `NativeCommandError`. This was not a Caddy invalid-configuration result and did not exercise the drain. The sequence was not repeated. Sanitized cleanup evidence for orchestrator/source commit `ce13499ac4f879603eb8f1214b4a7129fba5004c` records `completed=false`, every live functional gate false, both services Stopped/Disabled, and zero root process, approved-port listener and enabled Rise Pals firewall rule. Staging/rehearsal children, canary and drain-state file are absent; the installed XML matches the reviewed source and the control ACL contains exactly Administrators, SYSTEM and `NT SERVICE\RisePalsApp`.
+
+RP-TURN-019-R1 is therefore Decision required, not accepted. Direct Stop-Service, concurrent rejection, in-flight stream completion, repeated stop, startup reconciliation, bounded crash recovery and persistent-startup-failure proof require one separately authorized non-reboot host run. No reboot was requested or performed. Draft PR #17 remains Open, Draft and unmerged; main remains `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`. RP-TURN-020 remains unauthorized.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

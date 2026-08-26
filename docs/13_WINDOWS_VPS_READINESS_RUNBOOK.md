@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-26; supervision decision required
+**Last updated:** 2026-08-26; R1 host-rerun decision required
 
 ## Authorization boundary
 
@@ -55,6 +55,7 @@ C:\RisePals\
   current\                       atomic junction to one reviewed release
   shared\
     config\
+    control\                      protected local drain lifecycle only
     secrets\
     cache\
   logs\
@@ -75,6 +76,7 @@ The development workspace remains `C:\Codex PC SG2\Jeff\risepals` and is never s
 - layout/tool/service setup: `Initialize-RisePalsHost.ps1`, `Install-RisePalsTools.ps1`, `Install-RisePalsServices.ps1`
 - clean-tree packaging and release manifest: `New-RisePalsRelease.ps1`, `release-manifest.mjs`
 - activation/rollback: `Switch-RisePalsRelease.ps1`, `Rollback-RisePalsRelease.ps1`
+- local drain/control: `drain-control.mjs`, `rise-pals-standalone-server.mjs`, `request-rise-pals-drain.mjs`, `Update-RisePalsDrainControl.ps1`
 - secret lifecycle: `Set-RisePalsRehearsalSecret.ps1`
 - start/health/cleanup: `Start-RisePalsRehearsal.ps1`, `Test-RisePalsHealth.ps1`, `Clear-RisePalsRehearsal.ps1`
 - one-command non-reboot rehearsal: `Invoke-RisePalsNonRebootRehearsal.ps1`
@@ -91,9 +93,9 @@ Every mutating PowerShell entry point supports `-WhatIf`, uses strict error hand
 | `RisePalsApp` | `NT SERVICE\RisePalsApp` | Manual | Disabled |
 | `RisePalsProxy` | `NT SERVICE\RisePalsProxy` | Manual | Disabled |
 
-The app can read Node/WinSW/current release/config and only the temporary rehearsal canary; it can modify only its app log and shared Next cache. The proxy can read Caddy/config and modify only proxy log/Caddy certificate state. The protected secret-directory DACL grants the app only non-inheriting `Traverse`, not listing/read, while the synthetic canary file separately grants app `Read`; the proxy has neither rule. Neither service runs as Administrator, LocalSystem, NetworkService or Jeff's interactive account.
+The app can read Node/WinSW/current release/config and only the temporary rehearsal canary; it can modify its app log, shared Next cache and exact protected drain-control directory. `shared\control` has a protected DACL containing only Administrators, SYSTEM and `NT SERVICE\RisePalsApp`; the proxy receives no access. The proxy can read Caddy/config and modify only proxy log/Caddy certificate state. The protected secret-directory DACL grants the app only non-inheriting `Traverse`, not listing/read, while the synthetic canary file separately grants app `Read`; the proxy has neither rule. Neither service runs as Administrator, LocalSystem, NetworkService or Jeff's interactive account.
 
-WinSW has `autoRefresh=false`, bounded roll-by-size logs, two restart attempts followed by `none` and a one-hour failure reset. Caddy uses SCM with a matching bounded restart sequence. Service paths must remain beneath `C:\RisePals`; an unexpected existing service fails closed.
+WinSW has `autoRefresh=false`, bounded roll-by-size logs, two restart attempts followed by `none` and a one-hour failure reset. The reviewed R1 application XML starts pinned Node with `C:\RisePals\current\rise-pals-standalone-server.mjs` and uses pinned Node as `stopexecutable` with `C:\RisePals\current\request-rise-pals-drain.mjs` as `stoparguments`; `stoptimeout` remains 20 seconds. The local helper atomically requests one 15-second `Ready → Draining → Stopped` lifecycle and repeated requests preserve the original deadline. New work receives fixed 503 plus `Retry-After: 5`, accepted work remains tracked, and timeout/error cannot be reported as graceful success. No HTTP administration route, token or secret is used. Caddy uses SCM with a matching bounded restart sequence. Service paths must remain beneath `C:\RisePals`; an unexpected existing service fails closed.
 
 ## Network boundary
 
@@ -160,14 +162,18 @@ After host setup and service-identity repair pass, run every authorized non-rebo
 
 The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. An interrupted rerun may reuse a deterministic release only after its canonical manifest identity and complete file inventory are independently regenerated and matched; a modified or ambiguous release fails closed. A separately supplied prior source commit must be a committed ancestor of the current clean feature head, allowing an already verified interrupted release trio to resume without unnecessary rebuilds after an infrastructure-script-only correction. A stopped/disabled `current` junction from a prior bounded run may be replaced only after its complete manifest verifies, its release ID matches its target and its source commit is an ancestor of the current feature head; an invalid or unrelated target stops the run before staging. Abandoned exact `staging\build-<GUID>` children are removed only while both services and every pinned-root process are stopped, and recursive cleanup deletes reparse points themselves without traversing their targets. The script writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
 
-### Current RP-TURN-019 stop condition
+### Current RP-TURN-019-R1 stop condition
 
-The 2026-08-26 bounded run passed manifest reuse, exact loopback proxy/TLS/limits/streaming, independent restart, canary boundaries, forward switch, failed-candidate 503/automatic rollback, manual rollback and local-certificate reissue. The graceful-stop probe uses pinned Node 24 with the explicit local CA and writes one fixed marker only after receiving the first response byte. After that marker, `Stop-Service RisePalsApp` under stable WinSW 2.12.0 cut the stream before the helper received the exact three-chunk body. The gate therefore failed closed. Do not substitute a supervisor, add a drain/control channel or relax the in-flight assertion without Project Codex authorization. Bounded crash recovery and the separately authorized reboot checkpoint have not run. Cleanup verified both services Stopped/Disabled, no approved-port listener and no canary.
+The original 2026-08-26 bounded run passed manifest reuse, exact loopback proxy/TLS/limits/streaming, independent restart, canary boundaries, forward switch, failed-candidate 503/automatic rollback, manual rollback and local-certificate reissue. Its first-byte-synchronized probe then showed default WinSW 2.12.0 stop cut the stream. Project Codex authorized the local R1 drain above without changing supervisor or weakening the assertion.
+
+R1 repository verification passed at `ce13499ac4f879603eb8f1214b4a7129fba5004c`, but its one live sequence did not reach service startup. It installed byte-matching reviewed application XML and the exact three-principal protected control directory, verified the prior 1,565-file release manifest, then the external elevated output-capture wrapper promoted Caddy's informational stderr from configuration validation to a terminating `NativeCommandError`. This is an orchestration/capture failure rather than a Caddy validation rejection or application drain result. The live direct Stop-Service, concurrent 503, three-chunk completion, repeated-stop, stale-state startup, crash-recovery and persistent-startup-failure gates remain unverified. The authorized sequence was not repeated. Cleanup recorded both services Stopped/Disabled, zero root processes, approved-port listeners and enabled Rise Pals firewall rules; staging, rehearsal children, canary and drain-state file are absent. Another bounded host run requires Project Codex authorization, and no reboot request is permitted yet.
+
+The required four Gitleaks scopes pass. A preceding overly broad directory-mode diagnostic also inspected ignored build output and `.env.local`, returned only redacted findings and displayed no value. The ignored file remains untracked and unmodified, but R1 does not claim it remained unread.
 
 ## Health and failure evidence
 
 - `/health/live` returns only `{"status":"ok"}`.
-- direct-loopback `/health/ready` returns only `ready`/`unavailable` and requires rehearsal mode, release manifest and readable 64-byte synthetic canary. Next standalone may normalize the loopback socket into one exact loopback `x-forwarded-for` value; only `127.0.0.1`, `::1` or mapped `::ffff:127.0.0.1` is accepted, while chains/non-loopback values fail closed and Caddy still blocks the route with 404.
+- direct-loopback `/health/ready` returns only `ready`, `draining` or `unavailable` and requires rehearsal mode, release manifest, readable 64-byte synthetic canary and an exact protected lifecycle state. Next standalone may normalize the loopback socket into one exact loopback `x-forwarded-for` value; only `127.0.0.1`, `::1` or mapped `::ffff:127.0.0.1` is accepted, while chains/non-loopback values fail closed and Caddy still blocks the route with 404.
 - `/health/stream` is 404 unless rehearsal mode is exact; in rehearsal it emits three fixed chunks and validates forwarded-header replacement. Its proxy boundary accepts only the fixed loopback source/protocol and either the direct loopback host or Caddy's exact `127.0.0.1:8443` host normalization; any other host or port fails closed.
 - proxy readiness is 404.
 - health tooling uses pinned Node 24 with the explicit Caddy local CA (never an insecure TLS bypass) to verify HTTPS status/body, 413 oversized body and unbuffered streaming; it also verifies redirect, admin reload and exact loopback listeners. This avoids depending on the host's legacy Windows curl TLS backend. Caddy's documented anti-spoof behavior ignores incoming `X-Forwarded-*` values, while the reviewed configuration explicitly overwrites the three upstream values without a wildcard operation that could delete the replacements.
