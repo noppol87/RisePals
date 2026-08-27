@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-27; R1B Phase 2D correction and final non-reboot rehearsal authorized
+**Last updated:** 2026-08-27; R1B Phase 2D correction pushed, final non-reboot rehearsal Decision required
 
 ## Authorization boundary
 
@@ -162,7 +162,7 @@ After host setup and service-identity repair pass, run every authorized non-rebo
 
 The orchestrator creates three exact-commit releases, performs forward/failed/manual switching, exercises ACL and canary boundaries, proxy TLS/reload/limits/streaming, independent restarts, graceful stop and bounded crash recovery, then always stops/disables both services and removes the canary. An interrupted rerun may reuse a deterministic release only after its canonical manifest identity and complete file inventory are independently regenerated and matched; a modified or ambiguous release fails closed. A separately supplied prior source commit must be a committed ancestor of the current clean feature head, allowing an already verified interrupted release trio to resume without unnecessary rebuilds after an infrastructure-script-only correction. A stopped/disabled `current` junction from a prior bounded run may be replaced only after its complete manifest verifies, its release ID matches its target and its source commit is an ancestor of the current feature head; an invalid or unrelated target stops the run before staging. Abandoned exact `staging\build-<GUID>` children are removed only while both services and every pinned-root process are stopped, and recursive cleanup deletes reparse points themselves without traversing their targets. The script writes only sanitized booleans/counts to `C:\RisePals\logs\deploy\non-reboot-rehearsal.json`.
 
-### Current RP-TURN-019-R1B Phase 2D correction
+### Current RP-TURN-019-R1B Phase 2D disposition
 
 The original 2026-08-26 bounded run passed manifest reuse, exact loopback proxy/TLS/limits/streaming, independent restart, canary boundaries, forward switch, failed-candidate 503/automatic rollback, manual rollback and local-certificate reissue. Its first-byte-synchronized probe then showed default WinSW 2.12.0 stop cut the stream. Project Codex authorized the local R1 drain above without changing supervisor or weakening the assertion.
 
@@ -170,7 +170,9 @@ R1 repository verification passed at `ce13499ac4f879603eb8f1214b4a7129fba5004c`,
 
 Phase 2D revalidated the exact 190-byte file, accepted SHA-256, schema/state and effective ACL before deleting only that file. The parent directory remained present and its owner, protected flag, SDDL and ACE set were unchanged. The repository correction now reads ACLs as SID plus numeric bitmask evidence, accepts the approved inherited-child model, rejects every incomplete or broader app mask and validates both atomic temp and final files. Cleanup removes exact drain state, lock and recognized atomic-temp names after stopping/disabling services, and final evidence counts ports 80/443/2019/3100/8080/8443 plus process, staging, rehearsal, canary and drain residue.
 
-Pre-commit Phase 2D gates pass: 34 focused ACL/infrastructure tests, 47 files/445 complete tests, 83 normal plus 6 alpha Chromium tests, the 27-route secret-free build, disposable PostgreSQL integration/recovery, both zero-vulnerability audits, unchanged publication/scoring digests and candidate/staged Gitleaks. The correction must still be committed, proposed/pushed history-scanned and pushed from a clean branch before exactly one final elevated non-reboot rehearsal. No reboot request is permitted unless that single run passes every direct Stop-Service, stream, 503, restart, rollback, privacy and cleanup assertion.
+Phase 2D repository gates passed: 34 focused ACL/infrastructure tests, 47 files/445 complete tests, 83 normal plus 6 alpha Chromium tests, the 27-route secret-free build, disposable PostgreSQL integration/recovery, both zero-vulnerability audits, unchanged publication/scoring digests and all required Gitleaks scopes. The exact 13-file correction was committed and pushed at `ed2b8046d10bf5be26fe3ce35c77705630691e2c`, tree `8fe0e03de77872b7532fa66a9b8b087a801363d2`, from a clean branch while main remained unchanged.
+
+The single final elevated rehearsal entered at that exact clean head and passed the disabled virtual-service identity precondition plus canonical drain-control update. It then stopped at the side-effect-isolated Caddy configuration gate before service startup: external `*>&1` diagnostic capture caused Caddy's informational stderr to be surfaced as terminating PowerShell `NativeCommandError`. The attempt was not rerun and no speculative host or repository correction was made. Consequently there is no new direct Stop-Service stream, controlled 503, graceful-versus-forced termination or bounded crash/restart evidence from this attempt. Sanitized evidence records `completed=false`, `serviceIdentity=true` and every subsequent live-gate boolean false. Its final cleanup records Stopped/Disabled services and zero pinned-root processes, approved-port listeners, enabled Rise Pals firewall rules, staging/rehearsal children, drain state, atomic temporary files, drain locks and synthetic canaries. A controlled reboot cannot be requested; Project Codex must decide any next bounded authorization.
 
 The required four Gitleaks scopes pass. A preceding overly broad directory-mode diagnostic also inspected ignored build output and `.env.local`, returned only redacted findings and displayed no value. The ignored file remains untracked and unmodified, but R1 does not claim it remained unread.
 
