@@ -386,11 +386,11 @@ function Invoke-RisePalsGracefulStopProbe {
   if ($null -eq $draining) {
     throw "Direct Stop-Service did not enter the exact local Draining state."
   }
-  Assert-RisePalsExactAclPrincipals -Path $drainStatePath -ExpectedPrincipals @(
-    "BUILTIN\Administrators",
-    "NT AUTHORITY\SYSTEM",
-    "NT SERVICE\RisePalsApp"
-  )
+  $drainAclChecker = Join-Path $ValidatedRoot "current\drain-control.mjs"
+  & $node $drainAclChecker --assert-state $drainStatePath
+  if ($LASTEXITCODE -ne 0) {
+    throw "The live drain state did not pass the exact canonical ACL model."
+  }
 
   $secondStop = Start-Process -FilePath $powerShell -ArgumentList @(
     "-NoProfile",
@@ -618,6 +618,7 @@ if (-not $PSCmdlet.ShouldProcess($validatedRoot, "Run the bounded non-reboot Ris
 }
 
 Assert-RisePalsAdministrator
+$node = Join-Path $validatedRoot "tools\node\24.18.1\node.exe"
 $evidence = [ordered]@{
   schemaVersion = "rise-pals-non-reboot-rehearsal-v1"
   orchestratorCommit = $head
@@ -642,6 +643,12 @@ $evidence = [ordered]@{
   finalRootProcessCount = -1
   finalListenerCount = -1
   finalEnabledFirewallRuleCount = -1
+  finalStagingChildCount = -1
+  finalRehearsalChildCount = -1
+  finalDrainStateCount = -1
+  finalAtomicTemporaryCount = -1
+  finalDrainLockCount = -1
+  finalSyntheticCanaryCount = -1
 }
 
 try {
@@ -658,7 +665,7 @@ try {
   & (Join-Path $PSScriptRoot "Repair-RisePalsSecretTraversal.ps1") `
     -Root $validatedRoot -Confirm:$false
   $existingListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-    Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
+    Where-Object { $_.LocalPort -in @(80, 443, 2019, 3100, 8080, 8443) })
   $existingCurrent = Get-RisePalsCurrentReleaseId -ValidatedRoot $validatedRoot
   $existingCurrentIsVerifiedAncestor = $true
   if ($existingCurrent -ne "" -and $existingCurrent -notin $evidence.releases) {
@@ -722,6 +729,13 @@ try {
   & (Join-Path $PSScriptRoot "New-RisePalsRelease.ps1") `
     -ReleaseId $failed -Root $validatedRoot -RepositoryRoot $repository `
     -SourceCommit $releaseSource -RehearsalDenyManifestRead -ReuseExactExisting -Confirm:$false
+
+  $releaseDrainAclChecker = Join-Path $validatedRoot "releases\$lastKnownGood\drain-control.mjs"
+  $controlDirectory = Join-Path $validatedRoot "shared\control"
+  & $node $releaseDrainAclChecker --assert-parent $controlDirectory
+  if ($LASTEXITCODE -ne 0) {
+    throw "The release drain checker rejected the exact protected control ACL."
+  }
 
   Assert-RisePalsAclModel -ValidatedRoot $validatedRoot -ReleaseId $lastKnownGood `
     -Repository $repository
@@ -820,15 +834,37 @@ try {
   $services = @(Get-CimInstance Win32_Service -Filter "Name='RisePalsApp' OR Name='RisePalsProxy'")
   $rootProcesses = @(Get-RisePalsRootProcesses -ValidatedRoot $validatedRoot)
   $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-    Where-Object { $_.LocalPort -in @(2019, 3100, 8080, 8443) })
+    Where-Object { $_.LocalPort -in @(80, 443, 2019, 3100, 8080, 8443) })
   $firewallRules = @(Get-NetFirewallRule -Enabled True -ErrorAction SilentlyContinue |
     Where-Object { $_.DisplayName -like "Rise Pals*" })
+  $stagingChildren = @(Get-ChildItem -LiteralPath (Join-Path $validatedRoot "staging") `
+    -Force -ErrorAction SilentlyContinue)
+  $rehearsalChildren = @(Get-ChildItem -LiteralPath (Join-Path $validatedRoot "rehearsal") `
+    -Force -ErrorAction SilentlyContinue)
+  $controlDirectory = Join-Path $validatedRoot "shared\control"
+  $drainState = @(Get-Item -LiteralPath (Join-Path $controlDirectory "app-drain-state.json") `
+    -Force -ErrorAction SilentlyContinue)
+  $drainTemporary = @(Get-ChildItem -LiteralPath $controlDirectory -File -Force `
+    -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name -match "^\.app-drain-state\.[0-9]+\.[a-f0-9-]{36}\.tmp$"
+    })
+  $drainLock = @(Get-Item -LiteralPath (Join-Path $controlDirectory "app-drain-state.json.lock") `
+    -Force -ErrorAction SilentlyContinue)
+  $syntheticCanary = @(Get-Item -LiteralPath (
+    Join-Path $validatedRoot "shared\secrets\rehearsal.canary"
+  ) -Force -ErrorAction SilentlyContinue)
   $evidence.finalServiceState = if (@($services | Where-Object {
     $_.State -ne "Stopped" -or $_.StartMode -ne "Disabled"
   }).Count -eq 0) { "Stopped/Disabled" } else { "unexpected" }
   $evidence.finalRootProcessCount = $rootProcesses.Count
   $evidence.finalListenerCount = $listeners.Count
   $evidence.finalEnabledFirewallRuleCount = $firewallRules.Count
+  $evidence.finalStagingChildCount = $stagingChildren.Count
+  $evidence.finalRehearsalChildCount = $rehearsalChildren.Count
+  $evidence.finalDrainStateCount = $drainState.Count
+  $evidence.finalAtomicTemporaryCount = $drainTemporary.Count
+  $evidence.finalDrainLockCount = $drainLock.Count
+  $evidence.finalSyntheticCanaryCount = $syntheticCanary.Count
   $evidence.completedAtUtc = [DateTime]::UtcNow.ToString("o")
   [IO.File]::WriteAllText(
     $evidencePath,
@@ -839,7 +875,10 @@ try {
 
 if (-not $evidence.completed -or $evidence.finalServiceState -ne "Stopped/Disabled" -or
   $evidence.finalRootProcessCount -ne 0 -or $evidence.finalListenerCount -ne 0 -or
-  $evidence.finalEnabledFirewallRuleCount -ne 0) {
+  $evidence.finalEnabledFirewallRuleCount -ne 0 -or $evidence.finalStagingChildCount -ne 0 -or
+  $evidence.finalRehearsalChildCount -ne 0 -or $evidence.finalDrainStateCount -ne 0 -or
+  $evidence.finalAtomicTemporaryCount -ne 0 -or $evidence.finalDrainLockCount -ne 0 -or
+  $evidence.finalSyntheticCanaryCount -ne 0) {
   throw "The non-reboot host rehearsal did not reach its required final state."
 }
 

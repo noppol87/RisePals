@@ -1,6 +1,12 @@
 export const drainStateSchemaVersion: "rise-pals-drain-state-v1";
 export const approvedDrainStatePath: string;
+export const approvedDrainControlDirectory: string;
 export const approvedDrainTimeoutMs: 15000;
+export const windowsDrainAclRights: Readonly<{
+  fullControl: 2032127;
+  modify: 197055;
+  modifySynchronize: 1245631;
+}>;
 
 export type DrainState =
   | Readonly<{
@@ -33,6 +39,13 @@ export type DrainOptions = Readonly<{
   statePath?: string;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
+  inspectAcl?: (input: Readonly<{ controlDirectory: string; childPath?: string }>) => unknown;
+}>;
+
+export type DrainAtomicWriteOptions = Readonly<{
+  inspectAcl?: (input: Readonly<{ controlDirectory: string; childPath?: string }>) => unknown;
+  renameFile?: (oldPath: string, newPath: string) => void;
+  temporaryIdentity?: string;
 }>;
 
 export function validateDrainState(value: unknown): DrainState;
@@ -51,7 +64,17 @@ export function createActiveRequestRegistry(): Readonly<{
   admit(): () => void;
   count(): number;
 }>;
-export function writeDrainStateAtomic(statePath: string, value: unknown): DrainState;
+export function validateDrainAclSnapshot(
+  snapshot: unknown,
+  options: Readonly<{ controlDirectory: string; childPath?: string }>,
+): true;
+export function assertApprovedDrainControlAcl(): true;
+export function assertApprovedDrainStateAcl(): true;
+export function writeDrainStateAtomic(
+  statePath: string,
+  value: unknown,
+  options?: DrainAtomicWriteOptions,
+): DrainState;
 export function prepareDrainStateForStartup(
   options?: DrainOptions,
 ): Promise<Readonly<{ previous: DrainState | null; current: DrainState }>>;

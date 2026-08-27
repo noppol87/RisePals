@@ -111,6 +111,7 @@ describe("Windows infrastructure contract", () => {
   it("restricts the local drain control to administrators, SYSTEM and the app identity", async () => {
     const installer = await text("scripts/infra/Install-RisePalsServices.ps1");
     const updater = await text("scripts/infra/Update-RisePalsDrainControl.ps1");
+    const snapshot = await text("scripts/infra/Get-RisePalsDrainAclSnapshot.ps1");
     const control = await text("scripts/infra/drain-control.mjs");
     const launcher = await text("scripts/infra/rise-pals-standalone-server.mjs");
     const stopHelper = await text("scripts/infra/request-rise-pals-drain.mjs");
@@ -122,6 +123,15 @@ describe("Windows infrastructure contract", () => {
     expect(updater).toContain('@("RisePalsApp", "RisePalsProxy")');
     expect(updater).not.toContain('Identity = "NT SERVICE\\RisePalsProxy"');
     expect(updater).not.toMatch(/FullControl.*RisePalsApp|RisePalsProxy.*(Read|Modify)/);
+    expect(updater).toContain("--assert-parent");
+    expect(snapshot).toContain("GetAccessRules(");
+    expect(snapshot).toContain("[int64]$Rule.FileSystemRights");
+    expect(snapshot).toContain("[Security.Principal.SecurityIdentifier]");
+    expect(control).toContain("modifySynchronize: 1_245_631");
+    expect(control).toContain("rule.rightsMask !== expectedBySid.get(rule.sid)");
+    expect(control).toContain("rule.accessControlType !== allowAccessControlType");
+    expect(control).toContain("rule.isInherited !== inherited");
+    expect(control).not.toContain("HasFlag");
     expect(control).toContain('url === "/health/ready"');
     expect(launcher).toContain('"Retry-After": "5"');
     expect(launcher).toContain("activeRequests");
@@ -220,6 +230,7 @@ describe("Windows infrastructure contract", () => {
     expect(preparation).toContain('"rise-pals-standalone-server.mjs"');
     expect(preparation).toContain('"request-rise-pals-drain.mjs"');
     expect(preparation).toContain('"drain-control.mjs"');
+    expect(preparation).toContain('"Get-RisePalsDrainAclSnapshot.ps1"');
     expect(release).toContain("& $npm run build");
     expect(release).not.toContain('"scripts\\run-secret-free.mjs" build');
   });
@@ -259,6 +270,7 @@ describe("Windows infrastructure contract", () => {
 
   it("orchestrates bounded non-reboot evidence and cleanup without public mutations", async () => {
     const rehearsal = await text("scripts/infra/Invoke-RisePalsNonRebootRehearsal.ps1");
+    const cleanup = await text("scripts/infra/Clear-RisePalsRehearsal.ps1");
 
     expect(rehearsal).toContain('branch -ne "agent/windows-vps-infrastructure-readiness"');
     expect(rehearsal).toContain("RehearsalDenyManifestRead");
@@ -279,6 +291,8 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain('"tools\\node\\24.18.1\\node.exe"');
     expect(rehearsal).toContain('"--first-byte-marker", $startedMarker');
     expect(rehearsal).toContain("Direct Stop-Service did not enter the exact local Draining state");
+    expect(rehearsal).toContain("--assert-parent");
+    expect(rehearsal).toContain("--assert-state");
     expect(rehearsal).toContain("Stop-Service -Name 'RisePalsApp'");
     expect(rehearsal).toContain('response-header "Retry-After: 5"');
     expect(rehearsal).toContain("persistentStartupAttempts");
@@ -286,7 +300,12 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("if (-not $streamStarted)");
     expect(rehearsal).not.toContain('Start-Process -FilePath "curl.exe"');
     expect(rehearsal).toContain("Read-RisePalsSharedFileBytes -Path $path");
+    expect(rehearsal).toContain("finalAtomicTemporaryCount");
     expect(rehearsal).not.toMatch(/New-NetFirewallRule|Restart-Computer|\.env\.local/);
+    expect(cleanup).toContain('"app-drain-state.json"');
+    expect(cleanup).toContain('"app-drain-state.json.lock"');
+    expect(cleanup).toContain('"^\\.app-drain-state\\.[0-9]+\\.[a-f0-9-]{36}\\.tmp$"');
+    expect(cleanup).toContain("Remove-RisePalsValidatedChild");
   });
 
   it("keeps the reboot checkpoint separate, explicit and cleanup-bound", async () => {

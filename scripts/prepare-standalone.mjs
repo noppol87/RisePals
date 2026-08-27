@@ -8,6 +8,7 @@ const staticDestination = resolve(outputRoot, ".next/static");
 const publicSource = resolve("public");
 const publicDestination = resolve(outputRoot, "public");
 const infrastructureRuntimeFiles = Object.freeze([
+  "Get-RisePalsDrainAclSnapshot.ps1",
   "drain-control.mjs",
   "request-rise-pals-drain.mjs",
   "rise-pals-standalone-server.mjs",

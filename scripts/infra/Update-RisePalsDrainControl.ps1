@@ -60,17 +60,11 @@ if ((Get-FileHash -LiteralPath $installedConfig -Algorithm SHA256).Hash -ne
   throw "The installed WinSW drain configuration does not match the reviewed template."
 }
 
-$controlAcl = Get-Acl -LiteralPath $controlDirectory
-$principals = @($controlAcl.Access | ForEach-Object {
-  $_.IdentityReference.Value
-} | Sort-Object -Unique)
-$expected = @(
-  "BUILTIN\Administrators",
-  "NT AUTHORITY\SYSTEM",
-  "NT SERVICE\RisePalsApp"
-) | Sort-Object
-if (-not $controlAcl.AreAccessRulesProtected -or ($principals -join "|") -ne ($expected -join "|")) {
-  throw "The local drain-control ACL does not match the exact approved principal set."
+$node = Join-Path $validatedRoot "tools\node\24.18.1\node.exe"
+$aclChecker = Join-Path $repository "scripts\infra\drain-control.mjs"
+& $node $aclChecker --assert-parent $controlDirectory
+if ($LASTEXITCODE -ne 0) {
+  throw "The local drain-control ACL does not match the exact canonical bitmask model."
 }
 
 Write-Output "Rise Pals WinSW local drain-control update PASS; services remain Stopped/Disabled."
