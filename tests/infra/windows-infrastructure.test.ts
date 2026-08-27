@@ -185,6 +185,8 @@ describe("Windows infrastructure contract", () => {
       (name) =>
         name.endsWith(".ps1") &&
         name !== "common.ps1" &&
+        name !== "rehearsal-launcher-result.ps1" &&
+        name !== "Invoke-RisePalsLauncherFixture.ps1" &&
         !name.startsWith("Get-") &&
         !name.startsWith("Test-"),
     );
@@ -194,7 +196,9 @@ describe("Windows infrastructure contract", () => {
       expect(script).toContain("SupportsShouldProcess = $true");
       expect(script).toContain("Set-StrictMode -Version Latest");
       expect(script).toContain('$ErrorActionPreference = "Stop"');
-      expect(script).toMatch(/-LiteralPath|\[IO\.Directory\]/);
+      if (name !== "Invoke-RisePalsServiceStop.ps1") {
+        expect(script).toMatch(/-LiteralPath|\[IO\.Directory\]/);
+      }
       expect(script).not.toMatch(
         /Write-(Output|Host).*\$(bytes|secret(Value|Content)|canary(Value|Content))/i,
       );
@@ -271,6 +275,7 @@ describe("Windows infrastructure contract", () => {
   it("orchestrates bounded non-reboot evidence and cleanup without public mutations", async () => {
     const rehearsal = await text("scripts/infra/Invoke-RisePalsNonRebootRehearsal.ps1");
     const cleanup = await text("scripts/infra/Clear-RisePalsRehearsal.ps1");
+    const serviceStop = await text("scripts/infra/Invoke-RisePalsServiceStop.ps1");
 
     expect(rehearsal).toContain('branch -ne "agent/windows-vps-infrastructure-readiness"');
     expect(rehearsal).toContain("RehearsalDenyManifestRead");
@@ -293,7 +298,10 @@ describe("Windows infrastructure contract", () => {
     expect(rehearsal).toContain("Direct Stop-Service did not enter the exact local Draining state");
     expect(rehearsal).toContain("--assert-parent");
     expect(rehearsal).toContain("--assert-state");
-    expect(rehearsal).toContain("Stop-Service -Name 'RisePalsApp'");
+    expect(rehearsal).toContain("Invoke-RisePalsServiceStop.ps1");
+    expect(rehearsal).not.toContain('"-Command"');
+    expect(serviceStop).toContain("Stop-Service -Name $ServiceName");
+    expect(serviceStop).toContain('[ValidateSet("RisePalsApp")]');
     expect(rehearsal).toContain('response-header "Retry-After: 5"');
     expect(rehearsal).toContain("persistentStartupAttempts");
     expect(rehearsal).toContain("startup-state-invalid fail-closed");

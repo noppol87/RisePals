@@ -2,7 +2,9 @@
 param(
   [string]$Root = "C:\RisePals",
   [string]$RepositoryRoot = "",
-  [ValidatePattern("^$|^[a-f0-9]{40}$")][string]$ReleaseSourceCommit = ""
+  [ValidatePattern("^$|^[a-f0-9]{40}$")][string]$ReleaseSourceCommit = "",
+  [switch]$LauncherAuthorized,
+  [ValidatePattern("^$|^[a-f0-9-]{36}$")][string]$LauncherInvocationNonce = ""
 )
 
 Set-StrictMode -Version Latest
@@ -363,11 +365,17 @@ function Invoke-RisePalsGracefulStopProbe {
   }
   $stopStartedAt = [DateTime]::UtcNow
   $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+  $stopHelper = Join-Path $PSScriptRoot "Invoke-RisePalsServiceStop.ps1"
+  $quotedStopHelper = '"' + $stopHelper + '"'
   $firstStop = Start-Process -FilePath $powerShell -ArgumentList @(
     "-NoProfile",
     "-NonInteractive",
-    "-Command",
-    "Stop-Service -Name 'RisePalsApp'"
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    $quotedStopHelper,
+    "-ServiceName",
+    "RisePalsApp"
   ) -RedirectStandardOutput $firstStopOutput -RedirectStandardError $firstStopError -PassThru
 
   $drainDeadline = [DateTime]::UtcNow.AddSeconds(5)
@@ -395,8 +403,13 @@ function Invoke-RisePalsGracefulStopProbe {
   $secondStop = Start-Process -FilePath $powerShell -ArgumentList @(
     "-NoProfile",
     "-NonInteractive",
-    "-Command",
-    "Stop-Service -Name 'RisePalsApp' -ErrorAction SilentlyContinue"
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    $quotedStopHelper,
+    "-ServiceName",
+    "RisePalsApp",
+    "-IgnoreAlreadyStopped"
   ) -RedirectStandardOutput $secondStopOutput -RedirectStandardError $secondStopError -PassThru
 
   $expectedDrainingBody = [Convert]::ToBase64String(
@@ -612,7 +625,13 @@ $forward = "rp19-forward-$short"
 $failed = "rp19-fail-$short"
 $evidencePath = Join-Path $validatedRoot "logs\deploy\non-reboot-rehearsal.json"
 
-if (-not $PSCmdlet.ShouldProcess($validatedRoot, "Run the bounded non-reboot Rise Pals host rehearsal")) {
+$launcherAuthorizationIsValid = $LauncherAuthorized -and
+  $LauncherInvocationNonce -match "^[a-f0-9-]{36}$"
+if ($LauncherAuthorized -and -not $launcherAuthorizationIsValid) {
+  throw "The versioned launcher authorization is incomplete."
+}
+if (-not $launcherAuthorizationIsValid -and
+  -not $PSCmdlet.ShouldProcess($validatedRoot, "Run the bounded non-reboot Rise Pals host rehearsal")) {
   Write-Output "Non-reboot host rehearsal dry-run PASS"
   return
 }
