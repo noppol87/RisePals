@@ -251,19 +251,20 @@ No cloud resource is selected or created in RP-TURN-001. Application code must d
 
 ### Confirmed application host and feasible Windows approaches
 
-The intended production application target is this Windows Server 2022 VPS. This is a deployment constraint, not an exit path. The host is **not production-ready yet**. RP-TURN-019 authorizes a non-public rehearsal only. Its read-only inventory found the pinned development Node runtime but no Caddy, WinSW, IIS/ARR, Docker, conflicting service, approved-port listener, `C:\RisePals` path or Rise Pals firewall rule. The bounded rehearsal subsequently passed the release, loopback proxy/TLS, restart, canary and rollback gates but found that stable WinSW 2.12.0 did not preserve an active streamed response through service stop. Changing supervisor architecture or accepting weaker shutdown behavior requires a new Project Codex decision. Public DNS/TLS, public firewall changes, production credentials/database, real users/data, external monitoring and off-host backup remain prohibited or undecided.
+The intended production application target is this Windows Server 2022 VPS. This is a deployment constraint, not an exit path. The host is **not production-ready yet**. RP-TURN-019 authorized only a non-public rehearsal. Its read-only inventory found the pinned development Node runtime but no pre-existing Caddy, WinSW, IIS/ARR, Docker, conflicting service, approved-port listener, `C:\RisePals` path or Rise Pals firewall rule. The bounded work passed release, loopback proxy/TLS, restart, canary and rollback gates, but stable WinSW 2.12.0 first truncated an active stream and later remained Stop Pending under the local-drain design. Exact-PID forced termination was required for recovery and was not graceful-stop success. Project Codex Accepted the safe recovery and residue cleanup, not the supervisor. Both services are Stopped/Disabled and the current WinSW design must not be rehearsed again. Public DNS/TLS, public firewall changes, production credentials/database, real users/data, external monitoring and off-host backup remain prohibited or undecided.
 
 | Approach | Strength for Rise Pals | Trade-off / validation need | Status |
 |---|---|---|---|
-| Native Node standalone + Caddy as Windows services | Direct fit with confirmed Windows host; Caddy documents Windows service and reverse-proxy/HTTPS operation; no container prerequisite | WinSW 2.12.0 has no Authenticode/checksum asset and every service/ACL/restart/certificate behavior must pass the bounded rehearsal | Selected only for RP-TURN-019 non-public rehearsal: Node 24.18.1, Caddy 2.11.4 standard build and WinSW 2.12.0 stable |
-| Native Node + IIS, URL Rewrite and ARR | Microsoft-native administration and mature Windows TLS/IIS tooling | IIS roles plus URL Rewrite/ARR modules are prerequisites and not verified; proxy buffering/streaming and patch ownership require tests | Active Windows alternative |
-| Native Node + another reviewed Windows reverse proxy/service wrapper | May fit existing operator expertise | Security maintenance, TLS automation, service recovery and log rotation must be evidenced tool by tool | Open alternative |
+| Native Node standalone + Caddy + repository-owned service-aware host | Preserves the reviewed Caddy/Next.js boundary and can implement direct SCM Stop Pending, private drain, bounded wait and process-tree ownership explicitly | Introduces a pinned .NET 10 LTS build/toolchain, repository patch/signing ownership and a Windows integration surface that must pass before any host use | RP-TURN-019-R2 recommendation; Decision required, not implemented |
+| Two-slot Native Node + Caddy blue/green drain | Preserves planned-release streams by switching new traffic before retiring the old loopback slot; strong rollback path | Not standalone supervision; bare `Stop-Service`, crash and reboot bypass drain unless paired with a service-aware host | R2 fallback only with an explicit acceptance-contract change |
+| Native Node + IIS, URL Rewrite, ARR and HttpPlatformHandler | Microsoft-native administration, mature TLS/IIS tooling, server farms and health checks | Adds Windows roles/modules; current official contract does not prove Next.js streaming, direct SCM drain, preshutdown or whole-process-tree cleanup | Rejected for the MVP |
+| Native Node + WinSW or another reviewed wrapper | Low initial integration burden; Shawl is a more current provenance-verifiable wrapper candidate | WinSW failed the accepted direct-stop gate; Shawl documents Ctrl-C then forced timeout rather than the required private drain/checkpoint contract | Rejected as production recommendation |
 | Windows/Linux containers | Reproducible packaging if the host is deliberately prepared for it | Docker is absent and usable WSL/Linux is unverified; Windows container compatibility and operations add a separate platform decision | Not a baseline assumption |
 | Vercel, Cloudflare Workers or AWS Amplify | Lower server operations and useful preview environments | Would change the confirmed production target or create a split-host design, external cost and data-region review | Alternative only; requires a new Jeff decision |
 
 Next.js remains suitable because its official self-hosting path supports a Node server, App Router streaming and a reverse proxy. RP-TURN-019 selects `output: "standalone"` for its versioned rehearsal artifacts. An exact committed tree is exported to isolated staging, installed/built without ignored development files and inventoried by SHA-256 before promotion. `public` and `.next/static` accompany `server.js`; only `.next/cache` may be a junction to shared mutable state.
 
-The complete bounded Windows contract, verified tool provenance and operating sequence are in `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. Selection for rehearsal is not production approval and does not silently select deployment authentication, public certificate automation or firewall exposure.
+The complete bounded Windows operating history is in `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. The comparison, primary sources, scoring, recommendation, fallback and proposed next proof are in `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md`. R2 is a Decision Request, not production approval, and does not silently select a supervisor, deployment authentication, public certificate automation or firewall exposure.
 
 ### Production boundary contracts
 
@@ -280,7 +281,9 @@ The complete bounded Windows contract, verified tool provenance and operating se
 
 - Run the application as a Windows service with automatic start, controlled restart-on-failure, startup timeout and a bounded failure loop.
 - Capture stdout/stderr without allowing unbounded files. Prove graceful stop and in-flight request behavior.
-- RP-TURN-019 uses stable WinSW 2.12.0 for Node only, with `autoRefresh=false`, bounded roll-by-size logging and a finite restart sequence. Caddy uses SCM directly. Running `npm start` interactively or using Task Scheduler is not a supervision plan.
+- RP-TURN-019-R2 recommends a minimal self-contained .NET 10 LTS service-aware host that launches only pinned Node, owns its Job Object, initiates the private drain and reports bounded SCM Stop Pending checkpoints. This remains unimplemented and requires Project Codex/Jeff selection plus separate repository and host authorizations.
+- The previous WinSW 2.12.0 design is rejected pending decision after direct stop stalled and required forced recovery. Keep its services Stopped/Disabled; do not rerun or remove them until a separately authorized replacement/cleanup sequence.
+- Running `npm start` interactively or using Task Scheduler is not a supervision plan.
 - Reverse proxy and application are independently restartable. A failed application readiness check must not cause the deployment script to switch traffic permanently.
 
 #### Least-privilege identities and filesystem access
@@ -320,7 +323,7 @@ The complete bounded Windows contract, verified tool provenance and operating se
 
 - Never build or develop inside the live served release directory. The repository workspace, build/staging area, immutable/versioned releases, persistent data, secrets and logs are distinct paths with distinct ACLs.
 - A release is identified by source commit plus artifact checksum. Install into a new release directory, verify dependencies/content/migrations, start/probe it and only then switch the active release.
-- RP-TURN-019 selects an NTFS junction at `C:\RisePals\current` for its bounded rehearsal and must prove atomic forward switch, failed-candidate rollback and manual rollback before acceptance.
+- RP-TURN-019 uses an NTFS junction at `C:\RisePals\current` for bounded rehearsal evidence; a replacement supervisor must preserve exact forward switch, failed-candidate rollback and manual rollback behavior before acceptance.
 - Retain at least the last known-good release according to a disk/retention policy. Rollback switches to that already-built artifact and reruns health checks; it does not overwrite the broken directory.
 
 #### Database connectivity and backup/restore ownership

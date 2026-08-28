@@ -3,11 +3,13 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-27; R1C versioned elevated-rehearsal launcher complete pending review
+**Last updated:** 2026-08-28; R2 supervision decision required after Accepted recovery and residue cleanup
 
 ## Authorization boundary
 
 This runbook prepares a loopback-only application host. It does not authorize DNS, public IP exposure, enabled inbound 80/443, public ACME, real users/data, production Clerk/PostgreSQL/secrets, external monitoring, off-host backup procurement, CI or deployment.
+
+The current WinSW supervision path is rejected pending a new Project Codex/Jeff decision. Do not execute another WinSW rehearsal, host setup, service install/start/stop/change, cleanup or reboot from this runbook. The commands retained below are historical operating evidence, not current authorization.
 
 Never read or copy `.env.local`. Release builds come from a clean `git archive` of an exact commit, so ignored development files cannot enter build input or release inventory.
 
@@ -154,7 +156,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Rollback-RiseP
 
 A switch with health checking automatically restores the prior junction on failure. Never delete the last-known-good release.
 
-After host setup and service-identity repair pass, run every authorized non-reboot host mutation and cleanup through one elevated command from a clean committed feature branch:
+Historical R1 procedure only—do not run without a new exact authorization. The former non-reboot host sequence used one elevated command from a clean committed feature branch:
 
 ```powershell
 & "C:\Codex PC SG2\Jeff\risepals\scripts\infra\Invoke-RisePalsNonRebootRehearsal.ps1" -RepositoryRoot "C:\Codex PC SG2\Jeff\risepals" -Confirm:$false
@@ -180,9 +182,25 @@ R1C replaces external ad hoc elevation/capture with `Invoke-RisePalsElevatedRehe
 
 The child protects the exact nonce directory for the current identity, SYSTEM and Administrators before creating captures. It launches the fixture or live rehearsal as a separate process with exact FilePath and ArgumentList plus separate `native.stdout.log` and `native.stderr.log`, treats stderr as data rather than status and uses only ExitCode for native success. Raw streams never enter the result. After exact capture cleanup, the child writes `result.<nonce>.tmp` with exclusive creation, flushes it and atomically renames it to `result.json`. The parent validates exact fields, nonce, requested head, current coherent UTC timestamps, status/exit agreement, unique completion markers, result privacy, cleanup/resource counts and a canonical SHA-256 digest, then removes only the known exact files and nonce directory. Missing, malformed, partial, stale, replayed, mismatched or inconsistent evidence fails closed with a generic launcher error.
 
-The PowerShell 5.1 suite passes 14 repository-only cases: informational stderr with exit 0; native exit 7; dual-stream success; missing result; malformed JSON/schema; wrong nonce; wrong head; stale timestamp; digest mismatch; process/result exit disagreement; partial result; controlled raw-capture cleanup failure; sanitized-result privacy; and repeated invocation with a new nonce and no reused artifact. Production launcher/rehearsal scripts contain zero `*>&1`, `2>&1`, `Invoke-Expression`, `"-Command"`, `"-EncodedCommand"`, `cmd /c` or `Tee-Object` patterns and zero `SHA256.HashData` calls. R1C is repository-only: no UAC, service start/stop, `C:\RisePals` mutation, live rehearsal or reboot occurred. A later live run requires separate Project Codex authorization at the reviewed exact head.
+The PowerShell 5.1 suite passes 14 repository-only cases: informational stderr with exit 0; native exit 7; dual-stream success; missing result; malformed JSON/schema; wrong nonce; wrong head; stale timestamp; digest mismatch; process/result exit disagreement; partial result; controlled raw-capture cleanup failure; sanitized-result privacy; and repeated invocation with a new nonce and no reused artifact. Production launcher/rehearsal scripts contain zero `*>&1`, `2>&1`, `Invoke-Expression`, `"-Command"`, `"-EncodedCommand"`, `cmd /c` or `Tee-Object` patterns and zero `SHA256.HashData` calls. R1C was repository-only: no UAC, service start/stop, `C:\RisePals` mutation, live rehearsal or reboot occurred. Its later authorized live use is now closed by the Accepted recovery; do not run it again under the current WinSW architecture.
 
 The required four Gitleaks scopes pass. A preceding overly broad directory-mode diagnostic also inspected ignored build output and `.env.local`, returned only redacted findings and displayed no value. The ignored file remains untracked and unmodified, but R1 does not claim it remained unread.
+
+### Accepted live recovery and RP-TURN-019-R2 disposition
+
+The later WinSW live attempt did not complete direct service stop: `RisePalsApp` remained Stop Pending. Exact-PID forced termination was required to recover the host. This is Accepted emergency-recovery evidence and is **not** graceful-stop, stream-completion, controlled-503, no-force or bounded crash/restart success.
+
+Project Codex Accepted the final safe state and exact residue cleanup:
+
+- `RisePalsApp` and `RisePalsProxy` are Stopped/Disabled at PID 0;
+- every original stalled PID, launcher/rehearsal process and process beneath `C:\RisePals` is absent;
+- listeners on 80, 443, 2019, 3100, 8080 and 8443 are zero;
+- enabled Rise Pals firewall rules, drain state and canary are absent;
+- the two exact raw-capture files and their invocation directory were deleted without reading their contents; raw-capture residue is zero;
+- repository/head/index remained clean and PR #17 remained Open, Draft and unmerged;
+- no reboot or public deployment mutation occurred.
+
+RP-TURN-019 remains Partial and Decision required. `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md` recommends a minimal repository-owned self-contained .NET 10 LTS service-aware host that preserves direct `Stop-Service`; two-slot Caddy blue/green drain is fallback only with an explicit acceptance-contract change. No replacement is selected or implemented. Keep the existing WinSW services/configuration Stopped and Disabled as rollback evidence until a separately authorized candidate passes; then remove them in a separate exact cleanup.
 
 ## Health and failure evidence
 
@@ -214,7 +232,9 @@ The TLS-only disposable rehearsal uses PostgreSQL 18.4 on loopback, an ephemeral
 
 No off-host encrypted backup target is approved. GitHub, another VPS directory and the disposable rehearsal are not backups. Off-host ownership, encryption, retention, deletion reconciliation, alerts, RTO/RPO and restore authority remain launch blockers.
 
-## Cleanup and incident commands
+## Historical cleanup and incident commands
+
+Do not execute these commands under the current authorization. They are retained only to explain the R1 evidence and require a new exact recovery or implementation authorization.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\infra\Clear-RisePalsRehearsal.ps1
@@ -224,12 +244,12 @@ sc.exe qfailure RisePalsApp
 sc.exe qfailure RisePalsProxy
 ```
 
-Cleanup stops and disables both services, deletes the canary, the exact drain state/lock, only recognized atomic temp files and validated rehearsal children, then fails if a Rise Pals process/listener or drain residue remains. It deliberately retains the protected control directory, verified tools, reviewed releases, `current`, non-secret configuration and bounded logs.
+The historical cleanup stops and disables both services, deletes the canary, the exact drain state/lock, only recognized atomic temp files and validated rehearsal children, then fails if a Rise Pals process/listener or drain residue remains. It deliberately retains the protected control directory, verified tools, reviewed releases, `current`, non-secret configuration and bounded logs.
 
 ## Reboot checkpoint and remaining launch blockers
 
-This turn cannot reboot without a later explicit Jeff confirmation through Project Codex. After every non-reboot gate passes, the handoff must request one controlled reboot with exact affected services, downtime and recovery commands. Only after confirmation may automatic service recovery be tested. The final state is both services Stopped and Disabled.
+This turn cannot reboot. A reboot rehearsal is not meaningful under the rejected WinSW supervision. Under the R2 recommendation it becomes meaningful only after a separately authorized service-aware host proves direct stop, full stream completion, new-work rejection, timeout cleanup, crash/restart, no-orphan and explicit preshutdown behavior. Project Codex must first accept those non-reboot results and Jeff must then authorize one controlled reboot with exact affected services, downtime and recovery commands. The final state remains both services Stopped and Disabled.
 
-The versioned checkpoint scripts do not reboot the host themselves. After separate authorization, preparation requires the exact approved source commit, creates one temporary canary, starts only the two loopback services as Automatic and writes a sanitized checkpoint. Completion proves Windows booted after that checkpoint, verifies automatic recovery and local health, and restores the Stopped/Disabled/no-canary final state.
+The existing versioned checkpoint scripts do not reboot the host themselves and are not approved for reuse with a replacement supervisor without review. Any future checkpoint must require the exact approved source commit and candidate service definition, write only sanitized evidence, prove Windows booted after that checkpoint, verify preshutdown and automatic recovery plus local health, and restore the Stopped/Disabled/no-canary final state.
 
 Even a successful reboot rehearsal does not approve public deployment. Remaining blockers include DNS and public certificate lifecycle, external port scan, production identity/database/privacy/legal/data residency, production secrets, off-host backup/RTO/RPO, monitoring/alert ownership, staff/operator access, CI/deployment transport and a separately reviewed launch decision.

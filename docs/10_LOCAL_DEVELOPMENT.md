@@ -1,8 +1,8 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R1 Decision required at the live rehearsal orchestration boundary; local drain code and repository gates complete, direct Stop-Service/crash proof unrun; no real users/data, production database, CI or deployment  
-**Checked:** 2026-08-26
+**Status:** RP-TURN-019-R2 Decision required; live recovery and raw-capture cleanup Accepted, current WinSW supervision rejected pending selection, documentation-only decision pack prepared; no real users/data, production database, CI or deployment  
+**Checked:** 2026-08-28
 
 ## Confirmed host role and separation rule
 
@@ -944,7 +944,21 @@ One preliminary directory-mode Gitleaks diagnostic was incorrectly broader than 
 
 The one authorized R1 live sequence installed byte-identical reviewed application XML and protected `shared\control` ACL, then verified the existing 1,565-file last-known-good manifest. Before service startup, the external elevated output-capture wrapper converted Caddy's informational stderr during repository configuration validation into a terminating `NativeCommandError`. This was not a Caddy invalid-configuration result and did not exercise the drain. The sequence was not repeated. Sanitized cleanup evidence for orchestrator/source commit `ce13499ac4f879603eb8f1214b4a7129fba5004c` records `completed=false`, every live functional gate false, both services Stopped/Disabled, and zero root process, approved-port listener and enabled Rise Pals firewall rule. Staging/rehearsal children, canary and drain-state file are absent; the installed XML matches the reviewed source and the control ACL contains exactly Administrators, SYSTEM and `NT SERVICE\RisePalsApp`.
 
-RP-TURN-019-R1 is therefore Decision required, not accepted. Direct Stop-Service, concurrent rejection, in-flight stream completion, repeated stop, startup reconciliation, bounded crash recovery and persistent-startup-failure proof require one separately authorized non-reboot host run. No reboot was requested or performed. Draft PR #17 remains Open, Draft and unmerged; main remains `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`. RP-TURN-020 remains unauthorized.
+RP-TURN-019-R1 remained Decision required. A later authorized live attempt reached a Stop Pending stall and required exact-PID forced recovery. Project Codex Accepted the recovery and exact raw-capture residue cleanup, not graceful-stop success. The accepted final host state is both services Stopped/Disabled at PID 0, every original stalled PID and process beneath `C:\RisePals` absent, relevant listeners and enabled Rise Pals firewall rules zero, drain state and canary absent, and raw captures deleted unread with zero residue. No reboot or public mutation occurred. The current WinSW supervision path is rejected pending decision and must not be rehearsed again.
+
+### RP-TURN-019-R2 supervision decision evidence
+
+R2 makes documentation changes only. It performs no UAC, service/process/host change, download, installation, cleanup, rehearsal, reboot, firewall/DNS/certificate mutation or deployment. It compares:
+
+- WinSW redesign, rejected because the exact `stopexecutable`/`stoparguments` approach failed direct SCM stop and retaining it would require weakening an accepted gate without new primary-source proof;
+- a repository-owned service-aware self-contained .NET 10 LTS host, recommended because it can report Stop Pending checkpoints directly, initiate private drain, own the Node Job Object, enforce a finite restart policy and preserve the direct `Stop-Service` contract;
+- IIS/ARR/HttpPlatformHandler, rejected because it adds a second Windows web platform without an official contract proving Next.js streaming plus the required SCM drain/preshutdown/process-tree behavior;
+- two-slot Caddy blue/green drain, fallback for planned releases only and requiring an explicit contract change if used without a service-aware host;
+- Shawl 1.9.0, an actively maintained and provenance-verifiable wrapper, rejected because its documented Ctrl-C/timeout/forced-kill contract does not prove the private drain or SCM checkpoint gates.
+
+The recommendation is not selected or implemented until Project Codex/Jeff decides. The proposed next step is a separate repository-only prototype using a pinned .NET 10 LTS toolchain, followed only after review by an exact loopback host rehearsal under a new candidate service name. Existing WinSW services/configuration remain Stopped/Disabled as rollback evidence and should be removed only in a separately authorized cleanup after replacement acceptance. A reboot becomes meaningful only after direct stop, stream, new-work rejection, timeout, crash, restart, orphan and preshutdown gates pass. See `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md` for the scoring matrix, uncertainties, rollback and primary sources verified on 2026-08-28.
+
+Draft PR #17 remains Open, Draft and unmerged; main remains `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`. RP-TURN-020 remains unauthorized.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

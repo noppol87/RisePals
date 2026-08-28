@@ -1,0 +1,210 @@
+# Windows Service Supervision Decision Pack
+
+**Turn:** RP-TURN-019-R2  
+**Status:** Decision required; repository-only analysis  
+**Decision owner:** Project Codex and Jeff  
+**Sources verified:** 2026-08-28
+
+## Scope and accepted recovery facts
+
+This decision pack selects no software and authorizes no host mutation. It compares supervision architectures for the confirmed Windows Server 2022 target after the RP-TURN-019 live recovery was Accepted.
+
+The accepted safe state is:
+
+- `RisePalsApp` and `RisePalsProxy` are Stopped and Disabled with PID 0;
+- every original stalled PID, launcher/rehearsal process and process beneath `C:\RisePals` is absent;
+- listeners on 80, 443, 2019, 3100, 8080 and 8443 are zero;
+- enabled Rise Pals firewall rules, drain state and the synthetic canary are absent;
+- the exact raw captures from the stalled invocation were deleted without their contents being read, and raw-capture residue is zero;
+- the repository and `main` remained unchanged, and PR #17 remained Open, Draft and unmerged;
+- no reboot, public mutation or deployment occurred.
+
+Forced termination of exact stalled PIDs was emergency recovery. It was **not** graceful-stop success. Direct service stop did not complete, `RisePalsApp` remained Stop Pending, and the active-stream completion, controlled post-drain 503, no-forced-termination and bounded crash/restart gates remain unverified. The current WinSW design is therefore rejected as production supervision pending a new architecture decision. Another WinSW live rehearsal is prohibited.
+
+## Non-negotiable supervision contract
+
+The recommended production candidate must prove all of the following in a separately authorized loopback-only rehearsal:
+
+1. A direct SCM stop transitions promptly to Stop Pending, rejects new application work and lets every already accepted response finish within an explicit deadline.
+2. The service reports bounded wait hints/checkpoints correctly, then reports Stopped only after the child has exited or after an explicit, sanitized timeout failure.
+3. Stop, preshutdown and crash paths cannot leave Node, helper or listener orphans.
+4. Unexpected exits use a finite restart policy and end in an observable terminal state rather than an infinite loop.
+5. Next.js streaming remains unbuffered end to end through Caddy.
+6. The application runs as `NT SERVICE\RisePalsApp`, binds only to loopback and exposes no public or network-accessible control endpoint.
+7. Releases remain immutable and checksum-bound; rollback never overwrites the last-known-good release.
+8. Evidence contains fixed stages, counts, exit classes and digests but no secrets, identifiers or raw user data.
+
+Microsoft documents that a service performing lengthy control work should return from its handler quickly, do the work on another thread, report the corresponding pending state and report completion afterward. The default modern preshutdown timeout is 10 seconds unless configured, and a preshutdown-aware service may update Stop Pending until the configured timeout or Stopped state. These rules make SCM state reporting part of the product's operational correctness, not only a wrapper detail.
+
+## Scoring method
+
+Score: `3` strong documented fit, `2` plausible but requires bounded proof, `1` weak or operationally costly fit, `0` fails the current contract. A zero on a hard gate cannot be offset by a higher total.
+
+| Criterion | A: redesigned WinSW | B: service-aware host | C: IIS path | D: blue/green drain | E: Shawl |
+|---|---:|---:|---:|---:|---:|
+| Preserve accepted in-flight responses | 0 | 3 | 1 | 3 | 1 |
+| Reject new traffic during drain | 2 | 3 | 2 | 3 | 0 |
+| Bounded completion | 1 | 3 | 2 | 3 | 2 |
+| Direct SCM stop behavior | 0 | 3 | 1 | 0 | 1 |
+| Reboot/preshutdown behavior | 0 | 2 | 1 | 0 | 1 |
+| Crash recovery and bounded restart | 2 | 3 | 3 | 1 | 2 |
+| No orphan processes | 1 | 3 | 2 | 1 | 2 |
+| Next.js streaming compatibility | 3 | 3 | 1 | 3 | 3 |
+| Least-privilege virtual account | 3 | 3 | 3 | 2 | 3 |
+| Signed/verifiable supply chain | 1 | 2 | 2 | 3 | 2 |
+| Maintained and supported components | 1 | 3 | 2 | 3 | 3 |
+| Operational simplicity | 2 | 2 | 1 | 2 | 2 |
+| Deterministic release switch/rollback | 3 | 3 | 2 | 3 | 2 |
+| Observable sanitized failure evidence | 2 | 3 | 2 | 3 | 2 |
+| Implementation and maintenance burden | 2 | 1 | 1 | 2 | 2 |
+| No external cost or production resource | 3 | 3 | 3 | 3 | 3 |
+| **Total / 48** | **26** | **43** | **29** | **35** | **31** |
+
+The matrix is a decision aid, not implementation proof. Option B still has to prove its two-point preshutdown score before any reboot request. Option D scores well for planned releases but has zeroes on direct-stop and reboot behavior under the existing contract.
+
+## Option A — Retain WinSW with a redesigned stop contract
+
+**Current supported release reviewed:** WinSW 2.12.0, published 2023-01-28 as the latest stable release. The project also exposes a 3.0 alpha, which is not a production-stable substitute.
+
+WinSW documents that `stopexecutable` plus `stoparguments` launches a separate stop process and waits for both the stop process and wrapped process to exit before reporting termination. `stoptimeout` bounds that wait and is followed by forced termination. This is exactly the mechanism exercised by the R1 design.
+
+**Assessment:** The observed Stop Pending stall shows that the existing local-drain helper plus WinSW wait contract did not satisfy direct `Stop-Service`. A materially different WinSW design would still have to coordinate two processes, prove correct SCM checkpoints/preshutdown behavior that WinSW does not document for this design, and prevent orphan descendants. Raising the timeout or weakening the stream/no-force gate would hide the failure rather than resolve it. The stable release's age, absence of an official checksum asset or Authenticode signature, and open project request for a newer stable build increase provenance and maintenance risk.
+
+**Decision:** Reject. Do not perform another WinSW live attempt. Retain the current WinSW services/configuration Stopped and Disabled only as rollback evidence until a replacement passes; remove them in a separate exact cleanup turn after replacement acceptance.
+
+## Option B — Repository-owned service-aware Windows host
+
+**Recommended architecture.** Build one deliberately small, self-contained .NET 10 LTS Windows service executable whose only job is to supervise the pinned Node executable and translate SCM lifecycle events into the existing private drain contract.
+
+The candidate must:
+
+- use `ServiceBase` or an equivalent explicit SCM implementation, register stop and preshutdown handling, report Stop Pending immediately, and advance bounded checkpoints/wait hints while a worker performs drain;
+- launch only the reviewed absolute Node path and fixed standalone arguments without a shell or user-controlled command text;
+- write the existing ACL-protected local drain state so Node stops admitting work, then wait for in-flight count zero or the fixed deadline;
+- assign Node and descendants to a Windows Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, prohibit breakaway and close the job only after graceful completion or an explicit timeout;
+- return Stopped only after the whole job is empty, or return a fixed failure classification after the timeout cleanup is verified;
+- distinguish planned stop from unexpected child exit and allow only a finite reviewed restart schedule;
+- run as the existing virtual service account with exact release-read/control-write/log-write rights and no public control endpoint;
+- emit bounded Event Log or protected JSON evidence that excludes commands, environment values, secrets and user data.
+
+Microsoft's .NET Windows Service guidance supports worker/service hosting, single-file publishing and Windows Event Log. `ServiceBase.RequestAdditionalTime` passes wait hints during `OnStop`, but the candidate must not assume the generic host alone proves the complete SCM contract. Preshutdown registration, checkpoint progression, child-job ownership and timeout behavior require focused Windows integration tests.
+
+**Runtime and supply-chain consequence:** no .NET 10 runtime or SDK was established by the accepted host inventory. A self-contained artifact avoids adding a shared target-host runtime, but the build requires a new pinned .NET 10 LTS SDK/toolchain and package lock. .NET 10 is in active LTS support through 2028-11-14 as verified on 2026-08-28. Repository ownership improves inspectability but transfers patching, secure process-control design and release-signing responsibility to Rise Pals. The prototype must verify official SDK checksums/signatures, produce a source/SDK/package/SBOM digest chain and keep Authenticode signing as a production blocker unless an approved signing identity exists.
+
+**Failure modes and proportionality:** deadlock during stop, incorrect checkpoint timing, child escape from the job, drain-state races and accidental command/environment logging are the main risks. The host is proportionate only if it stays single-purpose and small: no HTTP administration, updater, deployment engine, secret store, proxy or application logic. Repeated wrapper/recovery fragility justifies testing this bounded owned component, not building a general supervisor.
+
+**Acceptance-contract implication:** preserves the direct `Stop-Service RisePalsApp` gate. No contract weakening is proposed.
+
+## Option C — IIS/ARR and Microsoft process hosting
+
+The official Microsoft path reviewed is IIS with URL Rewrite/Application Request Routing and HttpPlatformHandler 1.2. HttpPlatformHandler can start an arbitrary HTTP listener, proxy to it and apply startup retries, rapid-fail limits and request timeouts. ARR provides server farms, health tests and traffic distribution.
+
+**Assessment:** this path adds the IIS role plus ARR, URL Rewrite and HttpPlatformHandler modules; it shifts TLS, proxy logging, request limits and patch ownership away from the already tested Caddy boundary. The current Microsoft pages remain available, but HttpPlatformHandler is still documented as version 1.2 and the official page does not define the exact Node drain, SCM Stop Pending checkpoint, preshutdown, whole-process-tree or Next.js App Router streaming contract required here. ARR health and server-farm draining are useful but do not prove graceful termination of the hosted Node process. Proxy buffering, streaming, WebSocket/HTTP behavior, installation provenance, module support lifecycle and rollback of Windows features would all require a new platform rehearsal.
+
+**Decision:** reject for this MVP. It adds a second web platform and leaves the hardest service-stop proof unresolved. Reconsider only if Jeff deliberately chooses IIS operational ownership and Microsoft supplies a supported hosting contract that meets every hard gate.
+
+## Option D — Deployment-orchestrated blue/green Caddy drain
+
+**Fallback architecture.** Run two immutable application slots on separate loopback ports, for example 3100 and 3101. Start and verify the candidate slot, reload Caddy so only new requests reach it, keep the old slot alive until its active count reaches zero or a fixed deadline, and preserve the previous reviewed Caddy configuration plus old release for rollback. A failed candidate never becomes permanent; after a successful switch, rollback reloads the prior reviewed route while the old slot is still healthy.
+
+Caddy documents graceful configuration reloads, passive/active upstream health checks, configurable shutdown delay/grace period and unbuffered streaming through `flush_interval -1`. Next.js documents self-hosted App Router streaming and requires end-to-end proxy support without buffering. These capabilities can preserve the user-visible no-truncation outcome for **planned deployments**.
+
+This pattern is not a complete service supervisor. A manual app service stop, process crash or VPS reboot bypasses the traffic-switch sequence unless another service-aware host owns both slots. If adopted alone, the acceptance contract must deliberately change: the orchestrated deployment command—not bare `Stop-Service`—becomes the only guaranteed drain path. Direct stop, crash and reboot may truncate requests. Project Codex must explicitly accept that change; implementation may not assume it.
+
+**Decision:** fallback only. It is also a useful later enhancement around Option B, where the service-aware host retains direct-stop correctness and blue/green reduces planned-release interruption.
+
+## Option E — Other reviewed Windows supervisors
+
+Only candidates with a recent stable release and provenance-verifiable official source were considered. Shawl was the qualifying candidate reviewed in detail.
+
+| Candidate | Reviewed release/source | Maintenance and behavior | Limitations and disposition |
+|---|---|---|---|
+| Shawl | v1.9.0, 2026-05-03; signed GitHub tag and official release assets | Wraps arbitrary commands as Windows services; configurable exit-code restart, delay, log rotation/retention, stop timeout and Job Object process-tree termination; service identity remains an SCM configuration and can use a virtual account | Stop sends Ctrl-C, waits, then forcibly kills after timeout. The official CLI does not document a separate private drain handshake, SCM checkpoint/preshutdown contract or in-flight HTTP completion. Better current maintenance and process-tree control than WinSW, but not superior to Option B on the hard stop gate and not superior to Option D for planned drain. Reject as production recommendation. |
+
+NSSM, PM2 and Task Scheduler were not scored because this review did not establish both an actively maintained current Windows-service release and a primary-source contract meeting the hard gates. They are not fallback assumptions.
+
+## Required decision
+
+Project Codex and Jeff should choose one of these bounded directions:
+
+1. **Recommended — Option B:** authorize a repository-owned, self-contained .NET 10 LTS service-host prototype and non-elevated deterministic tests first, preserving the direct SCM stop contract.
+2. **Fallback — Option D:** authorize blue/green Caddy drain only after explicitly changing the acceptance contract so bare `Stop-Service` is not guaranteed to drain. Prefer pairing it with a later service-aware host rather than treating it as crash/reboot supervision.
+
+Options A, C and E are rejected for the reasons above. Ease of testing is not the selection basis; direct SCM correctness, response preservation and bounded process ownership are.
+
+## Proposed bounded next implementation and rehearsal
+
+If Option B is approved, the next turn should be split into two explicit checkpoints:
+
+### Repository-only prototype
+
+- add a minimal Windows-only service-host project, pinned .NET 10 LTS SDK declaration, locked packages, official provenance record and deterministic self-contained build;
+- define typed states for Starting, Running, Draining, Stop Pending, Stopped, Timed Out and Failed;
+- add fake-SCM/fake-child tests for stop/replay, checkpoint monotonicity, exact deadline, finite restart, job cleanup, redaction and denied dynamic command/environment input;
+- add Windows integration tests with a synthetic streaming child and loopback-only listener; no UAC, service installation or host path mutation;
+- keep Caddy, Node, release manifests, health contracts and existing application behavior unchanged;
+- require audits, SBOM/inventory, signatures/checksums where available and all current repository/security gates.
+
+### Separately authorized host rehearsal
+
+- install the candidate under a **new service name** while both existing WinSW services remain Stopped/Disabled;
+- use only synthetic loopback endpoints and an immutable reviewed release;
+- prove direct `Stop-Service`, first-byte synchronized stream completion, concurrent new-work 503, repeated stop, timeout cleanup, exact job emptiness, finite crash recovery, persistent-failure terminal state, independent Caddy restart, forward/failed/manual rollback and sanitized cleanup;
+- do not request a reboot until every non-reboot gate passes and Project Codex accepts the evidence.
+
+No implementation turn may install a production resource, enable public ports, use real users/data or deploy publicly.
+
+## Rollback and reboot decision
+
+Before candidate acceptance, keep the existing WinSW service definitions, binaries and configuration Stopped and Disabled. The candidate uses a different service name and must not overwrite them. If repository tests or the host rehearsal fail:
+
+1. stop/disable and remove only the new candidate service and its exact reviewed binary/configuration;
+2. remove only candidate-specific temporary state after exact path and process checks;
+3. restore the prior reviewed service manifest if it was touched;
+4. leave the `current` junction on the verified last-known-good release and restore the prior reviewed Caddy configuration if a route switch occurred;
+5. verify zero candidate processes/listeners and retain sanitized evidence;
+6. keep WinSW disabled; do not treat it as an automatic production fallback.
+
+After Option B passes and is accepted, remove the old WinSW service/configuration in a separate authorized cleanup. Retaining two dormant supervision stacks indefinitely would create ambiguity.
+
+A reboot rehearsal becomes meaningful only after the recommended host proves direct stop, streaming, controlled rejection, timeout, crash, restart and orphan gates and explicitly implements preshutdown. A separately authorized controlled reboot must then verify preshutdown receipt, bounded Stop Pending checkpoints, automatic service recovery, Caddy/application ordering, loopback health and final Stopped/Disabled cleanup. No reboot is authorized now.
+
+## Remaining uncertainties
+
+- Whether a minimal .NET 10 implementation can expose and verify preshutdown plus checkpoint behavior without dropping below the desired managed abstraction.
+- Exact stop and preshutdown deadlines that preserve the longest permitted Rise Pals response without delaying Windows shutdown unreasonably.
+- Whether Node descendants always remain in the host's Job Object under the final standalone launch path and Windows account policy.
+- Authenticode ownership for the repository-built host and the approved SDK/package update cadence.
+- Caddy connection behavior during application-side 503 drain and during a future two-slot reload under long HTTP streaming.
+- Production DNS/TLS, public firewall, monitoring, off-host backup, database/identity/privacy suitability, CI/deployment transport and operator access; none is resolved by supervision selection.
+
+## Primary sources
+
+All sources below were reviewed on 2026-08-28.
+
+| Area | Official/primary source |
+|---|---|
+| SCM state transitions | https://learn.microsoft.com/en-us/windows/win32/services/service-status-transitions |
+| SCM control-handler timing | https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nc-winsvc-lphandler_function |
+| SCM preshutdown timeout | https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_preshutdown_info |
+| Windows service creation/virtual-account syntax | https://learn.microsoft.com/en-us/windows/win32/api/winsvc/nf-winsvc-createservicea |
+| Per-service SID configuration | https://learn.microsoft.com/en-us/windows/win32/api/winsvc/ns-winsvc-service_sid_info |
+| Job Object process-tree limit | https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_limit_information |
+| .NET Windows Service guidance | https://learn.microsoft.com/en-us/dotnet/core/extensions/windows-service |
+| `ServiceBase.RequestAdditionalTime` | https://learn.microsoft.com/en-us/dotnet/api/system.serviceprocess.servicebase.requestadditionaltime?view=net-10.0 |
+| .NET deployment modes | https://learn.microsoft.com/en-us/dotnet/core/deploying/ |
+| .NET support policy | https://dotnet.microsoft.com/en-us/platform/support/policy |
+| Next.js self-hosting and streaming | https://nextjs.org/docs/app/guides/self-hosting |
+| Next.js platform requirements | https://nextjs.org/docs/app/guides/deploying-to-platforms |
+| Caddy reverse proxy | https://caddyserver.com/docs/caddyfile/directives/reverse_proxy |
+| Caddy shutdown/grace options | https://caddyserver.com/docs/caddyfile/options |
+| Caddy graceful stop | https://caddyserver.com/docs/command-line#caddy-stop |
+| WinSW 2.12.0 release | https://github.com/winsw/winsw/releases/tag/v2.12.0 |
+| WinSW stop executable/timeout configuration | https://github.com/winsw/winsw/blob/v3/docs/xml-config-file.md |
+| WinSW stable-release maintenance concern | https://github.com/winsw/winsw/issues/1129 |
+| IIS HttpPlatformHandler configuration | https://learn.microsoft.com/en-us/iis/extensions/httpplatformhandler/httpplatformhandler-configuration-reference |
+| IIS HttpPlatformHandler v1.2 release | https://www.iis.net/downloads/microsoft/httpplatformhandler |
+| ARR load balancing and health | https://learn.microsoft.com/en-us/iis/extensions/configuring-application-request-routing-arr/http-load-balancing-using-application-request-routing |
+| ARR 3.0 official download | https://www.microsoft.com/en-us/download/details.aspx?id=47333 |
+| Shawl v1.9.0 release | https://github.com/mtkennerly/shawl/releases/tag/v1.9.0 |
+| Shawl service/restart/stop CLI contract | https://github.com/mtkennerly/shawl/blob/master/docs/cli.md |
