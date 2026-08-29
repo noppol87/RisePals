@@ -1,0 +1,208 @@
+[CmdletBinding(SupportsShouldProcess = $true)]
+param(
+  [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode,
+  [Parameter(Mandatory = $true)][string]$SimulationScenario,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$RepositoryHead,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$LauncherScriptSha256,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+  [Parameter(Mandatory = $true)][string]$InvocationDirectory,
+  [string]$FutureAuthorizationId = "",
+  [string]$CandidateExecutableSource = "",
+  [string]$NodeExecutableSource = ""
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "candidate-rehearsal-contract.ps1")
+. (Join-Path $PSScriptRoot "candidate-rehearsal-result.ps1")
+
+function Assert-RisePalsCandidateInvocationDirectory {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
+  $root = [IO.Path]::GetFullPath(
+    (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
+  ).TrimEnd([IO.Path]::DirectorySeparatorChar)
+  $expected = Join-Path $root ("invocation-" + $InvocationNonce)
+  if (-not $exact.Equals($expected, [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.Directory]::Exists($exact)) {
+    throw "The candidate invocation directory is not the exact nonce child."
+  }
+  $item = Get-Item -LiteralPath $exact -Force
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "The candidate invocation directory must not be a reparse point."
+  }
+  return $exact
+}
+
+function Protect-RisePalsCandidateInvocationDirectory {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $sids = @(
+    [Security.Principal.WindowsIdentity]::GetCurrent().User,
+    [Security.Principal.SecurityIdentifier]::new("S-1-5-18"),
+    [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
+  )
+  $security = [Security.AccessControl.DirectorySecurity]::new()
+  $security.SetAccessRuleProtection($true, $false)
+  foreach ($sid in $sids) {
+    $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+      $sid,
+      [Security.AccessControl.FileSystemRights]::FullControl,
+      [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+        [Security.AccessControl.InheritanceFlags]::ObjectInherit,
+      [Security.AccessControl.PropagationFlags]::None,
+      [Security.AccessControl.AccessControlType]::Allow
+    )
+    [void]$security.AddAccessRule($rule)
+  }
+  [IO.Directory]::SetAccessControl($Path, $security)
+}
+
+$directory = Assert-RisePalsCandidateInvocationDirectory -Path $InvocationDirectory
+if (-not $PSCmdlet.ShouldProcess(
+  $directory,
+  ("Run the candidate {0} child" -f $Mode.ToLowerInvariant())
+)) {
+  Write-Output "Rise Pals candidate child dry-run PASS"
+  return
+}
+Protect-RisePalsCandidateInvocationDirectory -Path $directory
+
+$resultPath = Join-Path $directory "result.json"
+$temporaryResultPath = Join-Path $directory "result.tmp"
+$stdoutPath = Join-Path $directory "stdout.log"
+$stderrPath = Join-Path $directory "stderr.log"
+$liveStatePath = Join-Path $directory "live-state.json"
+$started = [DateTimeOffset]::UtcNow
+
+if ($Mode -eq "Simulation" -and $SimulationScenario -eq "MissingResult") {
+  exit 9
+}
+if ($Mode -eq "Simulation" -and $SimulationScenario -eq "MalformedResult") {
+  [IO.File]::WriteAllText($resultPath, "{malformed", [Text.UTF8Encoding]::new($false))
+  exit 10
+}
+if ($Mode -eq "Simulation" -and $SimulationScenario -eq "PartialResult") {
+  [IO.File]::WriteAllText(
+    $resultPath,
+    '{"schemaVersion":"partial"}',
+    [Text.UTF8Encoding]::new($false)
+  )
+  exit 11
+}
+
+$powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+$processArguments = @("-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File")
+if ($Mode -eq "Simulation") {
+  $fixture = Join-Path $PSScriptRoot "Invoke-RisePalsLauncherFixture.ps1"
+  $fixtureScenario = if ($SimulationScenario -eq "NativeFailure") {
+    "NativeFailure"
+  } else {
+    "NativeSuccess"
+  }
+  $processArguments += '"' + $fixture + '"'
+  $processArguments += @("-Scenario", $fixtureScenario)
+} else {
+  if ($FutureAuthorizationId -notmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") {
+    throw "The candidate live child lacks a separate authorization identifier."
+  }
+  $live = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1"
+  $processArguments += '"' + $live + '"'
+  $processArguments += @(
+    "-RepositoryHead",
+    $RepositoryHead,
+    "-InvocationNonce",
+    $InvocationNonce,
+    "-FutureAuthorizationId",
+    $FutureAuthorizationId,
+    "-CandidateExecutableSource",
+    ('"' + $CandidateExecutableSource + '"'),
+    "-NodeExecutableSource",
+    ('"' + $NodeExecutableSource + '"'),
+    "-StructuredStatePath",
+    ('"' + $liveStatePath + '"')
+  )
+}
+
+$process = Start-Process -FilePath $powerShell -ArgumentList $processArguments `
+  -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
+  -WindowStyle Hidden -Wait -PassThru
+$exitCode = $process.ExitCode
+$stdoutObserved = [IO.File]::Exists($stdoutPath) -and (Get-Item -LiteralPath $stdoutPath).Length -gt 0
+$stderrObserved = [IO.File]::Exists($stderrPath) -and (Get-Item -LiteralPath $stderrPath).Length -gt 0
+$status = if ($exitCode -eq 0) { "success" } else { "failure" }
+$failedStage = if ($status -eq "failure") { "native-child" } else { $null }
+$failureCode = if ($status -eq "failure") { "native-child-exit-nonzero" } else { $null }
+$completedStages = @("child-started", "child-exit-observed", "streams-separated")
+$finalState = New-RisePalsCandidateFinalState
+$cleanupCompleted = $true
+
+if ($Mode -eq "Live") {
+  if (-not [IO.File]::Exists($liveStatePath)) {
+    $status = "failure"
+    $exitCode = if ($exitCode -eq 0) { 21 } else { $exitCode }
+    $failedStage = "structured-live-state"
+    $failureCode = "missing-live-state"
+    $cleanupCompleted = $false
+  } else {
+    $liveState = [Text.UTF8Encoding]::new($false, $true).GetString(
+      [IO.File]::ReadAllBytes($liveStatePath)
+    ) | ConvertFrom-Json
+    $finalState = $liveState.finalState
+    $cleanupCompleted = [bool]$liveState.cleanupCompleted
+    $completedStages += @($liveState.completedStages)
+    if ($liveState.status -ne "success") {
+      $status = "failure"
+      $exitCode = if ($exitCode -eq 0) { 22 } else { $exitCode }
+      $failedStage = [string]$liveState.failedStage
+      $failureCode = [string]$liveState.sanitizedFailureCode
+    }
+  }
+}
+
+foreach ($capture in @($stdoutPath, $stderrPath, $liveStatePath)) {
+  if ([IO.File]::Exists($capture)) {
+    [IO.File]::Delete($capture)
+  }
+}
+$completedStages += "raw-output-removed"
+
+if ($Mode -eq "Simulation") {
+  switch ($SimulationScenario) {
+    "StaleResult" { $started = $started.AddHours(-2) }
+    "WrongNonce" { $InvocationNonce = [guid]::NewGuid().ToString("N") }
+    "WrongHead" { $RepositoryHead = "0000000000000000000000000000000000000000" }
+    "WrongScriptHash" {
+      $LauncherScriptSha256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+    "CleanupFailure" {
+      $status = "failure"
+      $exitCode = 13
+      $failedStage = "cleanup"
+      $failureCode = "cleanup-failed"
+      $cleanupCompleted = $false
+      $finalState = New-RisePalsCandidateFinalState -TemporaryChildren 1
+    }
+  }
+}
+
+$streamEvidence = [ordered]@{
+  stdoutObserved = [bool]$stdoutObserved
+  stderrObserved = [bool]$stderrObserved
+  streamsSeparated = $true
+  rawOutputPersisted = $false
+}
+$result = New-RisePalsCandidateResult -InvocationNonce $InvocationNonce `
+  -RepositoryHead $RepositoryHead -LauncherScriptSha256 $LauncherScriptSha256 `
+  -StartedAtUtc $started.ToString("o") `
+  -CompletedAtUtc ([DateTimeOffset]::UtcNow.ToString("o")) -Status $status `
+  -ChildExitCode $exitCode -CompletedStages $completedStages -FailedStage $failedStage `
+  -SanitizedFailureCode $failureCode -CleanupCompleted $cleanupCompleted `
+  -FinalState $finalState -StreamEvidence $streamEvidence
+if ($Mode -eq "Simulation" -and $SimulationScenario -eq "DigestMismatch") {
+  $result.resultDigest = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+}
+Write-RisePalsCandidateResultAtomic -Result $result -ResultPath $resultPath `
+  -TemporaryPath $temporaryResultPath
+exit $exitCode

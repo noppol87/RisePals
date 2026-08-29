@@ -1,6 +1,6 @@
 # Rise Pals repository-owned Windows service-host prototype
 
-This directory contains the RP-TURN-019-R3-R1 **repository-only** prototype selected by D-027. It does not install or replace a Windows service and is not approved for production. The exact uninstalled candidate identity is `RisePalsServiceHostCandidate`; the existing `RisePalsApp`/WinSW and `RisePalsProxy` services remain untouched, Stopped and Disabled.
+This directory contains the RP-TURN-019-R3-R1 **repository-only** prototype selected by D-027 plus the RP-TURN-019-R4 repository-only candidate rehearsal contract. Neither turn installs or replaces a Windows service, and neither is approved for production. The exact uninstalled candidate identity is `RisePalsServiceHostCandidate`; the existing `RisePalsApp`/WinSW and `RisePalsProxy` services remain untouched, Stopped and Disabled.
 
 ## Layout
 
@@ -8,8 +8,11 @@ This directory contains the RP-TURN-019-R3-R1 **repository-only** prototype sele
 - `RisePals.ServiceHost.Tests/` — Microsoft MSTest deterministic, private-IPC and Windows Job Object tests.
 - `fixtures/node-service-fixture.mjs` — synthetic Node fixture with readiness, fixed three-chunk work, drain, crash and failure modes.
 - `service-host-dependency-manifest.json` — reviewed tool/package inventory and prototype executable evidence.
+- `candidate-rehearsal-contract.json` — exact future candidate identity/SID, executable/schema/manifest pins, nonce-scoped paths, ACLs, timing, loopback and 23-stage fail-closed rehearsal/cleanup contract.
 
 Generated `bin`, `obj`, publish directories, SDK files and NuGet caches are ignored and must not be committed.
+
+The R4 PowerShell harness lives under `scripts/infra/`. Its plan and deterministic suite are non-elevated and perform no service or `C:\RisePals` mutation. The parent never captures native output; the child keeps temporary stdout/stderr separate, deletes them unread and returns only a fresh nonce/head/script-hash/digest-bound structured result. The future live path requires a separately supplied exact-head authorization identifier and is never reached by repository tests. `candidate-rehearsal-probe.mjs` accepts only `127.0.0.1:3100` and writes a bounded structured result for the synthetic fixture; it has no credential, user-data or public-network path.
 
 ## Architecture
 

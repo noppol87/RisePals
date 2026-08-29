@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "rise-pals-candidate-rehearsal-contract-v1",
+  "repository": {
+    "branch": "agent/windows-vps-infrastructure-readiness",
+    "mainCommit": "cd45e7356e902afbf3aafec0bdf8286dbccff7ad"
+  },
+  "candidate": {
+    "serviceName": "RisePalsServiceHostCandidate",
+    "displayName": "Rise Pals Service Host Candidate",
+    "virtualAccount": "NT SERVICE\\RisePalsServiceHostCandidate",
+    "serviceSid": "S-1-5-80-146351416-2890358921-3199710220-422177557-4020786491",
+    "serviceType": "SERVICE_WIN32_OWN_PROCESS",
+    "startMode": "demand",
+    "retainedServices": ["RisePalsApp", "RisePalsProxy"]
+  },
+  "prototype": {
+    "executableName": "RisePals.ServiceHost.exe",
+    "executableLength": 73606931,
+    "executableSha256": "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f",
+    "authenticode": "NotSigned",
+    "schemaRelativePath": "infra/windows-service-host/RisePals.ServiceHost/service-host-config.schema.json",
+    "schemaLength": 1672,
+    "schemaSha256": "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
+    "dependencyManifestRelativePath": "infra/windows-service-host/service-host-dependency-manifest.json",
+    "dependencyManifestLength": 5116,
+    "dependencyManifestSha256": "6603b54d0abe79711b700b992bbff5de85ea04e74d6fc5d8ff245a3599b138d7"
+  },
+  "paths": {
+    "root": "C:\\RisePals",
+    "stagingRoot": "C:\\RisePals\\staging",
+    "rehearsalRoot": "C:\\RisePals\\rehearsal",
+    "logRoot": "C:\\RisePals\\logs\\service-host-candidate",
+    "taskNameTemplate": "candidate-{nonce}",
+    "stagedHostTemplate": "C:\\RisePals\\staging\\candidate-{nonce}\\host\\RisePals.ServiceHost.exe",
+    "stagedRuntimeTemplate": "C:\\RisePals\\staging\\candidate-{nonce}\\runtime",
+    "stagedReleaseRootTemplate": "C:\\RisePals\\staging\\candidate-{nonce}\\release-root",
+    "stagedReleaseTemplate": "C:\\RisePals\\staging\\candidate-{nonce}\\release-root\\synthetic-fixture",
+    "configDirectoryTemplate": "C:\\RisePals\\rehearsal\\candidate-{nonce}\\config",
+    "configPathTemplate": "C:\\RisePals\\rehearsal\\candidate-{nonce}\\config\\service-host-config.json",
+    "structuredEvidenceDirectoryTemplate": "C:\\RisePals\\rehearsal\\candidate-{nonce}\\evidence",
+    "logDirectoryTemplate": "C:\\RisePals\\logs\\service-host-candidate\\candidate-{nonce}"
+  },
+  "timing": {
+    "startTimeoutSeconds": 15,
+    "drainTimeoutSeconds": 15,
+    "exitTimeoutSeconds": 5,
+    "preshutdownTimeoutMilliseconds": 30000,
+    "preshutdownMarginMilliseconds": 10000,
+    "healthyResetSeconds": 30,
+    "restartLimit": 2,
+    "initialRestartDelayMilliseconds": 1000,
+    "maximumRestartDelayMilliseconds": 4000,
+    "retryAfterSeconds": 5
+  },
+  "network": {
+    "address": "127.0.0.1",
+    "candidatePort": 3100,
+    "relevantPorts": [80, 443, 2019, 3100, 8080, 8443],
+    "publicListenersAllowed": false
+  },
+  "aclPlan": [
+    {
+      "pathKind": "immutable-runtime",
+      "rights": {
+        "SYSTEM": "FullControl",
+        "BUILTIN\\Administrators": "FullControl",
+        "NT SERVICE\\RisePalsServiceHostCandidate": "ReadAndExecute"
+      }
+    },
+    {
+      "pathKind": "immutable-release",
+      "rights": {
+        "SYSTEM": "FullControl",
+        "BUILTIN\\Administrators": "FullControl",
+        "NT SERVICE\\RisePalsServiceHostCandidate": "ReadAndExecute"
+      }
+    },
+    {
+      "pathKind": "configuration",
+      "rights": {
+        "SYSTEM": "FullControl",
+        "BUILTIN\\Administrators": "FullControl",
+        "NT SERVICE\\RisePalsServiceHostCandidate": "ReadAndExecute"
+      }
+    },
+    {
+      "pathKind": "mutable-log",
+      "rights": {
+        "SYSTEM": "FullControl",
+        "BUILTIN\\Administrators": "FullControl",
+        "NT SERVICE\\RisePalsServiceHostCandidate": "Modify"
+      }
+    }
+  ],
+  "rehearsalStages": [
+    "preflight",
+    "stage-immutable-inputs",
+    "apply-exact-acls",
+    "validate-candidate-config",
+    "create-own-process-service",
+    "configure-service-sid",
+    "configure-preshutdown-timeout",
+    "start-and-ready",
+    "stream-first-byte",
+    "direct-stop",
+    "reject-new-work-during-drain",
+    "complete-three-chunk-stream",
+    "duplicate-stop",
+    "verify-stop-checkpoints",
+    "verify-preshutdown-checkpoints",
+    "verify-graceful-zero-job",
+    "verify-timeout-cleanup",
+    "verify-bounded-crash-restart",
+    "verify-persistent-failure-terminal",
+    "verify-independent-proxy-restart",
+    "verify-process-ownership",
+    "cleanup",
+    "final-read-only-proof"
+  ],
+  "sanitizedFailureCodes": [
+    "preflight-rejected",
+    "stage-inputs-failed",
+    "acl-plan-rejected",
+    "config-validation-failed",
+    "service-create-failed",
+    "service-sid-failed",
+    "preshutdown-config-failed",
+    "readiness-timeout",
+    "stream-synchronization-failed",
+    "direct-stop-failed",
+    "drain-rejection-failed",
+    "stream-completion-failed",
+    "duplicate-stop-failed",
+    "checkpoint-proof-failed",
+    "preshutdown-proof-failed",
+    "owned-job-not-empty",
+    "timeout-cleanup-failed",
+    "restart-bound-failed",
+    "terminal-failure-bound-failed",
+    "proxy-independence-failed",
+    "process-ownership-failed",
+    "cleanup-failed",
+    "final-proof-failed"
+  ],
+  "cleanup": {
+    "candidateMustBeStopped": true,
+    "candidateMustBeDisabled": true,
+    "candidatePidMustBeZero": true,
+    "ownedJobMustBeEmpty": true,
+    "retainedServicesMustRemainStoppedDisabled": true,
+    "removeOnlyTaskCreatedPaths": true,
+    "refuseUnexpectedOrNonemptyPath": true,
+    "preserveOnlySanitizedStructuredEvidence": true
+  },
+  "authorization": {
+    "repositoryOnly": true,
+    "liveExecutionAuthorized": false,
+    "liveExecutionRequiresSeparateExactHeadAuthorization": true,
+    "productionApproved": false
+  }
+}

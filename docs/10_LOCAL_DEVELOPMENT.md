@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R3-R1 repository-owned .NET Windows service-host correction complete pending Project Codex review; unsigned, uninstalled and repository-only; no real users/data, production database, CI or deployment  
+**Status:** RP-TURN-019-R4 repository-only candidate rehearsal harness complete pending Project Codex review; no live/elevated path ran, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
 **Checked:** 2026-08-28
 
 ## Confirmed host role and separation rule
@@ -975,6 +975,28 @@ Fifty-one .NET tests cover graceful and timeout stop, duplicate stop, Preshutdow
 Two clean self-contained publishes produced identical two-file inventories. `RisePals.ServiceHost.exe` is 73,606,931 bytes with SHA-256 `04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f`; `service-host-config.schema.json` is 1,672 bytes with SHA-256 `64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32`. The executable is NotSigned. No binary/publish directory is committed, and unsigned host installation remains prohibited.
 
 R3-R1 does not authorize a host installation, replacement service, UAC, registry change, `C:\RisePals` access, listener, firewall/DNS/certificate mutation, public traffic, reboot, deployment or RP-TURN-020. The two existing services must remain Stopped/Disabled.
+
+### RP-TURN-019-R4 repository-only candidate rehearsal harness
+
+R4 pins the exact accepted R3-R1 executable, configuration schema and dependency manifest in `candidate-rehearsal-contract.json`. The candidate stays `RisePalsServiceHostCandidate` under `NT SERVICE\RisePalsServiceHostCandidate`; deterministic SHA-1 service-SID derivation produces `S-1-5-80-146351416-2890358921-3199710220-422177557-4020786491`, matching the read-only native `sc.exe showsid` result. The future service is Own Process with Manual initial start. Its 30-second per-service Preshutdown timeout has a 10-second margin over the complete 15-second drain plus 5-second exit bound; the global service timeout is not changed.
+
+All future paths include one fresh 128-bit nonce and resolve only beneath exact `C:\RisePals\staging`, `C:\RisePals\rehearsal` or `C:\RisePals\logs\service-host-candidate` roots. Immutable staged runtime/release/configuration path classes grant only SYSTEM/Administrators FullControl and the candidate ReadAndExecute; the candidate log class grants only SYSTEM/Administrators FullControl and candidate Modify. Plan/preflight rejects a candidate-name collision, retained-service drift, public/relevant listener, process beneath `C:\RisePals`, unexpected/reparse path, unexpected ACE or executable/schema/manifest pin mismatch. `.env.local` is checked only through Git ignore/tracked state and is never opened.
+
+The launcher parent captures no native stream and never treats stderr text as status. Its child redirects stdout and stderr to different nonce-private temporary files, observes only their presence and the explicit child exit code, deletes both without parsing and writes one atomic structured result. Validation binds the nonce, exact head, launcher-script SHA-256, exact UTC interval, explicit exit code and canonical result digest; malformed, partial, stale, replayed and provenance-mismatched results fail closed. The result contains only fixed stages/failure codes and final counts/state—never raw output, environment values or request/user data.
+
+The versioned contract assigns one sanitized failure code to each of 23 future stages: immutable staging/ACL/config/service/Preshutdown preparation; loopback readiness; first-byte-synchronized three-chunk stream; direct/repeated Stop; fixed 503/`Retry-After`; Stop/Preshutdown checkpoint progress; graceful zero-Job exit; timeout cleanup; finite crash restart; persistent terminal failure; proxy independence; process ownership; and exact cleanup/final proof. The synthetic Node fixture and probe are loopback-only at `127.0.0.1:3100`. Cleanup refuses uncertain/reparse/unexpected nonempty targets, requires candidate Stopped/Disabled/PID 0 plus an empty Job first, and limits deletion to nonce-created candidate artifacts.
+
+R4 repository verification is non-elevated. It sources pure contract/result functions and a deterministic PowerShell 5.1 suite; no test calls Live mode, `Start-Service`, `Stop-Service`, service creation/deletion or a `C:\RisePals` write. The separately gated live sequence exists for independent source review, but was not invoked and still requires a separate exact-head Project Codex authorization.
+
+| R4 repository-only verification | Result |
+|---|---|
+| exact candidate/SID/artifact/ACL/path contract | PASS — accepted executable/schema/manifest pins, service SID, Own Process/Manual policy, three-principal ACLs, nonce paths and Preshutdown margin validated |
+| deterministic harness suite | PASS — plan equality/zero service mutation, repository/host preflight failures, cleanup containment/idempotency plus unexpected nested-child refusal, structured result success/nonzero/stderr/malformed/stale/replay/partial/digest cases and all 23 modeled failure stages wired to their exact sanitized classifications |
+| PowerShell compatibility | PASS — every infrastructure PowerShell script parses under the Windows PowerShell 5.1 AST; the harness suite contains no reachable live/elevated/service mutation command |
+| focused Vitest harness tests | PASS — 1 file / 8 tests, including exact live-source fail-closed wiring and a real loopback named-pipe/HTTP drain fixture that preserves three accepted chunks and rejects concurrent new work with fixed 503/`Retry-After` |
+| host mutation | PASS — no UAC, candidate install/start/stop/delete, `C:\RisePals` write, listener, firewall, DNS, certificate, reboot or deployment action occurred |
+
+Complete aggregate/browser/database/security results are recorded in the R4 turn handoff after the exact clean commit. The accepted R3-R1 service-host test/publish evidence remains separately identified and is not relabeled as a live R4 result.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

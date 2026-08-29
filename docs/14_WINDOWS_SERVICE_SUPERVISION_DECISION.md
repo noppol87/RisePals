@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
-**Turn:** RP-TURN-019-R3-R1  
-**Status:** Option B selected for repository-only prototype; bounded service-identity, startup-cleanup and evidence correction complete pending Project Codex review  
+**Turn:** RP-TURN-019-R4  
+**Status:** Option B repository-only prototype retained; deterministic candidate rehearsal harness complete pending Project Codex review, with no live/elevated execution  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -134,7 +134,7 @@ Options A, C and E are rejected for the reasons above. Ease of testing is not th
 
 ## Implemented repository prototype and separately bounded rehearsal
 
-Option B remains split into two explicit checkpoints. Only the first is authorized and implemented:
+Option B remains split into explicit repository review and live-authorization checkpoints. The service host and repository-only candidate harness are implemented; no candidate installation or live rehearsal is authorized:
 
 ### Repository-only prototype — implemented pending review
 
@@ -147,6 +147,18 @@ Option B remains split into two explicit checkpoints. Only the first is authoriz
 - Produced a versioned dependency/inventory/checksum manifest. The executable remains NotSigned and is prohibited from host installation.
 
 R3-R1 passed 51 .NET tests, including six Node-fixture tests and fifteen focused correction regressions, and two byte-identical clean publishes. The executable is 73,606,931 bytes with SHA-256 `04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f`. This is repository evidence, not a live SCM/host claim.
+
+### Repository-only candidate rehearsal harness — implemented pending review
+
+RP-TURN-019-R4 wraps the exact accepted unsigned R3-R1 executable in a deterministic future-run contract without installing or launching it. The versioned contract fixes candidate service `RisePalsServiceHostCandidate`, virtual account `NT SERVICE\RisePalsServiceHostCandidate`, derived SID `S-1-5-80-146351416-2890358921-3199710220-422177557-4020786491`, Own Process/Manual service settings and a 30-second per-service Preshutdown timeout. That timeout retains a documented 10-second margin above the complete 15-second drain plus 5-second exit bound and never changes global `ServicesPipeTimeout`.
+
+Every future artifact is scoped under a fresh 128-bit nonce. Candidate runtime/fixture bytes use task-created immutable staging; configuration and structured temporary evidence are separate under `C:\RisePals\rehearsal`; sanitized rotated logs are separate under `C:\RisePals\logs\service-host-candidate`. Exact ACL classes contain only SYSTEM and Administrators with FullControl plus the candidate service identity with ReadAndExecute for immutable runtime/release/configuration or Modify for its log directory. The plan rejects path escape, reparse points, unexpected children/ACLs/listeners/processes/services and any candidate executable, schema or dependency-manifest pin mismatch.
+
+The future parent does not capture native streams or infer failure from stderr. Its child keeps stdout and stderr in separate nonce-private temporary files, determines native status only from the process exit code, deletes both captures without parsing them and emits one atomic structured result. Result validation binds exact nonce, repository head, launcher-script SHA-256, UTC freshness, explicit exit code and canonical digest; a nonce is single-use, malformed/partial/stale/replayed/provenance-mismatched results fail closed and no raw service output enters review evidence.
+
+The contract enumerates 23 ordered stages covering start/readiness, first-byte-synchronized three-chunk work, direct/repeated Stop, fixed 503/`Retry-After`, Stop/Preshutdown checkpoints, zero-Job graceful exit, timeout classification/cleanup, crash/restart bounds, persistent terminal failure, proxy independence, process ownership and exact cleanup/final proof. Every stage has one fixed sanitized failure code. A loopback-only synthetic fixture and structured probe support those future assertions without application, user or production data. The exact cleanup contract first requires candidate Stopped/Disabled/PID 0 and Job emptiness, then removes only nonce-created candidate service/config/log/staging/canary/evidence objects; uncertain, reparse or unexpectedly nonempty paths stop cleanup.
+
+R4 repository tests exercise deterministic plan equality, service/hash/path/ACL/listener rejection, result success/nonzero/stderr separation, malformed/stale/replay/partial rejection, recursive cleanup inventory containment/idempotency, exact sanitized mapping for all 23 failure stages and PowerShell 5.1 AST compatibility. The elevated child repeats the exact clean-head/main/branch and ignored/untracked `.env.local` preflight before any future staging. Tests statically and dynamically prove that no test invokes the Live mode, elevation, service control or `C:\RisePals` mutation. A live attempt still requires a separate Project Codex authorization naming the exact reviewed R4 head. Existing `RisePalsApp` and `RisePalsProxy` definitions remain untouched, Stopped and Disabled.
 
 ### Separately authorized host rehearsal — not authorized
 

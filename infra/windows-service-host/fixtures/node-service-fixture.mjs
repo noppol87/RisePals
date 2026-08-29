@@ -1,4 +1,5 @@
 import net from "node:net";
+import http from "node:http";
 import process from "node:process";
 
 const pipeArgumentIndex = process.argv.indexOf("--rise-pals-drain-pipe");
@@ -11,6 +12,16 @@ if (!pipeName) {
 }
 
 const mode = process.argv[2] ?? "normal";
+const portArgumentIndex = process.argv.indexOf("--fixture-http-port");
+const fixtureHttpPort =
+  portArgumentIndex >= 0 ? Number.parseInt(process.argv[portArgumentIndex + 1] ?? "", 10) : 0;
+if (
+  portArgumentIndex >= 0 &&
+  (!Number.isSafeInteger(fixtureHttpPort) || fixtureHttpPort < 1024 || fixtureHttpPort > 65_535)
+) {
+  process.stderr.write("fixture HTTP port invalid\n");
+  process.exit(64);
+}
 if (mode === "startup-failure") {
   process.stderr.write("controlled startup failure\n");
   process.exit(70);
@@ -20,6 +31,76 @@ let state = "Ready";
 let activeCount = 0;
 let drainNonce = "";
 const socket = net.createConnection(`\\\\.\\pipe\\${pipeName}`);
+let server;
+
+function finishAcceptedWork() {
+  activeCount -= 1;
+  if (state === "Draining" && activeCount === 0) {
+    state = "Drained";
+    send(acknowledgement(drainNonce, "Drained"));
+  }
+}
+
+function writeThreeChunks(response) {
+  activeCount += 1;
+  response.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  ["chunk-1", "chunk-2", "chunk-3"].forEach((chunk, index) => {
+    setTimeout(
+      () => {
+        response.write(`${chunk}\n`);
+        if (index === 2) {
+          response.end();
+          finishAcceptedWork();
+        }
+      },
+      100 * (index + 1),
+    );
+  });
+}
+
+function startLoopbackServer(onListening) {
+  if (fixtureHttpPort === 0) {
+    onListening();
+    return;
+  }
+  server = http.createServer((request, response) => {
+    if (request.url === "/health/ready" && request.method === "GET") {
+      response.writeHead(state === "Ready" ? 200 : 503, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        ...(state === "Ready" ? {} : { "Retry-After": "5" }),
+      });
+      response.end(JSON.stringify({ status: state === "Ready" ? "ready" : "draining" }));
+      return;
+    }
+    if (request.url === "/health/stream" && request.method === "GET") {
+      if (state !== "Ready") {
+        response.writeHead(503, {
+          "Content-Type": "application/json; charset=utf-8",
+          "Cache-Control": "no-store",
+          "Retry-After": "5",
+        });
+        response.end(JSON.stringify({ status: "draining" }));
+        return;
+      }
+      writeThreeChunks(response);
+      return;
+    }
+    if (request.url === "/fixture/crash" && request.method === "POST") {
+      response.writeHead(202, { "Cache-Control": "no-store" });
+      response.end();
+      setImmediate(() => process.exit(71));
+      return;
+    }
+    response.writeHead(404, { "Cache-Control": "no-store" });
+    response.end();
+  });
+  server.on("error", () => process.exit(73));
+  server.listen(fixtureHttpPort, "127.0.0.1", onListening);
+}
 
 function send(message) {
   socket.write(`${JSON.stringify(message)}\n`);
@@ -35,11 +116,13 @@ socket.once("connect", () => {
     return;
   }
 
-  send(acknowledgement("", "Ready"));
-  if (mode === "output-fixture") {
-    process.stdout.write("synthetic-standard-output\n");
-    process.stderr.write("synthetic-standard-error\n");
-  }
+  startLoopbackServer(() => {
+    send(acknowledgement("", "Ready"));
+    if (mode === "output-fixture") {
+      process.stdout.write("synthetic-standard-output\n");
+      process.stderr.write("synthetic-standard-error\n");
+    }
+  });
 });
 
 let buffered = "";
@@ -72,13 +155,16 @@ socket.on("data", (chunk) => {
 
       const nonce = mode === "stale-ack" ? "00000000000000000000000000000000" : drainNonce;
       send(acknowledgement(nonce, "Draining"));
-      if (activeCount === 0) {
+      if (activeCount === 0 && mode !== "never-drain") {
         state = "Drained";
         send(acknowledgement(nonce, "Drained"));
       }
     } else if (message.state === "Stopped" && message.nonce === drainNonce && state === "Drained") {
+      if (mode === "never-exit") return;
       state = "Stopped";
       send(acknowledgement(drainNonce, "Stopped"));
+      if (server) server.close();
+      setTimeout(() => process.exit(0), 20);
     }
   }
 });
@@ -98,11 +184,7 @@ process.stdin.on("data", (text) => {
           () => {
             process.stdout.write(`${chunk}\n`);
             if (index === 2) {
-              activeCount -= 1;
-              if (state === "Draining" && activeCount === 0) {
-                state = "Drained";
-                send(acknowledgement(drainNonce, "Drained"));
-              }
+              finishAcceptedWork();
             }
           },
           40 * (index + 1),

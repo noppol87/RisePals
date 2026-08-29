@@ -186,6 +186,8 @@ describe("Windows infrastructure contract", () => {
         name.endsWith(".ps1") &&
         name !== "common.ps1" &&
         name !== "rehearsal-launcher-result.ps1" &&
+        name !== "candidate-rehearsal-contract.ps1" &&
+        name !== "candidate-rehearsal-result.ps1" &&
         name !== "Invoke-RisePalsLauncherFixture.ps1" &&
         !name.startsWith("Get-") &&
         !name.startsWith("Test-"),
