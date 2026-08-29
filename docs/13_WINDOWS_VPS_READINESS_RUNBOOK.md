@@ -200,7 +200,7 @@ Project Codex Accepted the final safe state and exact residue cleanup:
 - repository/head/index remained clean and PR #17 remained Open, Draft and unmerged;
 - no reboot or public deployment mutation occurred.
 
-RP-TURN-019 remains Partial and Decision required. `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md` recommends a minimal repository-owned self-contained .NET 10 LTS service-aware host that preserves direct `Stop-Service`; two-slot Caddy blue/green drain is fallback only with an explicit acceptance-contract change. No replacement is selected or implemented. Keep the existing WinSW services/configuration Stopped and Disabled as rollback evidence until a separately authorized candidate passes; then remove them in a separate exact cleanup.
+RP-TURN-019-R3 selects Option B only for a repository-owned prototype pending Project Codex review. `infra/windows-service-host/` contains the minimal self-contained .NET 10 LTS service-aware host that models direct `Stop-Service`; two-slot Caddy blue/green drain remains unauthorized fallback only with an explicit acceptance-contract change. The prototype is unsigned, uninstalled and has not contacted SCM or `C:\RisePals`. Keep the existing WinSW services/configuration Stopped and Disabled as rollback evidence until a separately authorized signed candidate passes a later live proof; then remove them only in a separate exact cleanup.
 
 ## Health and failure evidence
 
@@ -248,7 +248,7 @@ The historical cleanup stops and disables both services, deletes the canary, the
 
 ## Reboot checkpoint and remaining launch blockers
 
-This turn cannot reboot. A reboot rehearsal is not meaningful under the rejected WinSW supervision. Under the R2 recommendation it becomes meaningful only after a separately authorized service-aware host proves direct stop, full stream completion, new-work rejection, timeout cleanup, crash/restart, no-orphan and explicit preshutdown behavior. Project Codex must first accept those non-reboot results and Jeff must then authorize one controlled reboot with exact affected services, downtime and recovery commands. The final state remains both services Stopped and Disabled.
+This turn cannot reboot. A reboot rehearsal is not meaningful under the rejected WinSW supervision. The R3 repository prototype does not change that boundary: a separately authorized, signed service-aware-host candidate must first prove direct stop, full stream completion, new-work rejection, timeout cleanup, crash/restart, no-orphan and explicit preshutdown behavior live. Project Codex must accept those non-reboot results and Jeff must then authorize one controlled reboot with exact affected services, downtime and recovery commands. The final state remains both services Stopped and Disabled.
 
 The existing versioned checkpoint scripts do not reboot the host themselves and are not approved for reuse with a replacement supervisor without review. Any future checkpoint must require the exact approved source commit and candidate service definition, write only sanitized evidence, prove Windows booted after that checkpoint, verify preshutdown and automatic recovery plus local health, and restore the Stopped/Disabled/no-canary final state.
 

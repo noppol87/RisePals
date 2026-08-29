@@ -1,13 +1,13 @@
 # Windows Service Supervision Decision Pack
 
-**Turn:** RP-TURN-019-R2  
-**Status:** Decision required; repository-only analysis  
+**Turn:** RP-TURN-019-R3  
+**Status:** Option B selected for repository-only prototype; implementation complete pending Project Codex review  
 **Decision owner:** Project Codex and Jeff  
-**Sources verified:** 2026-08-28
+**Sources verified:** 2026-08-29
 
 ## Scope and accepted recovery facts
 
-This decision pack selects no software and authorizes no host mutation. It compares supervision architectures for the confirmed Windows Server 2022 target after the RP-TURN-019 live recovery was Accepted.
+This decision pack records Jeff/Project Codex's selection of Option B only for a repository-owned prototype and authorizes no host mutation. It retains the original comparison for the confirmed Windows Server 2022 target after the RP-TURN-019 live recovery was Accepted.
 
 The accepted safe state is:
 
@@ -74,24 +74,24 @@ WinSW documents that `stopexecutable` plus `stoparguments` launches a separate s
 
 ## Option B — Repository-owned service-aware Windows host
 
-**Recommended architecture.** Build one deliberately small, self-contained .NET 10 LTS Windows service executable whose only job is to supervise the pinned Node executable and translate SCM lifecycle events into the existing private drain contract.
+**Prototype-selected architecture.** R3 builds one deliberately small, self-contained .NET 10 LTS Windows service executable whose only job is to supervise the pinned Node executable and translate SCM lifecycle events into a versioned private drain contract.
 
 The candidate must:
 
 - use `ServiceBase` or an equivalent explicit SCM implementation, register stop and preshutdown handling, report Stop Pending immediately, and advance bounded checkpoints/wait hints while a worker performs drain;
 - launch only the reviewed absolute Node path and fixed standalone arguments without a shell or user-controlled command text;
-- write the existing ACL-protected local drain state so Node stops admitting work, then wait for in-flight count zero or the fixed deadline;
+- use a versioned ACL-protected Windows named pipe with no TCP/public route so Node stops admitting work, then wait for in-flight count zero or the fixed deadline;
 - assign Node and descendants to a Windows Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, prohibit breakaway and close the job only after graceful completion or an explicit timeout;
 - return Stopped only after the whole job is empty, or return a fixed failure classification after the timeout cleanup is verified;
 - distinguish planned stop from unexpected child exit and allow only a finite reviewed restart schedule;
 - run as the existing virtual service account with exact release-read/control-write/log-write rights and no public control endpoint;
 - emit bounded Event Log or protected JSON evidence that excludes commands, environment values, secrets and user data.
 
-Microsoft's .NET Windows Service guidance supports worker/service hosting, single-file publishing and Windows Event Log. `ServiceBase.RequestAdditionalTime` passes wait hints during `OnStop`, but the candidate must not assume the generic host alone proves the complete SCM contract. Preshutdown registration, checkpoint progression, child-job ownership and timeout behavior require focused Windows integration tests.
+Microsoft's .NET Windows Service guidance supports worker/service hosting and single-file publishing, but the generic host does not prove this complete SCM contract. R3 therefore isolates the minimal native dispatcher/handler/status adapter needed for Stop, Shutdown and Preshutdown. Checkpoint progression, child-job ownership and timeout behavior remain independently tested.
 
-**Runtime and supply-chain consequence:** no .NET 10 runtime or SDK was established by the accepted host inventory. A self-contained artifact avoids adding a shared target-host runtime, but the build requires a new pinned .NET 10 LTS SDK/toolchain and package lock. .NET 10 is in active LTS support through 2028-11-14 as verified on 2026-08-28. Repository ownership improves inspectability but transfers patching, secure process-control design and release-signing responsibility to Rise Pals. The prototype must verify official SDK checksums/signatures, produce a source/SDK/package/SBOM digest chain and keep Authenticode signing as a production blocker unless an approved signing identity exists.
+**Runtime and supply-chain consequence:** R3 verified official portable SDK 10.0.400 and runtime/security patch 10.0.11, uses package locks and publishes self-contained so no target-host shared runtime is assumed. .NET 10 is in active LTS support through 2028-11-14. Repository ownership improves inspectability but transfers patching, secure process-control design and release-signing responsibility to Rise Pals. The dependency manifest records the source/SDK/package/publish digest chain. Authenticode signing remains a production blocker because no approved signing identity exists.
 
-**Failure modes and proportionality:** deadlock during stop, incorrect checkpoint timing, child escape from the job, drain-state races and accidental command/environment logging are the main risks. The host is proportionate only if it stays single-purpose and small: no HTTP administration, updater, deployment engine, secret store, proxy or application logic. Repeated wrapper/recovery fragility justifies testing this bounded owned component, not building a general supervisor.
+**Failure modes and proportionality:** deadlock during stop, incorrect checkpoint timing, child escape from the job, drain races and accidental command/environment logging are the main risks. R3 counters these with duplicate-stop sharing, bounded deadlines, monotonic checkpoints, native suspended creation before Job assignment, an exact DACL/nonce protocol and redacted rotated evidence. The host remains single-purpose: no HTTP administration, updater, deployment engine, secret store, proxy or application logic.
 
 **Acceptance-contract implication:** preserves the direct `Stop-Service RisePalsApp` gate. No contract weakening is proposed.
 
@@ -123,29 +123,31 @@ Only candidates with a recent stable release and provenance-verifiable official 
 
 NSSM, PM2 and Task Scheduler were not scored because this review did not establish both an actively maintained current Windows-service release and a primary-source contract meeting the hard gates. They are not fallback assumptions.
 
-## Required decision
+## Recorded prototype decision
 
-Project Codex and Jeff should choose one of these bounded directions:
+Project Codex and Jeff selected the first bounded direction for repository-only implementation:
 
-1. **Recommended — Option B:** authorize a repository-owned, self-contained .NET 10 LTS service-host prototype and non-elevated deterministic tests first, preserving the direct SCM stop contract.
-2. **Fallback — Option D:** authorize blue/green Caddy drain only after explicitly changing the acceptance contract so bare `Stop-Service` is not guaranteed to drain. Prefer pairing it with a later service-aware host rather than treating it as crash/reboot supervision.
+1. **Selected for prototype — Option B:** repository-owned, self-contained .NET 10 LTS service host and non-elevated deterministic tests, preserving the direct SCM stop contract.
+2. **Not authorized — Option D:** blue/green Caddy drain would still require explicit authorization and an acceptance-contract change if used alone.
 
 Options A, C and E are rejected for the reasons above. Ease of testing is not the selection basis; direct SCM correctness, response preservation and bounded process ownership are.
 
-## Proposed bounded next implementation and rehearsal
+## Implemented repository prototype and separately bounded rehearsal
 
-If Option B is approved, the next turn should be split into two explicit checkpoints:
+Option B remains split into two explicit checkpoints. Only the first is authorized and implemented:
 
-### Repository-only prototype
+### Repository-only prototype — implemented pending review
 
-- add a minimal Windows-only service-host project, pinned .NET 10 LTS SDK declaration, locked packages, official provenance record and deterministic self-contained build;
-- define typed states for Starting, Running, Draining, Stop Pending, Stopped, Timed Out and Failed;
-- add fake-SCM/fake-child tests for stop/replay, checkpoint monotonicity, exact deadline, finite restart, job cleanup, redaction and denied dynamic command/environment input;
-- add Windows integration tests with a synthetic streaming child and loopback-only listener; no UAC, service installation or host path mutation;
-- keep Caddy, Node, release manifests, health contracts and existing application behavior unchanged;
-- require audits, SBOM/inventory, signatures/checksums where available and all current repository/security gates.
+- Added the minimal Windows-only service-host project with SDK 10.0.400/runtime 10.0.11, locked Microsoft packages, official provenance record and deterministic self-contained build.
+- Added typed SCM/start/stop/drain lifecycle, monotonic checkpoints and bounded graceful/timeout outcomes.
+- Added fake-adapter and Windows integration tests for stop/replay, checkpoint monotonicity, exact deadlines, finite restart, redaction, suspended-before-Job assignment and descendant cleanup.
+- Added a DACL-restricted, remote-rejecting named pipe and a synthetic Node three-chunk fixture without a TCP/public listener.
+- Kept Caddy, installed WinSW, releases, health contracts and application behavior unchanged.
+- Produced a versioned dependency/inventory/checksum manifest. The executable remains NotSigned and is prohibited from host installation.
 
-### Separately authorized host rehearsal
+R3 passed 37 .NET tests and two byte-identical clean publishes. The executable SHA-256 is `be1c7c9ccee0920663de7504bcc558b8d1c50204d846c9d4486c5a5ee95f0191`. This is repository evidence, not a live SCM/host claim.
+
+### Separately authorized host rehearsal — not authorized
 
 - install the candidate under a **new service name** while both existing WinSW services remain Stopped/Disabled;
 - use only synthetic loopback endpoints and an immutable reviewed release;
@@ -171,9 +173,9 @@ A reboot rehearsal becomes meaningful only after the recommended host proves dir
 
 ## Remaining uncertainties
 
-- Whether a minimal .NET 10 implementation can expose and verify preshutdown plus checkpoint behavior without dropping below the desired managed abstraction.
+- Live proof of the explicit native Preshutdown/checkpoint adapter under SCM; ordinary Shutdown alone is insufficient.
 - Exact stop and preshutdown deadlines that preserve the longest permitted Rise Pals response without delaying Windows shutdown unreasonably.
-- Whether Node descendants always remain in the host's Job Object under the final standalone launch path and Windows account policy.
+- Live confirmation that suspended-before-assignment Node and descendants remain in the host Job Object under the final virtual service account policy; repository Windows tests pass.
 - Authenticode ownership for the repository-built host and the approved SDK/package update cadence.
 - Caddy connection behavior during application-side 503 drain and during a future two-slot reload under long HTTP streaming.
 - Production DNS/TLS, public firewall, monitoring, off-host backup, database/identity/privacy suitability, CI/deployment transport and operator access; none is resolved by supervision selection.

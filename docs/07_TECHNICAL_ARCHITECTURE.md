@@ -255,7 +255,7 @@ The intended production application target is this Windows Server 2022 VPS. This
 
 | Approach | Strength for Rise Pals | Trade-off / validation need | Status |
 |---|---|---|---|
-| Native Node standalone + Caddy + repository-owned service-aware host | Preserves the reviewed Caddy/Next.js boundary and can implement direct SCM Stop Pending, private drain, bounded wait and process-tree ownership explicitly | Introduces a pinned .NET 10 LTS build/toolchain, repository patch/signing ownership and a Windows integration surface that must pass before any host use | RP-TURN-019-R2 recommendation; Decision required, not implemented |
+| Native Node standalone + Caddy + repository-owned service-aware host | Preserves the reviewed Caddy/Next.js boundary and implements direct SCM Stop Pending, private drain, bounded wait and process-tree ownership explicitly | Introduces a pinned .NET 10 LTS build/toolchain, repository patch/signing ownership and a Windows integration surface that must pass before any host use | D-027 Option B selected for the R3 repository-only prototype; deterministic tests pass, but unsigned/uninstalled and not production-accepted |
 | Two-slot Native Node + Caddy blue/green drain | Preserves planned-release streams by switching new traffic before retiring the old loopback slot; strong rollback path | Not standalone supervision; bare `Stop-Service`, crash and reboot bypass drain unless paired with a service-aware host | R2 fallback only with an explicit acceptance-contract change |
 | Native Node + IIS, URL Rewrite, ARR and HttpPlatformHandler | Microsoft-native administration, mature TLS/IIS tooling, server farms and health checks | Adds Windows roles/modules; current official contract does not prove Next.js streaming, direct SCM drain, preshutdown or whole-process-tree cleanup | Rejected for the MVP |
 | Native Node + WinSW or another reviewed wrapper | Low initial integration burden; Shawl is a more current provenance-verifiable wrapper candidate | WinSW failed the accepted direct-stop gate; Shawl documents Ctrl-C then forced timeout rather than the required private drain/checkpoint contract | Rejected as production recommendation |
@@ -264,7 +264,7 @@ The intended production application target is this Windows Server 2022 VPS. This
 
 Next.js remains suitable because its official self-hosting path supports a Node server, App Router streaming and a reverse proxy. RP-TURN-019 selects `output: "standalone"` for its versioned rehearsal artifacts. An exact committed tree is exported to isolated staging, installed/built without ignored development files and inventoried by SHA-256 before promotion. `public` and `.next/static` accompany `server.js`; only `.next/cache` may be a junction to shared mutable state.
 
-The complete bounded Windows operating history is in `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. The comparison, primary sources, scoring, recommendation, fallback and proposed next proof are in `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md`. R2 is a Decision Request, not production approval, and does not silently select a supervisor, deployment authentication, public certificate automation or firewall exposure.
+The complete bounded Windows operating history is in `docs/13_WINDOWS_VPS_READINESS_RUNBOOK.md`. The comparison, primary sources, scoring, prototype selection, fallback and proposed next proof are in `docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md`. R3 implements only the repository prototype; it is not production approval and does not select deployment authentication, public certificate automation or firewall exposure.
 
 ### Production boundary contracts
 
@@ -281,7 +281,7 @@ The complete bounded Windows operating history is in `docs/13_WINDOWS_VPS_READIN
 
 - Run the application as a Windows service with automatic start, controlled restart-on-failure, startup timeout and a bounded failure loop.
 - Capture stdout/stderr without allowing unbounded files. Prove graceful stop and in-flight request behavior.
-- RP-TURN-019-R2 recommends a minimal self-contained .NET 10 LTS service-aware host that launches only pinned Node, owns its Job Object, initiates the private drain and reports bounded SCM Stop Pending checkpoints. This remains unimplemented and requires Project Codex/Jeff selection plus separate repository and host authorizations.
+- RP-TURN-019-R3 implements the selected repository-only minimal self-contained .NET 10 LTS service-aware host. It creates Node suspended, assigns it and descendants to a kill-on-close Job Object before resume, uses only an exact `node.exe`/release path and structured escaped arguments, initiates a DACL-restricted remote-rejecting named-pipe drain and reports bounded SCM Stop Pending checkpoints. The prototype is NotSigned, uninstalled and pending Project Codex review; any host proof still requires a separate authorization.
 - The previous WinSW 2.12.0 design is rejected pending decision after direct stop stalled and required forced recovery. Keep its services Stopped/Disabled; do not rerun or remove them until a separately authorized replacement/cleanup sequence.
 - Running `npm start` interactively or using Task Scheduler is not a supervision plan.
 - Reverse proxy and application are independently restartable. A failed application readiness check must not cause the deployment script to switch traffic permanently.
