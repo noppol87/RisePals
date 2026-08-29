@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
-**Turn:** RP-TURN-019-R3  
-**Status:** Option B selected for repository-only prototype; implementation complete pending Project Codex review  
+**Turn:** RP-TURN-019-R3-R1  
+**Status:** Option B selected for repository-only prototype; bounded service-identity, startup-cleanup and evidence correction complete pending Project Codex review  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -139,13 +139,14 @@ Option B remains split into two explicit checkpoints. Only the first is authoriz
 ### Repository-only prototype — implemented pending review
 
 - Added the minimal Windows-only service-host project with SDK 10.0.400/runtime 10.0.11, locked Microsoft packages, official provenance record and deterministic self-contained build.
-- Added typed SCM/start/stop/drain lifecycle, monotonic checkpoints and bounded graceful/timeout outcomes.
-- Added fake-adapter and Windows integration tests for stop/replay, checkpoint monotonicity, exact deadlines, finite restart, redaction, suspended-before-Job assignment and descendant cleanup.
+- Added one exact uninstalled candidate identity shared by native dispatcher and handler registration while rejecting both retained service names.
+- Added typed SCM/start/stop/drain lifecycle, monotonic checkpoints, transactional create/assign/resume/Ready attempts and bounded graceful/timeout outcomes; Stopped is prohibited until Job emptiness is proven.
+- Added fake-adapter and Windows integration tests for stop/replay, checkpoint monotonicity, exact deadlines, finite restart, typed evidence exclusion, every startup stage, stop/restart races, suspended-before-Job assignment and descendant cleanup.
 - Added a DACL-restricted, remote-rejecting named pipe and a synthetic Node three-chunk fixture without a TCP/public listener.
 - Kept Caddy, installed WinSW, releases, health contracts and application behavior unchanged.
 - Produced a versioned dependency/inventory/checksum manifest. The executable remains NotSigned and is prohibited from host installation.
 
-R3 passed 37 .NET tests and two byte-identical clean publishes. The executable SHA-256 is `be1c7c9ccee0920663de7504bcc558b8d1c50204d846c9d4486c5a5ee95f0191`. This is repository evidence, not a live SCM/host claim.
+R3-R1 passed 51 .NET tests, including six Node-fixture tests and fifteen focused correction regressions, and two byte-identical clean publishes. The executable is 73,606,931 bytes with SHA-256 `04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f`. This is repository evidence, not a live SCM/host claim.
 
 ### Separately authorized host rehearsal — not authorized
 

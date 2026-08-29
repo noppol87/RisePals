@@ -2,7 +2,7 @@
 
 **Status date:** 2026-08-29  
 **Current phase:** RP-TURN-019 Windows VPS Infrastructure Readiness  
-**Current turn:** RP-TURN-019-R3 repository-owned .NET Windows service-host prototype is implemented on the authorized feature branch pending Project Codex review; it changes no host/service state, keeps PR #17 Draft/unmerged and does not authorize installation, rehearsal, reboot or deployment
+**Current turn:** RP-TURN-019-R3-R1 bounded service-identity, startup-cleanup and evidence-boundary correction is implemented on the authorized feature branch pending Project Codex review; it changes no host/service state, keeps PR #17 Draft/unmerged and does not authorize installation, rehearsal, reboot or deployment
 
 ## Locked decisions
 
@@ -164,11 +164,11 @@
 
 ## Current authorized action
 
-**RP-TURN-019-R3 — Repository-Owned .NET Windows Service Host Prototype (pending Project Codex review)**
+**RP-TURN-019-R3-R1 — Repository-Owned .NET Windows Service Host Prototype Correction (pending Project Codex review)**
 
 Project Codex Accepted the R1C live recovery and exact residue cleanup. Direct service stop did not complete, `RisePalsApp` remained Stop Pending and exact-PID forced termination was required; this is recovery evidence, not graceful-stop success. Final proof records both services Stopped/Disabled at PID 0, every original stalled PID and process beneath `C:\RisePals` absent, relevant listeners and enabled Rise Pals firewall rules zero, drain state/canary absent and raw captures deleted unread with zero residue. No reboot or public mutation occurred. The current WinSW supervision path must not be rehearsed again.
 
-Project Codex/Jeff selected Option B only for this repository prototype. R3 adds a pinned portable .NET 10.0.400/net10.0-windows/win-x64 solution with locked Microsoft-only test packages, an explicit native SCM Stop/Shutdown/Preshutdown adapter, bounded checkpointed orchestration, a DACL-restricted remote-rejecting named-pipe protocol, suspended-before-Job-assignment Node launch, whole-tree Job Object cleanup, deterministic restart/backoff, sanitized rotated evidence and a synthetic three-chunk Node fixture. Thirty-seven .NET tests pass, and two clean self-contained single-file publishes are byte-identical. The executable remains NotSigned, so production installation is prohibited. No service, registry, listener, `C:\RisePals` path, firewall, certificate, reboot or deployment mutation occurred. See [Windows service-host prototype](infra/windows-service-host/README.md) and [Windows Service Supervision Decision Pack](docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md).
+Project Codex/Jeff selected Option B only for this repository prototype. R3-R1 keeps the pinned portable .NET 10.0.400/net10.0-windows/win-x64 solution and locked Microsoft-only packages, and corrects three reviewed boundaries: exact candidate identity `RisePalsServiceHostCandidate` is shared by dispatcher and handler while retained service names are rejected; every failed create/assign/resume/Ready attempt is locally disposed, any possibly assigned Job is terminated and proven empty before terminal Stopped; and production evidence accepts only fixed typed events, bounded metadata and deterministic rotation while discarding raw Node stdout/stderr text. Fifty-one .NET tests pass, including six Node-fixture tests and fifteen focused correction regressions, and two clean self-contained single-file publishes are byte-identical. The executable remains NotSigned, so production installation is prohibited. No service, registry, listener, `C:\RisePals` path, firewall, certificate, reboot or deployment mutation occurred. See [Windows service-host prototype](infra/windows-service-host/README.md) and [Windows Service Supervision Decision Pack](docs/14_WINDOWS_SERVICE_SUPERVISION_DECISION.md).
 
 RP-TURN-007 through RP-TURN-018 are Accepted for their documented synthetic/prototype boundaries. RP-TURN-018 adds only non-production hardening evidence: a dry-run owner export, fake-adapter/operator-only erasure, disposable recovery rehearsal, threat model, runbook and browser/accessibility regression. Acceptance does not authorize launch or real-user collection. RP-TURN-019 preserves those boundaries and may not introduce real credentials/users/data, a production database, external monitoring, public firewall/DNS/TLS, CI or deployment. Standard build/check/E2E explicitly disable Clerk and allow only loopback. Patched `nanoid 3.3.18` remains pinned while PostCSS `8.5.25` and Sharp `0.35.3` remain unchanged.
 

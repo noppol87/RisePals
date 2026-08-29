@@ -94,13 +94,13 @@ public sealed class NodeFixtureTests
             await child.StartAsync(configuration, pipeName, CancellationToken.None);
             await child.ResumeAsync(CancellationToken.None);
             await transport.WaitForReadyAsync(TimeSpan.FromSeconds(3), CancellationToken.None);
-            await WaitUntilAsync(() => sink.Events.Count(entry => entry.Name == "service.child.output") >= 2);
+            await WaitUntilAsync(() => sink.Events.Count(entry => entry.Name == ServiceEvidenceEventName.ChildStreamObserved) >= 2);
             var streams = sink.Events
-                .Where(entry => entry.Name == "service.child.output")
-                .Select(entry => entry.Fields["stream"]?.ToString())
+                .Where(entry => entry.Name == ServiceEvidenceEventName.ChildStreamObserved)
+                .Select(entry => entry.Stream)
                 .ToArray();
-            CollectionAssert.Contains(streams, "stdout");
-            CollectionAssert.Contains(streams, "stderr");
+            CollectionAssert.Contains(streams, ServiceEvidenceStreamKind.StandardOutput);
+            CollectionAssert.Contains(streams, ServiceEvidenceStreamKind.StandardError);
             var nonce = Guid.NewGuid().ToString("N");
             _ = await transport.BeginDrainAsync(nonce, TimeSpan.FromSeconds(3), CancellationToken.None);
             _ = await transport.RequestStopAsync(nonce, TimeSpan.FromSeconds(3), CancellationToken.None);

@@ -1,6 +1,6 @@
 # Rise Pals repository-owned Windows service-host prototype
 
-This directory contains the RP-TURN-019-R3 **repository-only** prototype selected by D-027. It does not install or replace a Windows service and is not approved for production. The existing `RisePalsApp`/WinSW and `RisePalsProxy` services remain untouched, Stopped and Disabled.
+This directory contains the RP-TURN-019-R3-R1 **repository-only** prototype selected by D-027. It does not install or replace a Windows service and is not approved for production. The exact uninstalled candidate identity is `RisePalsServiceHostCandidate`; the existing `RisePalsApp`/WinSW and `RisePalsProxy` services remain untouched, Stopped and Disabled.
 
 ## Layout
 
@@ -15,11 +15,11 @@ Generated `bin`, `obj`, publish directories, SDK files and NuGet caches are igno
 
 `ServiceOrchestrator` depends only on bounded contracts for status reporting, time, the Node child, Job Object ownership, drain transport, configuration resolution and sanitized evidence. Tests replace every adapter without SCM, elevation, listeners or `C:\RisePals`.
 
-The Windows adapter registers native SCM Start/Stop/Shutdown/Preshutdown handling. It reports monotonic Start Pending and Stop Pending checkpoints with bounded wait hints. Ordinary shutdown is not sufficient for the in-flight contract: production installation would need the service to accept `SERVICE_CONTROL_PRESHUTDOWN` and would need a separately reviewed per-service `SERVICE_CONFIG_PRESHUTDOWN_INFO` timeout. This prototype defines and tests the official constants/structure but deliberately does not call live service-configuration APIs and never changes global `ServicesPipeTimeout`.
+The Windows adapter binds one validated `ServiceRegistrationIdentity` to both native SCM dispatcher-table and control-handler registration. The candidate name is distinct from and cannot fall back to either retained service name. It reports monotonic Start Pending and Stop Pending checkpoints with bounded wait hints. Ordinary shutdown is not sufficient for the in-flight contract: production installation would need the service to accept `SERVICE_CONTROL_PRESHUTDOWN` and would need a separately reviewed per-service `SERVICE_CONFIG_PRESHUTDOWN_INFO` timeout. This prototype defines and tests the official constants/structure but deliberately does not call live service-configuration APIs and never changes global `ServicesPipeTimeout`.
 
-The child adapter launches only an exact `node.exe` with `ProcessStartInfo.ArgumentList`, an exact entrypoint and exact release working directory. It never launches a shell, npm or Windows PowerShell. Node and release paths must be existing children of distinct approved roots. Mutable logs must be outside the immutable release. Standard output and error are captured independently, redacted and size-rotated.
+The child adapter launches only an exact `node.exe` through native suspended process creation, with structured Windows argument quoting, an exact entrypoint and exact release working directory. It never launches a shell, npm or Windows PowerShell. Node and release paths must be existing children of distinct approved roots. Mutable logs must be outside the immutable release. Standard output and error are consumed independently, but their raw text is discarded; production evidence contains only fixed event/outcome/stream values plus bounded counters, with absolute per-event and per-file bounds and deterministic rotation.
 
-Every child is assigned to a Windows Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. A timeout or host exit terminates/empties only that owned tree. Unexpected exits use deterministic exponential backoff, a bounded retry limit and a terminal failure state; Stop/Preshutdown cancellation prevents restart.
+Every startup attempt keeps its child, Job and drain transport local until create, possible assignment, resume and validated Ready all succeed. A failed stage disposes the exact local adapters, terminates a possibly assigned Job exactly once and proves emptiness within a fixed bound before terminal Stopped can be reported. Every child is assigned to a Windows Job Object configured with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`. A timeout or host exit terminates/empties only that owned tree. Unexpected exits use deterministic exponential backoff, a bounded retry limit and a terminal failure state; Stop/Preshutdown cancellation shares the transition boundary and prevents restart.
 
 ## Private drain protocol v1
 

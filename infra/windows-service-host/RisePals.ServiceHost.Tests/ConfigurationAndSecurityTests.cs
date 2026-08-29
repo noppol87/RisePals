@@ -10,7 +10,7 @@ public sealed class ConfigurationAndSecurityTests
 {
     private static readonly string[] UnsafeArguments = ["ok\nunsafe"];
     private static readonly string[] ExpectedProtocolProperties = ["ActiveCount", "Nonce", "State", "Type", "Version"];
-    private static readonly string[] RuntimeFiles = ["ProcessAdapters.cs", "Program.cs", "ServiceOrchestrator.cs"];
+    private static readonly string[] RuntimeFiles = ["ProcessAdapters.cs", "Program.cs", "ServiceOrchestrator.cs", "WindowsScmAdapter.cs"];
     private string _root = null!;
 
     [TestInitialize]
@@ -81,13 +81,28 @@ public sealed class ConfigurationAndSecurityTests
     }
 
     [TestMethod]
-    public void SanitizerRemovesCredentialEmailAndUuidShapes()
+    public void CandidateServiceIdentityCannotDivergeBetweenDispatcherAndHandler()
     {
-        var source = "token=secret-value user@example.test 123e4567-e89b-42d3-a456-426614174000";
-        var sanitized = RotatingSanitizedFileSink.Sanitize(source);
-        Assert.IsFalse(sanitized.Contains("secret-value", StringComparison.Ordinal));
-        Assert.IsFalse(sanitized.Contains("user@example.test", StringComparison.Ordinal));
-        Assert.IsFalse(sanitized.Contains("123e4567", StringComparison.Ordinal));
+        var identity = ServiceRegistrationIdentity.Candidate;
+        Assert.AreEqual("RisePalsServiceHostCandidate", identity.ServiceName);
+        Assert.AreEqual(identity.DispatcherServiceName, identity.HandlerServiceName);
+        Assert.AreSame(identity, ServiceRegistrationIdentity.Candidate);
+    }
+
+    [TestMethod]
+    public void RetainedServiceNamesAreRejectedForCandidateRegistration()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            ServiceRegistrationIdentity.Create(ServiceRegistrationIdentity.RetainedApplicationServiceName));
+        Assert.ThrowsExactly<InvalidDataException>(() =>
+            ServiceRegistrationIdentity.Create(ServiceRegistrationIdentity.RetainedProxyServiceName));
+        Assert.ThrowsExactly<InvalidDataException>(() => ServiceRegistrationIdentity.Create("risepalsapp"));
+    }
+
+    [TestMethod]
+    public void UnexpectedCandidateServiceNameIsRejected()
+    {
+        Assert.ThrowsExactly<InvalidDataException>(() => ServiceRegistrationIdentity.Create("RisePalsServiceHostCandidate2"));
     }
 
     [TestMethod]

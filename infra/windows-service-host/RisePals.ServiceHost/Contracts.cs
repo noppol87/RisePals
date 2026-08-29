@@ -42,6 +42,8 @@ public interface INodeChildProcess : IAsyncDisposable
     Task ResumeAsync(CancellationToken cancellationToken);
 
     Task RequestExitAsync(CancellationToken cancellationToken);
+
+    Task TerminateAsync(uint exitCode, CancellationToken cancellationToken);
 }
 
 public interface IProcessTreeOwner : IAsyncDisposable
@@ -69,7 +71,66 @@ public interface IReleaseConfigurationResolver
 
 public interface ISanitizedEvidenceSink
 {
-    void Record(string eventName, IReadOnlyDictionary<string, object?> fields);
+    void Record(ServiceEvidenceEvent evidenceEvent);
+}
+
+public enum ServiceEvidenceEventName
+{
+    ChildReady,
+    ChildStreamObserved,
+    ChildUnexpectedExit,
+    ChildStartupFailed,
+    ChildRestartScheduled,
+    ChildTerminalFailure,
+    StopFailed,
+    OwnedProcessCleanupFailed,
+}
+
+public enum ServiceEvidenceOutcome
+{
+    Ready,
+    Observed,
+    UnexpectedExit,
+    ChildCreationFailed,
+    JobAssignmentFailed,
+    ResumeFailed,
+    ReadyFailed,
+    Timeout,
+    ProtocolFailed,
+    ProcessFailed,
+    RestartScheduled,
+    RestartLimitReached,
+    CleanupUnproven,
+}
+
+public enum ServiceEvidenceStreamKind
+{
+    None,
+    StandardOutput,
+    StandardError,
+}
+
+public sealed record ServiceEvidenceEvent(
+    ServiceEvidenceEventName Name,
+    ServiceEvidenceOutcome Outcome,
+    ServiceEvidenceStreamKind Stream = ServiceEvidenceStreamKind.None,
+    int Count = 0);
+
+public static class ServiceEvidenceContract
+{
+    public const int MaximumCount = 1_000_000;
+
+    public static void Validate(ServiceEvidenceEvent evidenceEvent)
+    {
+        ArgumentNullException.ThrowIfNull(evidenceEvent);
+        if (!Enum.IsDefined(evidenceEvent.Name) ||
+            !Enum.IsDefined(evidenceEvent.Outcome) ||
+            !Enum.IsDefined(evidenceEvent.Stream) ||
+            evidenceEvent.Count is < 0 or > MaximumCount)
+        {
+            throw new InvalidDataException("The service evidence event is outside the fixed allowlist.");
+        }
+    }
 }
 
 public sealed record ReleaseConfiguration(
@@ -131,10 +192,10 @@ public sealed class SystemServiceClock : IServiceClock
 
 public sealed class InMemoryEvidenceSink : ISanitizedEvidenceSink
 {
-    private readonly List<(string Name, IReadOnlyDictionary<string, object?> Fields)> _events = [];
+    private readonly List<ServiceEvidenceEvent> _events = [];
     private readonly object _gate = new();
 
-    public ReadOnlyCollection<(string Name, IReadOnlyDictionary<string, object?> Fields)> Events
+    public ReadOnlyCollection<ServiceEvidenceEvent> Events
     {
         get
         {
@@ -145,11 +206,22 @@ public sealed class InMemoryEvidenceSink : ISanitizedEvidenceSink
         }
     }
 
-    public void Record(string eventName, IReadOnlyDictionary<string, object?> fields)
+    public void Record(ServiceEvidenceEvent evidenceEvent)
     {
+        ServiceEvidenceContract.Validate(evidenceEvent);
         lock (_gate)
         {
-            _events.Add((eventName, fields));
+            _events.Add(evidenceEvent);
         }
+    }
+}
+
+public sealed class ServiceHostTerminalException(string message) : InvalidOperationException(message);
+
+public sealed class ServiceHostCleanupException : InvalidOperationException
+{
+    public ServiceHostCleanupException()
+        : base("Owned-process cleanup could not be proven within the fixed bound.")
+    {
     }
 }

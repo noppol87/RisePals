@@ -47,12 +47,25 @@ internal sealed class FakeChild : INodeChildProcess
 
     public int ResumeCount { get; private set; }
 
+    public int TerminateCount { get; private set; }
+
+    public int DisposeCount { get; private set; }
+
+    public Exception? StartFailure { get; init; }
+
+    public Exception? ResumeFailure { get; init; }
+
     public Action? OnExitRequested { get; init; }
 
     public Task StartAsync(ReleaseConfiguration configuration, string pipeName, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         StartCount++;
+        if (StartFailure is not null)
+        {
+            return Task.FromException(StartFailure);
+        }
+
         return Task.CompletedTask;
     }
 
@@ -69,26 +82,61 @@ internal sealed class FakeChild : INodeChildProcess
     {
         cancellationToken.ThrowIfCancellationRequested();
         ResumeCount++;
+        if (ResumeFailure is not null)
+        {
+            return Task.FromException(ResumeFailure);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task TerminateAsync(uint exitCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        TerminateCount++;
+        _completion.TrySetResult(unchecked((int)exitCode));
         return Task.CompletedTask;
     }
 
     public void Crash(int exitCode = 71) => _completion.TrySetResult(exitCode);
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        DisposeCount++;
+        return ValueTask.CompletedTask;
+    }
 }
 
 internal sealed class FakeJob : IProcessTreeOwner
 {
-    public bool Empty { get; set; }
+    public bool Empty { get; set; } = true;
 
     public int AssignCount { get; private set; }
 
     public int TerminateCount { get; private set; }
 
+    public int DisposeCount { get; private set; }
+
+    public Exception? AssignFailure { get; init; }
+
+    public bool PossiblyAssignedOnFailure { get; init; }
+
+    public bool RemainNonEmptyAfterTerminate { get; init; }
+
     public Task AssignAsync(int processId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         AssignCount++;
+        if (AssignFailure is not null)
+        {
+            if (PossiblyAssignedOnFailure)
+            {
+                Empty = false;
+            }
+
+            return Task.FromException(AssignFailure);
+        }
+
         Empty = false;
         return Task.CompletedTask;
     }
@@ -103,11 +151,19 @@ internal sealed class FakeJob : IProcessTreeOwner
     {
         cancellationToken.ThrowIfCancellationRequested();
         TerminateCount++;
-        Empty = true;
+        if (!RemainNonEmptyAfterTerminate)
+        {
+            Empty = true;
+        }
+
         return Task.CompletedTask;
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        DisposeCount++;
+        return ValueTask.CompletedTask;
+    }
 }
 
 internal sealed class FakeDrain : IDrainTransport
@@ -120,11 +176,28 @@ internal sealed class FakeDrain : IDrainTransport
 
     public Exception? DrainFailure { get; init; }
 
-    public Task WaitForReadyAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    public Exception? ReadyFailure { get; init; }
+
+    public TaskCompletionSource ReadyStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public TaskCompletionSource? ReadyRelease { get; init; }
+
+    public int DisposeCount { get; private set; }
+
+    public async Task WaitForReadyAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ReadyCount++;
-        return Task.CompletedTask;
+        ReadyStarted.TrySetResult();
+        if (ReadyRelease is not null)
+        {
+            await ReadyRelease.Task.WaitAsync(cancellationToken);
+        }
+
+        if (ReadyFailure is not null)
+        {
+            throw ReadyFailure;
+        }
     }
 
     public Task<DrainAcknowledgement> BeginDrainAsync(string nonce, TimeSpan timeout, CancellationToken cancellationToken)
@@ -146,7 +219,11 @@ internal sealed class FakeDrain : IDrainTransport
         return Task.FromResult(new DrainAcknowledgement(nonce, DrainState.Stopped, 0));
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        DisposeCount++;
+        return ValueTask.CompletedTask;
+    }
 }
 
 internal static class TestConfiguration

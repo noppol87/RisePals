@@ -135,8 +135,8 @@
     "files": [
       {
         "name": "RisePals.ServiceHost.exe",
-        "length": 73602835,
-        "sha256": "be1c7c9ccee0920663de7504bcc558b8d1c50204d846c9d4486c5a5ee95f0191",
+        "length": 73606931,
+        "sha256": "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f",
         "authenticode": "NotSigned"
       },
       {

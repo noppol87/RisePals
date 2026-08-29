@@ -3,13 +3,14 @@ using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Win32.SafeHandles;
 
 namespace RisePals.ServiceHost;
 
-public sealed partial class RotatingSanitizedFileSink : ISanitizedEvidenceSink, IDisposable
+public sealed class RotatingSanitizedFileSink : ISanitizedEvidenceSink, IDisposable
 {
+    public const int MaximumSerializedCharacters = 512;
+
     private readonly string _directory;
     private readonly long _maximumBytes;
     private readonly int _retainedFiles;
@@ -23,25 +24,75 @@ public sealed partial class RotatingSanitizedFileSink : ISanitizedEvidenceSink, 
         Directory.CreateDirectory(_directory);
     }
 
-    public void Record(string eventName, IReadOnlyDictionary<string, object?> fields)
+    public void Record(ServiceEvidenceEvent evidenceEvent)
     {
-        var safeName = Sanitize(eventName);
-        var safeFields = fields.ToDictionary(entry => Sanitize(entry.Key), entry => Sanitize(entry.Value?.ToString() ?? string.Empty));
-        var json = JsonSerializer.Serialize(new { timestampUtc = DateTimeOffset.UtcNow, eventName = safeName, fields = safeFields });
+        ServiceEvidenceContract.Validate(evidenceEvent);
+        var json = JsonSerializer.Serialize(
+            new
+            {
+                timestampUtc = DateTimeOffset.UtcNow,
+                eventName = ToWireName(evidenceEvent.Name),
+                outcome = ToWireName(evidenceEvent.Outcome),
+                stream = ToWireName(evidenceEvent.Stream),
+                count = evidenceEvent.Count,
+            });
+        if (json.Length > MaximumSerializedCharacters)
+        {
+            throw new InvalidDataException("The fixed service evidence event exceeded its absolute character bound.");
+        }
+
+        var line = json + Environment.NewLine;
+        var additionalBytes = Encoding.UTF8.GetByteCount(line);
+        if (additionalBytes > _maximumBytes)
+        {
+            throw new InvalidDataException("The fixed service evidence event exceeds the configured log-file bound.");
+        }
 
         lock (_gate)
         {
-            RotateIfRequired(json.Length + Environment.NewLine.Length);
-            File.AppendAllText(Path.Combine(_directory, "service-host.jsonl"), json + Environment.NewLine, new System.Text.UTF8Encoding(false));
+            RotateIfRequired(additionalBytes);
+            File.AppendAllText(Path.Combine(_directory, "service-host.jsonl"), line, new UTF8Encoding(false));
         }
     }
 
-    public static string Sanitize(string value) =>
-        CredentialPattern().Replace(
-            EmailPattern().Replace(
-                UuidPattern().Replace(value.Replace('\r', ' ').Replace('\n', ' '), "[redacted-id]"),
-                "[redacted-email]"),
-            "$1=[redacted]");
+    private static string ToWireName(ServiceEvidenceEventName name) => name switch
+    {
+        ServiceEvidenceEventName.ChildReady => "service.child.ready",
+        ServiceEvidenceEventName.ChildStreamObserved => "service.child.stream-observed",
+        ServiceEvidenceEventName.ChildUnexpectedExit => "service.child.unexpected-exit",
+        ServiceEvidenceEventName.ChildStartupFailed => "service.child.startup-failed",
+        ServiceEvidenceEventName.ChildRestartScheduled => "service.child.restart-scheduled",
+        ServiceEvidenceEventName.ChildTerminalFailure => "service.child.terminal-failure",
+        ServiceEvidenceEventName.StopFailed => "service.stop.failed",
+        ServiceEvidenceEventName.OwnedProcessCleanupFailed => "service.owned-process-cleanup.failed",
+        _ => throw new InvalidDataException("The service evidence event name is not allowlisted."),
+    };
+
+    private static string ToWireName(ServiceEvidenceOutcome outcome) => outcome switch
+    {
+        ServiceEvidenceOutcome.Ready => "ready",
+        ServiceEvidenceOutcome.Observed => "observed",
+        ServiceEvidenceOutcome.UnexpectedExit => "unexpected-exit",
+        ServiceEvidenceOutcome.ChildCreationFailed => "child-creation-failed",
+        ServiceEvidenceOutcome.JobAssignmentFailed => "job-assignment-failed",
+        ServiceEvidenceOutcome.ResumeFailed => "resume-failed",
+        ServiceEvidenceOutcome.ReadyFailed => "ready-failed",
+        ServiceEvidenceOutcome.Timeout => "timeout",
+        ServiceEvidenceOutcome.ProtocolFailed => "protocol-failed",
+        ServiceEvidenceOutcome.ProcessFailed => "process-failed",
+        ServiceEvidenceOutcome.RestartScheduled => "restart-scheduled",
+        ServiceEvidenceOutcome.RestartLimitReached => "restart-limit-reached",
+        ServiceEvidenceOutcome.CleanupUnproven => "cleanup-unproven",
+        _ => throw new InvalidDataException("The service evidence outcome is not allowlisted."),
+    };
+
+    private static string ToWireName(ServiceEvidenceStreamKind stream) => stream switch
+    {
+        ServiceEvidenceStreamKind.None => "none",
+        ServiceEvidenceStreamKind.StandardOutput => "stdout",
+        ServiceEvidenceStreamKind.StandardError => "stderr",
+        _ => throw new InvalidDataException("The service evidence stream is not allowlisted."),
+    };
 
     private void RotateIfRequired(int additionalBytes)
     {
@@ -75,20 +126,13 @@ public sealed partial class RotatingSanitizedFileSink : ISanitizedEvidenceSink, 
         // Files are opened per write so no persistent handle is retained.
     }
 
-    [GeneratedRegex(@"(?i)\b(token|secret|password|authorization|cookie)\s*[:=]\s*[^\s,;]+", RegexOptions.CultureInvariant)]
-    private static partial Regex CredentialPattern();
-
-    [GeneratedRegex(@"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b", RegexOptions.CultureInvariant)]
-    private static partial Regex UuidPattern();
-
-    [GeneratedRegex(@"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex EmailPattern();
 }
 
 public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChildProcess
 {
     private Process? _process;
     private Task<int>? _completion;
+    private SafeFileHandle? _nativeProcessHandle;
     private SafeFileHandle? _primaryThread;
     private AnonymousPipeServerStream? _standardInput;
     private AnonymousPipeServerStream? _standardOutput;
@@ -148,11 +192,8 @@ public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChi
                 throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
             }
 
-            using (var initialProcessHandle = new SafeFileHandle(processInformation.Process, true))
-            {
-                _process = Process.GetProcessById(checked((int)processInformation.ProcessId));
-            }
-
+            _nativeProcessHandle = new SafeFileHandle(processInformation.Process, true);
+            _process = Process.GetProcessById(checked((int)processInformation.ProcessId));
             _primaryThread = new SafeFileHandle(processInformation.Thread, true);
         }
         finally
@@ -200,6 +241,36 @@ public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChi
         }
     }
 
+    public async Task TerminateAsync(uint exitCode, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_nativeProcessHandle is null || _nativeProcessHandle.IsInvalid || _nativeProcessHandle.IsClosed)
+        {
+            return;
+        }
+
+        if (_process is { HasExited: true })
+        {
+            return;
+        }
+
+        if (!NativeProcess.TerminateProcess(_nativeProcessHandle, exitCode))
+        {
+            var error = Marshal.GetLastWin32Error();
+            if (_process is not { HasExited: true })
+            {
+                throw new System.ComponentModel.Win32Exception(error);
+            }
+        }
+
+        if (_process is not null)
+        {
+            await _process.WaitForExitAsync(cancellationToken)
+                .WaitAsync(TimeSpan.FromSeconds(5), cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
     private static async Task<int> ObserveCompletionAsync(Process process)
     {
         await process.WaitForExitAsync().ConfigureAwait(false);
@@ -216,8 +287,27 @@ public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChi
                 return;
             }
 
-            evidence.Record("service.child.output", new Dictionary<string, object?> { ["stream"] = stream, ["message"] = line });
+            evidence.Record(CreateStreamEvidence(stream, line));
         }
+    }
+
+    public static ServiceEvidenceEvent CreateStreamEvidence(string stream, string rawLine)
+    {
+        ArgumentNullException.ThrowIfNull(rawLine);
+        var streamClass = stream switch
+        {
+            "stdout" => ServiceEvidenceStreamKind.StandardOutput,
+            "stderr" => ServiceEvidenceStreamKind.StandardError,
+            _ => throw new ArgumentOutOfRangeException(nameof(stream)),
+        };
+
+        // Deliberately do not copy, classify, hash or measure raw child text.
+        // Production evidence records only that a bounded stream event occurred.
+        return new ServiceEvidenceEvent(
+            ServiceEvidenceEventName.ChildStreamObserved,
+            ServiceEvidenceOutcome.Observed,
+            streamClass,
+            1);
     }
 
     private static IntPtr ParseHandle(string value) =>
@@ -268,6 +358,7 @@ public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChi
         _standardOutput?.Dispose();
         _standardError?.Dispose();
         _process?.Dispose();
+        _nativeProcessHandle?.Dispose();
     }
 
     private static class NativeProcess
@@ -324,6 +415,10 @@ public sealed class NodeChildProcess(ISanitizedEvidenceSink evidence) : INodeChi
 
         [DllImport("kernel32.dll", SetLastError = true)]
         internal static extern uint ResumeThread(SafeFileHandle thread);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool TerminateProcess(SafeFileHandle process, uint exitCode);
     }
 }
 

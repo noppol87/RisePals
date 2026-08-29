@@ -22,7 +22,7 @@ public static class Program
             return await RunConsoleSimulationAsync(configPath).ConfigureAwait(false);
         }
 
-        NativeScmServiceAdapter.Run("RisePalsApp", reporter => CreateOrchestrator(configPath, reporter));
+        NativeScmServiceAdapter.Run(ServiceRegistrationIdentity.Candidate, reporter => CreateOrchestrator(configPath, reporter));
         return 0;
     }
 

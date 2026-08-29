@@ -43,15 +43,18 @@ public static class NativeScmServiceAdapter
     private static readonly NativeScm.ServiceMainFunction ServiceMainDelegate = ServiceMain;
     private static readonly NativeScm.HandlerFunction HandlerDelegate = Handler;
     private static Func<IServiceStatusReporter, ServiceOrchestrator>? _factory;
+    private static ServiceRegistrationIdentity? _identity;
     private static ServiceOrchestrator? _orchestrator;
     private static int _stopDispatched;
 
-    public static void Run(string serviceName, Func<IServiceStatusReporter, ServiceOrchestrator> factory)
+    public static void Run(ServiceRegistrationIdentity identity, Func<IServiceStatusReporter, ServiceOrchestrator> factory)
     {
+        ArgumentNullException.ThrowIfNull(identity);
         _factory = factory;
+        _identity = identity;
         var table = new[]
         {
-            new NativeScm.ServiceTableEntry { ServiceName = serviceName, ServiceMain = ServiceMainDelegate },
+            new NativeScm.ServiceTableEntry { ServiceName = identity.DispatcherServiceName, ServiceMain = ServiceMainDelegate },
             new NativeScm.ServiceTableEntry(),
         };
 
@@ -65,7 +68,8 @@ public static class NativeScmServiceAdapter
     {
         _ = argumentCount;
         _ = arguments;
-        var statusHandle = NativeScm.RegisterServiceControlHandler("RisePalsApp", HandlerDelegate, IntPtr.Zero);
+        var identity = _identity ?? throw new InvalidOperationException("SCM service identity is unavailable.");
+        var statusHandle = NativeScm.RegisterServiceControlHandler(identity.HandlerServiceName, HandlerDelegate, IntPtr.Zero);
         if (statusHandle == IntPtr.Zero)
         {
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
@@ -80,7 +84,9 @@ public static class NativeScmServiceAdapter
         }
         catch
         {
-            reporter.Report(new ServiceStatusUpdate(ServiceLifecycleState.Stopped, 0, TimeSpan.Zero, 1, 0x5250_0003));
+            // ServiceOrchestrator is the sole authority for reporting Stopped.
+            // If owned-process cleanup is unproven, the process exits without
+            // falsely publishing a terminal Stopped state.
             throw;
         }
         finally
