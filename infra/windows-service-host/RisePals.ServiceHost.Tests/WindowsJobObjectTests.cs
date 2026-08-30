@@ -35,7 +35,7 @@ public sealed class WindowsJobObjectTests
         await job.TerminateAsync(99, CancellationToken.None);
         await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3));
         await WaitUntilExitedAsync(childId);
-        Assert.IsTrue(await job.IsEmptyAsync(CancellationToken.None));
+        await JobObjectTestAssertions.AssertEventuallyEmptyAsync(job);
     }
 
     [TestMethod]
@@ -89,5 +89,36 @@ public sealed class WindowsJobObjectTests
         }
 
         Assert.Fail("The owned descendant remained after Job Object termination.");
+    }
+}
+
+internal static class JobObjectTestAssertions
+{
+    private static readonly TimeSpan MaximumWait = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(20);
+
+    public static async Task AssertEventuallyEmptyAsync(WindowsJobObject job)
+    {
+        var startedAt = Stopwatch.GetTimestamp();
+        while (Stopwatch.GetElapsedTime(startedAt) < MaximumWait)
+        {
+            if (await job.IsEmptyAsync(CancellationToken.None))
+            {
+                return;
+            }
+
+            var remaining = MaximumWait - Stopwatch.GetElapsedTime(startedAt);
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(remaining < PollInterval ? remaining : PollInterval);
+        }
+
+        Assert.IsTrue(
+            await job.IsEmptyAsync(CancellationToken.None),
+            "The Job Object did not become empty within the three-second test bound."
+        );
     }
 }

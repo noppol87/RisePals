@@ -140,7 +140,7 @@ public sealed class NodeFixtureTests
             _ = await transport.RequestStopAsync(nonce, TimeSpan.FromSeconds(3), CancellationToken.None);
             await child.RequestExitAsync(CancellationToken.None);
             _ = await child.Completion.WaitAsync(TimeSpan.FromSeconds(3));
-            Assert.IsTrue(await job.IsEmptyAsync(CancellationToken.None));
+            await JobObjectTestAssertions.AssertEventuallyEmptyAsync(job);
         }
         finally
         {

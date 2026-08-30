@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R4-R1 repository-only candidate rehearsal correction complete pending Project Codex review; no live/elevated path ran, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
+**Status:** RP-TURN-019-R4-R2 repository-only deterministic Job-emptiness test correction complete pending Project Codex review; LIVE1 stopped before UAC during Phase A, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
 **Checked:** 2026-08-28
 
 ## Confirmed host role and separation rule
@@ -997,6 +997,10 @@ R4 repository verification is non-elevated. It sources pure contract/result func
 | host mutation | PASS — no UAC, candidate install/start/stop/delete, `C:\RisePals` write, listener, firewall, DNS, certificate, reboot or deployment action occurred |
 
 Complete aggregate/browser/database/security results are recorded in the R4 turn handoff after the exact clean commit. The accepted R3-R1 service-host test/publish evidence remains separately identified and is not relabeled as a live R4 result.
+
+LIVE1 recreated the pinned SDK in a fresh temporary workspace and passed provenance, locked restore and zero-warning Release build, then stopped before publish/UAC when `ChildIsAssignedToJobBeforeSuspendedPrimaryThreadResumes` passed 50/51 because its immediate post-exit Job-accounting query was false. R4-R2 preserves every immediate pre-resume non-empty and child/descendant absence assertion while using a shared test-only helper only after exit/termination. The helper polls `IsEmptyAsync` every 20 ms using monotonic elapsed time, stops at a strict three-second maximum and performs one final query at the deadline without suppressing native exceptions.
+
+R4-R2 verification used a fresh pinned SDK and task-scoped caches. Locked restore and Release build passed with zero warnings/errors; the exact previously failed test passed 10/10 consecutive runs from one build with no failed iteration/retry; the full 51-test suite passed three consecutive runs; and the focused repository infrastructure suite passed 2 files / 26 tests. No fixture process or directory remained, and the complete SDK/archive/cache/source/build workspace was removed.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 
