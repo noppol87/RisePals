@@ -134,7 +134,7 @@
     "fileVersion": "0.1.0.0",
     "informationalVersion": "0.1.0-rp19-prototype",
     "includeSourceRevisionInInformationalVersion": false,
-    "serviceHostProductionSourceTree": "8df181147b0cfc9633c73a4022faeca3446648ea",
+    "serviceHostProductionSourceTree": "125eb5a7765c58cbc7cee094fbe82207642fd2a5",
     "volatileOuterRepositoryCommitMetadataExcluded": true
   },
   "publish": {

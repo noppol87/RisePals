@@ -204,7 +204,7 @@ function Assert-RisePalsCandidateContract {
     $artifactIdentity.informationalVersion -cne "0.1.0-rp19-prototype" -or
     [bool]$artifactIdentity.includeSourceRevisionInInformationalVersion -or
     $artifactIdentity.serviceHostProductionSourceTree -cne
-      "8df181147b0cfc9633c73a4022faeca3446648ea" -or
+      "125eb5a7765c58cbc7cee094fbe82207642fd2a5" -or
     -not [bool]$artifactIdentity.volatileOuterRepositoryCommitMetadataExcluded) {
     throw "The context-independent service-host artifact identity policy changed."
   }

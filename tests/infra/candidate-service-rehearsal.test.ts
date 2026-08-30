@@ -75,13 +75,13 @@ describe("repository-only candidate service rehearsal harness", () => {
         fileVersion: "0.1.0.0",
         informationalVersion: "0.1.0-rp19-prototype",
         includeSourceRevisionInInformationalVersion: false,
-        serviceHostProductionSourceTree: "8df181147b0cfc9633c73a4022faeca3446648ea",
+        serviceHostProductionSourceTree: "125eb5a7765c58cbc7cee094fbe82207642fd2a5",
         volatileOuterRepositoryCommitMetadataExcluded: true,
       },
       schemaLength: 1_672,
       schemaSha256: "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
       dependencyManifestLength: 5_629,
-      dependencyManifestSha256: "9b96056c9fc0738d282a3dd1a7b9a35467e90aa0e1df5cbdad633c12a8b310f6",
+      dependencyManifestSha256: "b5abd30d2afe52c7685717561432ba5208482073e4957e8e0eef538982e8f60e",
     });
     expect(dependencyManifest.artifactIdentity).toEqual(contract.prototype.artifactIdentity);
     expect(dependencyManifest.publish).toMatchObject({
