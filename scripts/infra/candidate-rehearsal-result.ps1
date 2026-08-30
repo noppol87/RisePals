@@ -5,8 +5,12 @@ $script:RisePalsCandidateResultSchema = "rise-pals-candidate-rehearsal-result-v1
 $script:RisePalsCandidateResultProperties = @(
   "schemaVersion",
   "invocationNonce",
+  "authorizationId",
   "repositoryHead",
   "launcherScriptSha256",
+  "bootstrapScriptSha256",
+  "transportScriptSha256",
+  "childScriptSha256",
   "startedAtUtc",
   "completedAtUtc",
   "status",
@@ -60,8 +64,12 @@ function ConvertTo-RisePalsCandidateCanonicalResult {
   return [pscustomobject][ordered]@{
     schemaVersion = [string]$Result.schemaVersion
     invocationNonce = [string]$Result.invocationNonce
+    authorizationId = [string]$Result.authorizationId
     repositoryHead = [string]$Result.repositoryHead
     launcherScriptSha256 = [string]$Result.launcherScriptSha256
+    bootstrapScriptSha256 = [string]$Result.bootstrapScriptSha256
+    transportScriptSha256 = [string]$Result.transportScriptSha256
+    childScriptSha256 = [string]$Result.childScriptSha256
     startedAtUtc = [string]$Result.startedAtUtc
     completedAtUtc = [string]$Result.completedAtUtc
     status = [string]$Result.status
@@ -140,8 +148,12 @@ function New-RisePalsCandidateFinalState {
 function New-RisePalsCandidateResult {
   param(
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+    [Parameter(Mandatory = $true)][string]$AuthorizationId,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$RepositoryHead,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$LauncherScriptSha256,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$BootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$TransportScriptSha256,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$ChildScriptSha256,
     [Parameter(Mandatory = $true)][string]$StartedAtUtc,
     [Parameter(Mandatory = $true)][string]$CompletedAtUtc,
     [Parameter(Mandatory = $true)][ValidateSet("success", "failure")][string]$Status,
@@ -157,8 +169,12 @@ function New-RisePalsCandidateResult {
   $result = [ordered]@{
     schemaVersion = $script:RisePalsCandidateResultSchema
     invocationNonce = $InvocationNonce
+    authorizationId = $AuthorizationId
     repositoryHead = $RepositoryHead
     launcherScriptSha256 = $LauncherScriptSha256
+    bootstrapScriptSha256 = $BootstrapScriptSha256
+    transportScriptSha256 = $TransportScriptSha256
+    childScriptSha256 = $ChildScriptSha256
     startedAtUtc = $StartedAtUtc
     completedAtUtc = $CompletedAtUtc
     status = $Status
@@ -233,8 +249,12 @@ function Assert-RisePalsCandidateResult {
   param(
     [Parameter(Mandatory = $true)][object]$Result,
     [Parameter(Mandatory = $true)][string]$ExpectedNonce,
+    [Parameter(Mandatory = $true)][string]$ExpectedAuthorizationId,
     [Parameter(Mandatory = $true)][string]$ExpectedHead,
     [Parameter(Mandatory = $true)][string]$ExpectedLauncherScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
     [Parameter(Mandatory = $true)][int]$ObservedExitCode,
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
@@ -256,8 +276,15 @@ function Assert-RisePalsCandidateResult {
   }
   if ($Result.repositoryHead -ne $ExpectedHead -or
     $Result.repositoryHead -notmatch "^[a-f0-9]{40}$" -or
+    $Result.authorizationId -ne $ExpectedAuthorizationId -or
     $Result.launcherScriptSha256 -ne $ExpectedLauncherScriptSha256 -or
-    $Result.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$") {
+    $Result.bootstrapScriptSha256 -ne $ExpectedBootstrapScriptSha256 -or
+    $Result.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
+    $Result.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
+    $Result.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.childScriptSha256 -notmatch "^[a-f0-9]{64}$") {
     throw "The candidate result provenance does not match the request."
   }
   $started = ConvertFrom-RisePalsCandidateUtc -Value ([string]$Result.startedAtUtc)
@@ -313,7 +340,7 @@ function Assert-RisePalsCandidateResult {
     throw "The candidate structured-result digest is invalid."
   }
   $json = $Result | ConvertTo-Json -Depth 7 -Compress
-  if ($json -match "(?i)(authorization|set-cookie|bearer[ ]|password|credential|request[ -]?body|@[a-z0-9.-]+\.[a-z]{2,}|(sk|pk)_(live|test)_)") {
+  if ($json -match "(?i)(set-cookie|bearer[ ]|password|credential|request[ -]?body|@[a-z0-9.-]+\.[a-z]{2,}|(sk|pk)_(live|test)_)") {
     throw "The candidate structured result contains a prohibited privacy marker."
   }
   $ConsumedNonces[$Result.invocationNonce] = $true

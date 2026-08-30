@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
 **Turn:** RP-TURN-019-R4  
-**Status:** Option B repository-only prototype retained; R4-R3 context-independent artifact correction complete pending Project Codex review after LIVE2 stopped before UAC  
+**Status:** Option B repository-only prototype retained; R4-DIAG1 elevated-bootstrap/result-transport hardening complete pending Project Codex review after LIVE3's functional rehearsal remained unaccepted  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -163,6 +163,8 @@ R4-R1 repository tests exercise deterministic plan equality, exact Node source/s
 The separately authorized LIVE1 attempt stopped before UAC in its fresh Phase A build after 50/51 tests: `ChildIsAssignedToJobBeforeSuspendedPrimaryThreadResumes` queried Job accounting immediately after child completion, before Windows reported the Job empty. R4-R2 treats that as a deterministic-test defect, not production evidence. Production orchestration remains byte-identical. Only post-exit/post-termination test assertions use a shared monotonic 20 ms poll with a strict three-second maximum and a final deadline query; immediate non-empty proof before primary-thread resume and descendant-absence checks remain unchanged. The exact failed test passed 10/10 consecutive runs, the full 51-test suite passed three consecutive runs and focused repository infrastructure tests passed 2 files / 26 tests. The LIVE1 authorization is not reusable.
 
 LIVE2 stopped before UAC and its authorization is invalid. R4-R3 pins explicit executable-only Version/AssemblyVersion/FileVersion/InformationalVersion and disables source-revision suffixing without changing service behavior. Artifact provenance records post-policy service-host production source tree `125eb5a7765c58cbc7cee094fbe82207642fd2a5` and excludes volatile outer-repository commit metadata. Git-aware MSBuild discovery still observed the outer commit while file-only contexts did not, but all three outputs and assembly metadata were identical and neither outer commit identifier was embedded. No live/elevated execution or host mutation occurred.
+
+LIVE3 later returned exit code 1 with no valid result. Recovery2 is Accepted and the host is again zero-residue; LIVE3 is not functional evidence. The old child had no marker ahead of typed binding, elevated `%TEMP%`-relative path resolution, helper loading and ACL/result initialization, so the exact historical failure is unknowable. R4-DIAG1 fixes the class rather than naming an unsupported cause: the parent owns one explicit protected non-reparse result root; a self-contained primitive-argument bootstrap validates authorization/provenance and writes atomic bootstrap/child markers before full-child dispatch; the child writes the live marker before live work; and the parent validates exact marker provenance, order, freshness, replay, digest and final/exit consistency before one deterministic classification. Twenty-nine non-elevated simulations cover all required start, cancellation, process, marker, malformed, stale, replay, linked-path, atomic and cleanup states. This changes result transport only, not the candidate service contract or behavior. No UAC or Live attempt occurred and another one requires separate exact-head authorization.
 
 ### Separately authorized host rehearsal — not authorized
 

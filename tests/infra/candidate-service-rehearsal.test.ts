@@ -274,7 +274,9 @@ describe("repository-only candidate service rehearsal harness", () => {
       await Promise.all(
         [
           "scripts/infra/candidate-rehearsal-contract.ps1",
+          "scripts/infra/candidate-rehearsal-transport.ps1",
           "scripts/infra/Invoke-RisePalsCandidateRehearsal.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateElevatedBootstrap.ps1",
           "scripts/infra/Invoke-RisePalsCandidateRehearsalChild.ps1",
           "scripts/infra/Invoke-RisePalsCandidateLiveSequence.ps1",
           "scripts/infra/Invoke-RisePalsCandidateServiceControl.ps1",
@@ -298,25 +300,44 @@ describe("repository-only candidate service rehearsal harness", () => {
 
   it("uses a separate-stream structured parent/child boundary and hard live authorization gate", async () => {
     const parent = await text("scripts/infra/Invoke-RisePalsCandidateRehearsal.ps1");
+    const bootstrap = await text("scripts/infra/Invoke-RisePalsCandidateElevatedBootstrap.ps1");
     const child = await text("scripts/infra/Invoke-RisePalsCandidateRehearsalChild.ps1");
     const result = await text("scripts/infra/candidate-rehearsal-result.ps1");
+    const transport = await text("scripts/infra/candidate-rehearsal-transport.ps1");
 
     expect(parent).toContain('$start.Verb = "RunAs"');
     expect(parent).toContain("$process.ExitCode");
     expect(parent).toContain("Assert-RisePalsCandidateResult");
     expect(parent).not.toContain("RedirectStandardOutput");
     expect(parent).not.toContain("RedirectStandardError");
+    expect(bootstrap).not.toContain("RedirectStandardOutput");
+    expect(bootstrap).not.toContain("RedirectStandardError");
+    expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "bootstrap-started"');
+    expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "child-started"');
+    expect(bootstrap).toContain("[Security.Cryptography.SHA256]::Create()");
+    expect(bootstrap).toContain("ComputeHash");
+    expect(bootstrap).not.toContain("Get-FileHash");
     expect(parent).toContain('if ($Mode -eq "Live")');
-    expect(parent).toContain('$arguments += @(\n      "-FutureAuthorizationId"');
+    expect(parent).toContain('"-FutureAuthorizationId",');
     expect(child).toContain("-RedirectStandardOutput $stdoutPath");
     expect(child).toContain("-RedirectStandardError $stderrPath");
     expect(child).toContain("$process.ExitCode");
     expect(child).toContain("[IO.File]::Delete($capture)");
     expect(`${parent}\n${child}`).not.toContain("*>&1");
     expect(result).toContain("launcherScriptSha256");
+    expect(result).toContain("bootstrapScriptSha256");
+    expect(result).toContain("transportScriptSha256");
+    expect(result).toContain("childScriptSha256");
     expect(result).toContain("ConsumedNonces");
     expect(result).toContain("Get-RisePalsCandidateResultDigest");
     expect(result).toContain("rawOutputPersisted");
+    expect(transport).toContain("uac-not-launched");
+    expect(transport).toContain("elevated-child-never-entered-bootstrap");
+    expect(transport).toContain("bootstrap-entered-child-not-started");
+    expect(transport).toContain("child-started-failed-before-live");
+    expect(transport).toContain("live-started-failed");
+    expect(transport).toContain("final-present-validated");
+    expect(transport).toContain("final-invalid-or-inconsistent");
   });
 
   it("wires exact stage failures and recursive cleanup refusal into the gated live source", async () => {

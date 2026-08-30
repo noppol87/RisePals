@@ -9,6 +9,7 @@ $repository = [IO.Path]::GetFullPath($RepositoryRoot)
 $scripts = Join-Path $repository "scripts\infra"
 . (Join-Path $scripts "candidate-rehearsal-contract.ps1")
 . (Join-Path $scripts "candidate-rehearsal-result.ps1")
+. (Join-Path $scripts "candidate-rehearsal-transport.ps1")
 
 function Assert-RisePalsCandidateThrows {
   param(
@@ -80,8 +81,12 @@ function New-RisePalsCandidateValidHostSnapshot {
 function New-RisePalsCandidateValidResult {
   param(
     [string]$Nonce = "0123456789abcdef0123456789abcdef",
+    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION",
     [string]$Head = "1111111111111111111111111111111111111111",
     [string]$ScriptHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    [string]$BootstrapHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    [string]$TransportHash = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    [string]$ChildHash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
     [string]$Status = "success",
     [int]$ExitCode = 0,
     [bool]$CleanupCompleted = $true,
@@ -89,8 +94,11 @@ function New-RisePalsCandidateValidResult {
   )
 
   $now = [DateTimeOffset]::UtcNow
-  return New-RisePalsCandidateResult -InvocationNonce $Nonce -RepositoryHead $Head `
-    -LauncherScriptSha256 $ScriptHash -StartedAtUtc $now.ToString("o") `
+  return New-RisePalsCandidateResult -InvocationNonce $Nonce `
+    -AuthorizationId $AuthorizationId -RepositoryHead $Head `
+    -LauncherScriptSha256 $ScriptHash -BootstrapScriptSha256 $BootstrapHash `
+    -TransportScriptSha256 $TransportHash `
+    -ChildScriptSha256 $ChildHash -StartedAtUtc $now.ToString("o") `
     -CompletedAtUtc $now.AddMilliseconds(10).ToString("o") -Status $Status `
     -ChildExitCode $ExitCode -CompletedStages @("child-started", "streams-separated") `
     -FailedStage $(if ($Status -eq "failure") { "native-child" } else { $null }) `
@@ -101,6 +109,24 @@ function New-RisePalsCandidateValidResult {
       streamsSeparated = $true
       rawOutputPersisted = $false
     })
+}
+
+function New-RisePalsCandidateValidMarker {
+  param(
+    [string]$MarkerType = "bootstrap-started",
+    [AllowNull()][string]$FailureCode,
+    [DateTimeOffset]$RecordedAtUtc = [DateTimeOffset]::UtcNow
+  )
+
+  return New-RisePalsCandidateMarker -MarkerType $MarkerType `
+    -InvocationNonce "0123456789abcdef0123456789abcdef" `
+    -AuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -RepositoryHead "1111111111111111111111111111111111111111" `
+    -LauncherScriptSha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" `
+    -BootstrapScriptSha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" `
+    -TransportScriptSha256 "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" `
+    -ChildScriptSha256 "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd" `
+    -SanitizedFailureCode $FailureCode -RecordedAtUtc $RecordedAtUtc
 }
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
@@ -384,13 +410,21 @@ try {
 Write-Output "Recursive cleanup inventory rejection PASS"
 
 $expectedNonce = "0123456789abcdef0123456789abcdef"
+$expectedAuthorization = "RP-TURN-019-R4-DIAG1-SIMULATION"
 $expectedHead = "1111111111111111111111111111111111111111"
 $expectedHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+$expectedBootstrapHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+$expectedTransportHash = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+$expectedChildHash = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 $started = [DateTimeOffset]::UtcNow.AddSeconds(-1)
 $result = New-RisePalsCandidateValidResult
 $consumed = @{}
 [void](Assert-RisePalsCandidateResult -Result $result -ExpectedNonce $expectedNonce `
-  -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+  -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+  -ExpectedTransportScriptSha256 $expectedTransportHash `
+  -ExpectedChildScriptSha256 $expectedChildHash `
   -ObservedExitCode 0 -InvocationStartedAtUtc $started -ConsumedNonces $consumed)
 
 $atomicRoot = Join-Path ([IO.Path]::GetTempPath()) (
@@ -406,7 +440,11 @@ try {
     [IO.File]::ReadAllBytes($atomicResult)
   ) | ConvertFrom-Json
   [void](Assert-RisePalsCandidateResult -Result $roundTrip -ExpectedNonce $expectedNonce `
-    -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+    -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+    -ExpectedLauncherScriptSha256 $expectedHash `
+    -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+    -ExpectedTransportScriptSha256 $expectedTransportHash `
+    -ExpectedChildScriptSha256 $expectedChildHash `
     -ObservedExitCode 0 -InvocationStartedAtUtc $started -ConsumedNonces @{})
   if ([IO.File]::Exists($atomicTemporary)) {
     throw "The atomic candidate result left its temporary file."
@@ -428,7 +466,11 @@ if (-not [bool]$result.streamEvidence.stderrObserved) {
 }
 Assert-RisePalsCandidateThrows -Label "Structured-result replay" -Action {
   Assert-RisePalsCandidateResult -Result $result -ExpectedNonce $expectedNonce `
-    -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+    -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+    -ExpectedLauncherScriptSha256 $expectedHash `
+    -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+    -ExpectedTransportScriptSha256 $expectedTransportHash `
+    -ExpectedChildScriptSha256 $expectedChildHash `
     -ObservedExitCode 0 -InvocationStartedAtUtc $started -ConsumedNonces $consumed
 }
 Write-Output "Structured success/informational-stderr/single-use result PASS"
@@ -436,7 +478,11 @@ Write-Output "Structured success/informational-stderr/single-use result PASS"
 $failureResult = New-RisePalsCandidateValidResult -Status "failure" -ExitCode 7 `
   -CleanupCompleted $true
 [void](Assert-RisePalsCandidateResult -Result $failureResult -ExpectedNonce $expectedNonce `
-  -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+  -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+  -ExpectedTransportScriptSha256 $expectedTransportHash `
+  -ExpectedChildScriptSha256 $expectedChildHash `
   -ObservedExitCode 7 -InvocationStartedAtUtc $started -ConsumedNonces @{})
 Write-Output "Explicit native nonzero result classification PASS"
 
@@ -463,11 +509,213 @@ foreach ($case in $invalidCases) {
   }
   Assert-RisePalsCandidateThrows -Label ("Structured result " + $case) -Action {
     Assert-RisePalsCandidateResult -Result $invalid -ExpectedNonce $expectedNonce `
-      -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+      -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+      -ExpectedLauncherScriptSha256 $expectedHash `
+      -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+      -ExpectedTransportScriptSha256 $expectedTransportHash `
+      -ExpectedChildScriptSha256 $expectedChildHash `
       -ObservedExitCode 0 -InvocationStartedAtUtc $started -ConsumedNonces @{}
   }
 }
 Write-Output "Malformed/stale/provenance/partial/digest result rejections PASS"
+
+$transportScenarios = @(
+  @{ Name = "successful-bootstrap-start-stage-final"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
+  @{ Name = "failure-before-bootstrap-invocation"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
+  @{ Name = "bootstrap-argument-rejection"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
+  @{ Name = "bootstrap-result-directory-rejection"; Launch = "launch-failure"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
+  @{ Name = "failure-immediately-after-bootstrap"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "bootstrap-entered-child-not-started" },
+  @{ Name = "full-child-load-failure"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "bootstrap-entered-child-not-started" },
+  @{ Name = "child-exit-before-stage"; Launch = "launched"; B = $true; C = $true; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "child-started-failed-before-live" },
+  @{ Name = "child-exit-after-stage-before-final"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
+  @{ Name = "uac-cancellation"; Launch = "cancelled"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-cancelled" },
+  @{ Name = "elevated-process-creation-failure"; Launch = "launch-failure"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
+  @{ Name = "uac-not-launched"; Launch = "not-launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-not-launched" },
+  @{ Name = "exit-code-final-status-mismatch"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "missing-final-marker"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
+  @{ Name = "partial-json"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "invalid-schema"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-nonce"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-authorization-id"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-head"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-launcher-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-bootstrap-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-transport-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-child-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "stale-marker"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "replayed-marker"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "reparse-result-root-or-marker"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "marker-outside-exact-result-root"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "atomic-write-interruption"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "no-raw-output-dependency"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
+  @{ Name = "temporary-resource-cleanup"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "failure"; Expected = "final-present-validated" }
+)
+foreach ($scenario in $transportScenarios) {
+  $actual = Resolve-RisePalsCandidateParentClassification `
+    -LaunchDisposition $scenario.Launch -BootstrapEntered $scenario.B `
+    -ChildStarted $scenario.C -LiveStarted $scenario.L -FinalPresent $scenario.P `
+    -FinalValidated $scenario.V -EvidenceInvalid $scenario.I -FinalStatus $scenario.S
+  if ($actual -ne $scenario.Expected) {
+    throw ("Candidate transport simulation {0} returned {1}." -f $scenario.Name, $actual)
+  }
+}
+Write-Output ("Candidate bootstrap/result transport simulations PASS ({0} scenarios)" -f
+  $transportScenarios.Count)
+
+$validMarker = New-RisePalsCandidateValidMarker
+$markerStarted = [DateTimeOffset]::UtcNow.AddSeconds(-1)
+$markerConsumed = @{}
+[void](Assert-RisePalsCandidateMarker -Marker $validMarker `
+  -ExpectedType "bootstrap-started" -ExpectedNonce $expectedNonce `
+  -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+  -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+  -ExpectedTransportScriptSha256 $expectedTransportHash `
+  -ExpectedChildScriptSha256 $expectedChildHash `
+  -InvocationStartedAtUtc $markerStarted -ConsumedMarkers $markerConsumed)
+Assert-RisePalsCandidateThrows -Label "Transport marker replay" -Action {
+  Assert-RisePalsCandidateMarker -Marker $validMarker `
+    -ExpectedType "bootstrap-started" -ExpectedNonce $expectedNonce `
+    -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+    -ExpectedLauncherScriptSha256 $expectedHash `
+    -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+    -ExpectedTransportScriptSha256 $expectedTransportHash `
+    -ExpectedChildScriptSha256 $expectedChildHash `
+    -InvocationStartedAtUtc $markerStarted -ConsumedMarkers $markerConsumed
+}
+$invalidMarkerCases = @(
+  "partial",
+  "schema",
+  "nonce",
+  "authorization",
+  "head",
+  "launcher-hash",
+  "bootstrap-hash",
+  "transport-hash",
+  "child-hash",
+  "stale",
+  "digest"
+)
+foreach ($case in $invalidMarkerCases) {
+  $invalid = New-RisePalsCandidateValidMarker
+  switch ($case) {
+    "partial" { $invalid.PSObject.Properties.Remove("recordedAtUtc") }
+    "schema" { $invalid.schemaVersion = "invalid" }
+    "nonce" { $invalid.invocationNonce = "ffffffffffffffffffffffffffffffff" }
+    "authorization" { $invalid.authorizationId = "RP-TURN-019-R4-LIVE-FFFFFFFF" }
+    "head" { $invalid.repositoryHead = "2222222222222222222222222222222222222222" }
+    "launcher-hash" { $invalid.launcherScriptSha256 = (("d" * 64) -join "") }
+    "bootstrap-hash" { $invalid.bootstrapScriptSha256 = (("d" * 64) -join "") }
+    "transport-hash" { $invalid.transportScriptSha256 = (("e" * 64) -join "") }
+    "child-hash" { $invalid.childScriptSha256 = (("f" * 64) -join "") }
+    "stale" { $invalid.recordedAtUtc = [DateTimeOffset]::UtcNow.AddHours(-2).ToString("o") }
+    "digest" { $invalid.markerDigest = ("f" * 64) }
+  }
+  if ($case -notin @("partial", "digest")) {
+    $invalid.markerDigest = Get-RisePalsCandidateMarkerDigest -Marker $invalid
+  }
+  Assert-RisePalsCandidateThrows -Label ("Transport marker " + $case) -Action {
+    Assert-RisePalsCandidateMarker -Marker $invalid `
+      -ExpectedType "bootstrap-started" -ExpectedNonce $expectedNonce `
+      -ExpectedAuthorizationId $expectedAuthorization -ExpectedHead $expectedHead `
+      -ExpectedLauncherScriptSha256 $expectedHash `
+      -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+      -ExpectedTransportScriptSha256 $expectedTransportHash `
+      -ExpectedChildScriptSha256 $expectedChildHash `
+      -InvocationStartedAtUtc $markerStarted -ConsumedMarkers @{}
+  }
+}
+Write-Output "Transport schema/provenance/time/digest/replay rejections PASS"
+
+$transportRoot = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-transport-" + [guid]::NewGuid().ToString("N")
+)
+$transportNonce = "0123456789abcdef0123456789abcdef"
+$transportInvocation = Join-Path $transportRoot ("invocation-" + $transportNonce)
+$outside = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-outside-" + [guid]::NewGuid().ToString("N") + ".json"
+)
+$junctionTarget = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-junction-target-" + [guid]::NewGuid().ToString("N")
+)
+$junctionRoot = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-junction-" + [guid]::NewGuid().ToString("N")
+)
+try {
+  [IO.Directory]::CreateDirectory($transportInvocation) | Out-Null
+  Protect-RisePalsCandidateInvocationDirectory -Path $transportInvocation
+  [void](Assert-RisePalsCandidateInvocationDirectory -Path $transportInvocation `
+    -ExpectedRoot $transportRoot -InvocationNonce $transportNonce)
+  $atomicMarker = New-RisePalsCandidateValidMarker
+  Write-RisePalsCandidateMarkerAtomic -Marker $atomicMarker `
+    -InvocationDirectory $transportInvocation
+  $roundTripMarker = Read-RisePalsCandidateTransportJson `
+    -Path (Join-Path $transportInvocation "bootstrap-started.json") `
+    -InvocationDirectory $transportInvocation -ExpectedName "bootstrap-started.json"
+  if ($roundTripMarker.markerDigest -ne $atomicMarker.markerDigest) {
+    throw "The atomic transport marker round trip changed its digest."
+  }
+  [IO.File]::WriteAllText($outside, "{}", [Text.UTF8Encoding]::new($false))
+  Assert-RisePalsCandidateThrows -Label "Marker outside result root" -Action {
+    Read-RisePalsCandidateTransportJson -Path $outside `
+      -InvocationDirectory $transportInvocation -ExpectedName "bootstrap-started.json"
+  }
+  $interruptedPath = Join-Path $transportInvocation "child-started.json.tmp"
+  [IO.File]::WriteAllText($interruptedPath, "partial", [Text.UTF8Encoding]::new($false))
+  Assert-RisePalsCandidateThrows -Label "Atomic marker interruption" -Action {
+    Write-RisePalsCandidateMarkerAtomic -Marker (
+      New-RisePalsCandidateValidMarker -MarkerType "child-started"
+    ) -InvocationDirectory $transportInvocation
+  }
+  $junctionInvocation = Join-Path $junctionTarget ("invocation-" + $transportNonce)
+  [IO.Directory]::CreateDirectory($junctionInvocation) | Out-Null
+  Protect-RisePalsCandidateInvocationDirectory -Path $junctionInvocation
+  [void](New-Item -ItemType Junction -Path $junctionRoot -Target $junctionTarget)
+  Assert-RisePalsCandidateThrows -Label "Reparse result root" -Action {
+    Assert-RisePalsCandidateInvocationDirectory `
+      -Path (Join-Path $junctionRoot ("invocation-" + $transportNonce)) `
+      -ExpectedRoot $junctionRoot -InvocationNonce $transportNonce
+  }
+} finally {
+  foreach ($name in @("bootstrap-started.json", "child-started.json.tmp")) {
+    $path = Join-Path $transportInvocation $name
+    if ([IO.File]::Exists($path)) { [IO.File]::Delete($path) }
+  }
+  if ([IO.File]::Exists($outside)) { [IO.File]::Delete($outside) }
+  if ([IO.Directory]::Exists($junctionRoot)) {
+    [IO.Directory]::Delete($junctionRoot, $false)
+  }
+  if ([IO.Directory]::Exists($junctionTarget)) {
+    [IO.Directory]::Delete($junctionTarget, $true)
+  }
+  if ([IO.Directory]::Exists($transportInvocation)) {
+    [IO.Directory]::Delete($transportInvocation, $false)
+  }
+  if ([IO.Directory]::Exists($transportRoot)) {
+    [IO.Directory]::Delete($transportRoot, $false)
+  }
+}
+if ([IO.Directory]::Exists($transportRoot) -or [IO.File]::Exists($outside)) {
+  throw "Candidate transport simulation cleanup left a temporary resource."
+}
+Write-Output "Explicit result-root ACL/path/atomic-write/cleanup simulations PASS"
+
+$parentSource = [IO.File]::ReadAllText(
+  (Join-Path $scripts "Invoke-RisePalsCandidateRehearsal.ps1")
+)
+$bootstrapSource = [IO.File]::ReadAllText(
+  (Join-Path $scripts "Invoke-RisePalsCandidateElevatedBootstrap.ps1")
+)
+if ($parentSource.Contains("RedirectStandardOutput") -or
+  $parentSource.Contains("RedirectStandardError") -or
+  $bootstrapSource.Contains("RedirectStandardOutput") -or
+  $bootstrapSource.Contains("RedirectStandardError") -or
+  $bootstrapSource.Contains("Get-FileHash") -or
+  -not $bootstrapSource.Contains("SHA256]::Create()") -or
+  -not $bootstrapSource.Contains("ComputeHash")) {
+  throw "The parent/bootstrap boundary depends on raw streams or unsupported hashing."
+}
+Write-Output "No raw-output dependency and supported bootstrap hashing PASS"
 
 $stages = @($contract.rehearsalStages)
 $codes = @($contract.sanitizedFailureCodes)
@@ -509,7 +757,9 @@ if ($controlSource.Contains('"Preshutdown"') -or
 }
 $candidateSources = @(
   "candidate-rehearsal-contract.ps1",
+  "candidate-rehearsal-transport.ps1",
   "Invoke-RisePalsCandidateRehearsal.ps1",
+  "Invoke-RisePalsCandidateElevatedBootstrap.ps1",
   "Invoke-RisePalsCandidateRehearsalChild.ps1",
   "Invoke-RisePalsCandidateLiveSequence.ps1",
   "Invoke-RisePalsCandidateServiceControl.ps1"
@@ -526,7 +776,9 @@ Write-Output "Read-only Preshutdown registration and retained-proxy preservation
 $parseTargets = @(
   "candidate-rehearsal-contract.ps1",
   "candidate-rehearsal-result.ps1",
+  "candidate-rehearsal-transport.ps1",
   "Invoke-RisePalsCandidateRehearsal.ps1",
+  "Invoke-RisePalsCandidateElevatedBootstrap.ps1",
   "Invoke-RisePalsCandidateRehearsalChild.ps1",
   "Invoke-RisePalsCandidateLiveSequence.ps1",
   "Invoke-RisePalsCandidateServiceControl.ps1",

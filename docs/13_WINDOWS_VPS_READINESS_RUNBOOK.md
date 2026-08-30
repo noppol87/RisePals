@@ -202,6 +202,20 @@ Project Codex Accepted the final safe state and exact residue cleanup:
 
 RP-TURN-019-R3 selects Option B only for a repository-owned prototype pending Project Codex review. `infra/windows-service-host/` contains the minimal self-contained .NET 10 LTS service-aware host that models direct `Stop-Service`; two-slot Caddy blue/green drain remains unauthorized fallback only with an explicit acceptance-contract change. The prototype is unsigned, uninstalled and has not contacted SCM or `C:\RisePals`. Keep the existing WinSW services/configuration Stopped and Disabled as rollback evidence until a separately authorized signed candidate passes a later live proof; then remove them only in a separate exact cleanup.
 
+### Elevated bootstrap/result-transport boundary
+
+LIVE3 exited with code 1 before producing parent-validatable structured evidence. Recovery2 restored and proved the accepted zero-residue host state, but the functional rehearsal is not accepted. Because the former elevated child could fail during typed parameter binding, elevated `%TEMP%`-relative directory resolution, helper loading or ACL/result initialization before any marker, the exact historic cause is unknowable. Do not infer service-host or cleanup behavior from that exit.
+
+R4-DIAG1 replaces that unobservable boundary with an explicit parent-owned transport:
+
+- the non-elevated parent creates one nonce directory under its own absolute result root, rejects linked paths, applies and verifies the exact current-user/SYSTEM/Administrators ACL and passes the absolute root rather than relying on the elevated environment;
+- the PowerShell 5.1 bootstrap accepts primitive strings only, self-validates the authorization ID, nonce, expected HEAD and launcher/bootstrap/transport/child hashes and atomically writes `bootstrap-started` before the full child is dispatched;
+- `child-started` and `live-started` distinguish dispatch/pre-live and live-started failures, while a top-level fixed bootstrap-failure marker records any reached bootstrap failure without exception text;
+- the parent validates exact path, reparse state, schema/property set, provenance, timestamps, digest, sequence, replay and exit/final consistency before producing a deterministic classification;
+- missing evidence is always failure and parent-generated diagnostics contain no service, drain, stream, restart or cleanup success claim.
+
+All R4-DIAG1 simulations are non-elevated, use only fresh temporary paths outside `C:\RisePals` and delete their controlled resources. They do not authorize another UAC prompt or host rehearsal. Project Codex must review the exact new commit and issue a separate exact-head authorization before any future Live attempt.
+
 ## Health and failure evidence
 
 - `/health/live` returns only `{"status":"ok"}`.

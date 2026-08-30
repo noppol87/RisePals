@@ -3,8 +3,13 @@ param(
   [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode,
   [Parameter(Mandatory = $true)][string]$SimulationScenario,
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$RepositoryHead,
+  [Parameter(Mandatory = $true)][string]$AuthorizationId,
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$LauncherScriptSha256,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$BootstrapScriptSha256,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$TransportScriptSha256,
+  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{64}$")][string]$ChildScriptSha256,
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+  [Parameter(Mandatory = $true)][string]$ResultRoot,
   [Parameter(Mandatory = $true)][string]$InvocationDirectory,
   [string]$FutureAuthorizationId = "",
   [string]$CandidateExecutableSource = "",
@@ -15,51 +20,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "candidate-rehearsal-contract.ps1")
 . (Join-Path $PSScriptRoot "candidate-rehearsal-result.ps1")
+. (Join-Path $PSScriptRoot "candidate-rehearsal-transport.ps1")
 
-function Assert-RisePalsCandidateInvocationDirectory {
-  param([Parameter(Mandatory = $true)][string]$Path)
-
-  $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
-  $root = [IO.Path]::GetFullPath(
-    (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
-  ).TrimEnd([IO.Path]::DirectorySeparatorChar)
-  $expected = Join-Path $root ("invocation-" + $InvocationNonce)
-  if (-not $exact.Equals($expected, [StringComparison]::OrdinalIgnoreCase) -or
-    -not [IO.Directory]::Exists($exact)) {
-    throw "The candidate invocation directory is not the exact nonce child."
-  }
-  $item = Get-Item -LiteralPath $exact -Force
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    throw "The candidate invocation directory must not be a reparse point."
-  }
-  return $exact
-}
-
-function Protect-RisePalsCandidateInvocationDirectory {
-  param([Parameter(Mandatory = $true)][string]$Path)
-
-  $sids = @(
-    [Security.Principal.WindowsIdentity]::GetCurrent().User,
-    [Security.Principal.SecurityIdentifier]::new("S-1-5-18"),
-    [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
-  )
-  $security = [Security.AccessControl.DirectorySecurity]::new()
-  $security.SetAccessRuleProtection($true, $false)
-  foreach ($sid in $sids) {
-    $rule = [Security.AccessControl.FileSystemAccessRule]::new(
-      $sid,
-      [Security.AccessControl.FileSystemRights]::FullControl,
-      [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
-        [Security.AccessControl.InheritanceFlags]::ObjectInherit,
-      [Security.AccessControl.PropagationFlags]::None,
-      [Security.AccessControl.AccessControlType]::Allow
-    )
-    [void]$security.AddAccessRule($rule)
-  }
-  [IO.Directory]::SetAccessControl($Path, $security)
-}
-
-$directory = Assert-RisePalsCandidateInvocationDirectory -Path $InvocationDirectory
+$directory = Assert-RisePalsCandidateInvocationDirectory -Path $InvocationDirectory `
+  -ExpectedRoot $ResultRoot -InvocationNonce $InvocationNonce
 if (-not $PSCmdlet.ShouldProcess(
   $directory,
   ("Run the candidate {0} child" -f $Mode.ToLowerInvariant())
@@ -67,7 +31,6 @@ if (-not $PSCmdlet.ShouldProcess(
   Write-Output "Rise Pals candidate child dry-run PASS"
   return
 }
-Protect-RisePalsCandidateInvocationDirectory -Path $directory
 
 $resultPath = Join-Path $directory "result.json"
 $temporaryResultPath = Join-Path $directory "result.tmp"
@@ -124,6 +87,14 @@ if ($Mode -eq "Simulation") {
     ('"' + $liveStatePath + '"')
   )
 }
+
+$liveMarker = New-RisePalsCandidateMarker -MarkerType "live-started" `
+  -InvocationNonce $InvocationNonce -AuthorizationId $AuthorizationId `
+  -RepositoryHead $RepositoryHead -LauncherScriptSha256 $LauncherScriptSha256 `
+  -BootstrapScriptSha256 $BootstrapScriptSha256 `
+  -TransportScriptSha256 $TransportScriptSha256 `
+  -ChildScriptSha256 $ChildScriptSha256 -SanitizedFailureCode $null
+Write-RisePalsCandidateMarkerAtomic -Marker $liveMarker -InvocationDirectory $directory
 
 $process = Start-Process -FilePath $powerShell -ArgumentList $processArguments `
   -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
@@ -194,7 +165,11 @@ $streamEvidence = [ordered]@{
   rawOutputPersisted = $false
 }
 $result = New-RisePalsCandidateResult -InvocationNonce $InvocationNonce `
-  -RepositoryHead $RepositoryHead -LauncherScriptSha256 $LauncherScriptSha256 `
+  -AuthorizationId $AuthorizationId -RepositoryHead $RepositoryHead `
+  -LauncherScriptSha256 $LauncherScriptSha256 `
+  -BootstrapScriptSha256 $BootstrapScriptSha256 `
+  -TransportScriptSha256 $TransportScriptSha256 `
+  -ChildScriptSha256 $ChildScriptSha256 `
   -StartedAtUtc $started.ToString("o") `
   -CompletedAtUtc ([DateTimeOffset]::UtcNow.ToString("o")) -Status $status `
   -ChildExitCode $exitCode -CompletedStages $completedStages -FailedStage $failedStage `
