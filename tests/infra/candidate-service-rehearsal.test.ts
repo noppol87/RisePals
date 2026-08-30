@@ -310,6 +310,7 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(parent).toContain("Assert-RisePalsCandidateResult");
     expect(parent).not.toContain("RedirectStandardOutput");
     expect(parent).not.toContain("RedirectStandardError");
+    expect(parent).toContain("[AllowEmptyString()]");
     expect(bootstrap).not.toContain("RedirectStandardOutput");
     expect(bootstrap).not.toContain("RedirectStandardError");
     expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "bootstrap-started"');

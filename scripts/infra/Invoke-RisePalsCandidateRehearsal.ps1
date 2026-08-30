@@ -36,7 +36,11 @@ function Get-RisePalsCandidateGitExecutable {
 }
 
 function ConvertTo-RisePalsCandidateProcessArgument {
-  param([Parameter(Mandatory = $true)][string]$Value)
+  param(
+    [Parameter(Mandatory = $true)]
+    [AllowEmptyString()]
+    [string]$Value
+  )
 
   if ($Value.Contains('"')) {
     throw "A candidate process argument contains a prohibited quote."
