@@ -27,6 +27,12 @@ function Assert-RisePalsCandidateThrows {
   }
 }
 
+function Copy-RisePalsCandidateContract {
+  param([Parameter(Mandatory = $true)][object]$Contract)
+
+  return (($Contract | ConvertTo-Json -Depth 20 -Compress) | ConvertFrom-Json)
+}
+
 function New-RisePalsCandidateValidRepositorySnapshot {
   param([Parameter(Mandatory = $true)][object]$Contract)
 
@@ -99,6 +105,47 @@ function New-RisePalsCandidateValidResult {
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
 Write-Output "Candidate contract and accepted artifact pins PASS"
+
+foreach ($failure in @(
+    "version",
+    "assemblyVersion",
+    "fileVersion",
+    "informationalVersion",
+    "includeSourceRevision",
+    "productionSourceTree",
+    "outerCommitExclusion",
+    "executableLength",
+    "executableSha256"
+  )) {
+  $invalid = Copy-RisePalsCandidateContract -Contract $contract
+  switch ($failure) {
+    "version" { $invalid.prototype.artifactIdentity.version = "0.1.1-rp19-prototype" }
+    "assemblyVersion" { $invalid.prototype.artifactIdentity.assemblyVersion = "0.1.1.0" }
+    "fileVersion" { $invalid.prototype.artifactIdentity.fileVersion = "0.1.1.0" }
+    "informationalVersion" {
+      $invalid.prototype.artifactIdentity.informationalVersion = "0.1.0-rp19-prototype+volatile"
+    }
+    "includeSourceRevision" {
+      $invalid.prototype.artifactIdentity.includeSourceRevisionInInformationalVersion = $true
+    }
+    "productionSourceTree" {
+      $invalid.prototype.artifactIdentity.serviceHostProductionSourceTree =
+        "1111111111111111111111111111111111111111"
+    }
+    "outerCommitExclusion" {
+      $invalid.prototype.artifactIdentity.volatileOuterRepositoryCommitMetadataExcluded = $false
+    }
+    "executableLength" { $invalid.prototype.executableLength++ }
+    "executableSha256" {
+      $invalid.prototype.executableSha256 =
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  }
+  Assert-RisePalsCandidateThrows -Label ("Artifact identity " + $failure) -Action {
+    Assert-RisePalsCandidateContract -Contract $invalid -RepositoryRoot $repository
+  }
+}
+Write-Output "Context-independent assembly identity and artifact-pin rejection gates PASS"
 
 $nodeMetadata = [pscustomobject][ordered]@{
   path = [string]$contract.node.sourcePath

@@ -191,11 +191,22 @@ function Assert-RisePalsCandidateContract {
   if ($derivedSid -ne $Contract.candidate.serviceSid) {
     throw "The candidate virtual-account SID derivation is invalid."
   }
-  if ($Contract.prototype.executableLength -ne 73606931 -or
+  if ($Contract.prototype.executableLength -ne 73606961 -or
     $Contract.prototype.executableSha256 -ne
-      "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f" -or
+      "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c" -or
     $Contract.prototype.authenticode -ne "NotSigned") {
     throw "The accepted unsigned prototype pin changed."
+  }
+  $artifactIdentity = $Contract.prototype.artifactIdentity
+  if ($artifactIdentity.version -cne "0.1.0-rp19-prototype" -or
+    $artifactIdentity.assemblyVersion -cne "0.1.0.0" -or
+    $artifactIdentity.fileVersion -cne "0.1.0.0" -or
+    $artifactIdentity.informationalVersion -cne "0.1.0-rp19-prototype" -or
+    [bool]$artifactIdentity.includeSourceRevisionInInformationalVersion -or
+    $artifactIdentity.serviceHostProductionSourceTree -cne
+      "8df181147b0cfc9633c73a4022faeca3446648ea" -or
+    -not [bool]$artifactIdentity.volatileOuterRepositoryCommitMetadataExcluded) {
+    throw "The context-independent service-host artifact identity policy changed."
   }
   if ($Contract.node.version -cne "v24.18.1" -or
     $Contract.node.sourcePath -cne $script:RisePalsCandidateNodeSource -or

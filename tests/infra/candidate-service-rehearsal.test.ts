@@ -13,6 +13,12 @@ async function text(relativePath: string): Promise<string> {
 
 describe("repository-only candidate service rehearsal harness", () => {
   it("pins the accepted candidate identity, executable, schema and dependency manifest", async () => {
+    const executableProject = await text(
+      "infra/windows-service-host/RisePals.ServiceHost/RisePals.ServiceHost.csproj",
+    );
+    const testProject = await text(
+      "infra/windows-service-host/RisePals.ServiceHost.Tests/RisePals.ServiceHost.Tests.csproj",
+    );
     const contract = JSON.parse(
       await text("infra/windows-service-host/candidate-rehearsal-contract.json"),
     ) as {
@@ -29,6 +35,26 @@ describe("repository-only candidate service rehearsal harness", () => {
       retainedServices: Array<Record<string, unknown>>;
       authorization: Record<string, boolean>;
     };
+    const dependencyManifest = JSON.parse(
+      await text("infra/windows-service-host/service-host-dependency-manifest.json"),
+    ) as {
+      artifactIdentity: Record<string, unknown>;
+      publish: Record<string, unknown>;
+    };
+
+    expect(executableProject).toContain("<Version>0.1.0-rp19-prototype</Version>");
+    expect(executableProject).toContain("<AssemblyVersion>0.1.0.0</AssemblyVersion>");
+    expect(executableProject).toContain("<FileVersion>0.1.0.0</FileVersion>");
+    expect(executableProject).toContain(
+      "<InformationalVersion>0.1.0-rp19-prototype</InformationalVersion>",
+    );
+    expect(executableProject).toContain(
+      "<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>",
+    );
+    expect(executableProject).not.toContain("<SourceRevisionId>");
+    expect(testProject).not.toMatch(
+      /<Version>|<AssemblyVersion>|<FileVersion>|<InformationalVersion>|<IncludeSourceRevisionInInformationalVersion>|<SourceRevisionId>/u,
+    );
 
     expect(contract.candidate).toEqual({
       serviceName: "RisePalsServiceHostCandidate",
@@ -40,13 +66,45 @@ describe("repository-only candidate service rehearsal harness", () => {
       retainedServices: ["RisePalsApp", "RisePalsProxy"],
     });
     expect(contract.prototype).toMatchObject({
-      executableLength: 73_606_931,
-      executableSha256: "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f",
+      executableLength: 73_606_961,
+      executableSha256: "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
       authenticode: "NotSigned",
+      artifactIdentity: {
+        version: "0.1.0-rp19-prototype",
+        assemblyVersion: "0.1.0.0",
+        fileVersion: "0.1.0.0",
+        informationalVersion: "0.1.0-rp19-prototype",
+        includeSourceRevisionInInformationalVersion: false,
+        serviceHostProductionSourceTree: "8df181147b0cfc9633c73a4022faeca3446648ea",
+        volatileOuterRepositoryCommitMetadataExcluded: true,
+      },
       schemaLength: 1_672,
       schemaSha256: "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
-      dependencyManifestLength: 5_116,
-      dependencyManifestSha256: "6603b54d0abe79711b700b992bbff5de85ea04e74d6fc5d8ff245a3599b138d7",
+      dependencyManifestLength: 5_629,
+      dependencyManifestSha256: "9b96056c9fc0738d282a3dd1a7b9a35467e90aa0e1df5cbdad633c12a8b310f6",
+    });
+    expect(dependencyManifest.artifactIdentity).toEqual(contract.prototype.artifactIdentity);
+    expect(dependencyManifest.publish).toMatchObject({
+      contextCount: 3,
+      contexts: [
+        "git-aware",
+        "git-archive-file-only",
+        "second-file-only-distinct-path-and-timestamps",
+      ],
+      byteIdentical: true,
+      files: [
+        {
+          name: "RisePals.ServiceHost.exe",
+          length: 73_606_961,
+          sha256: "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
+          authenticode: "NotSigned",
+        },
+        {
+          name: "service-host-config.schema.json",
+          length: 1_672,
+          sha256: "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
+        },
+      ],
     });
     expect(contract.node).toEqual({
       version: "v24.18.1",

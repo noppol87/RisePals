@@ -50,15 +50,24 @@
   ],
   "prototype": {
     "executableName": "RisePals.ServiceHost.exe",
-    "executableLength": 73606931,
-    "executableSha256": "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f",
+    "executableLength": 73606961,
+    "executableSha256": "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
     "authenticode": "NotSigned",
+    "artifactIdentity": {
+      "version": "0.1.0-rp19-prototype",
+      "assemblyVersion": "0.1.0.0",
+      "fileVersion": "0.1.0.0",
+      "informationalVersion": "0.1.0-rp19-prototype",
+      "includeSourceRevisionInInformationalVersion": false,
+      "serviceHostProductionSourceTree": "8df181147b0cfc9633c73a4022faeca3446648ea",
+      "volatileOuterRepositoryCommitMetadataExcluded": true
+    },
     "schemaRelativePath": "infra/windows-service-host/RisePals.ServiceHost/service-host-config.schema.json",
     "schemaLength": 1672,
     "schemaSha256": "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
     "dependencyManifestRelativePath": "infra/windows-service-host/service-host-dependency-manifest.json",
-    "dependencyManifestLength": 5116,
-    "dependencyManifestSha256": "6603b54d0abe79711b700b992bbff5de85ea04e74d6fc5d8ff245a3599b138d7"
+    "dependencyManifestLength": 5629,
+    "dependencyManifestSha256": "9b96056c9fc0738d282a3dd1a7b9a35467e90aa0e1df5cbdad633c12a8b310f6"
   },
   "paths": {
     "root": "C:\\RisePals",

@@ -128,15 +128,29 @@
       }
     ]
   },
+  "artifactIdentity": {
+    "version": "0.1.0-rp19-prototype",
+    "assemblyVersion": "0.1.0.0",
+    "fileVersion": "0.1.0.0",
+    "informationalVersion": "0.1.0-rp19-prototype",
+    "includeSourceRevisionInInformationalVersion": false,
+    "serviceHostProductionSourceTree": "8df181147b0cfc9633c73a4022faeca3446648ea",
+    "volatileOuterRepositoryCommitMetadataExcluded": true
+  },
   "publish": {
     "command": "dotnet publish RisePals.ServiceHost/RisePals.ServiceHost.csproj --configuration Release --no-restore --output <fresh-task-temp>",
-    "repeatCount": 2,
+    "contextCount": 3,
+    "contexts": [
+      "git-aware",
+      "git-archive-file-only",
+      "second-file-only-distinct-path-and-timestamps"
+    ],
     "byteIdentical": true,
     "files": [
       {
         "name": "RisePals.ServiceHost.exe",
-        "length": 73606931,
-        "sha256": "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f",
+        "length": 73606961,
+        "sha256": "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
         "authenticode": "NotSigned"
       },
       {

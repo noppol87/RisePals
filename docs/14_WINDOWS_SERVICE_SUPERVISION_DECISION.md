@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
 **Turn:** RP-TURN-019-R4  
-**Status:** Option B repository-only prototype retained; R4-R2 deterministic Job-emptiness test correction complete pending Project Codex review after LIVE1 stopped before UAC during Phase A  
+**Status:** Option B repository-only prototype retained; R4-R3 context-independent artifact correction complete pending Project Codex review after LIVE2 stopped before UAC  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -146,7 +146,7 @@ Option B remains split into explicit repository review and live-authorization ch
 - Kept Caddy, installed WinSW, releases, health contracts and application behavior unchanged.
 - Produced a versioned dependency/inventory/checksum manifest. The executable remains NotSigned and is prohibited from host installation.
 
-R3-R1 passed 51 .NET tests, including six Node-fixture tests and fifteen focused correction regressions, and two byte-identical clean publishes. The executable is 73,606,931 bytes with SHA-256 `04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f`. This is repository evidence, not a live SCM/host claim.
+R3-R1 passed 51 .NET tests, including six Node-fixture tests and fifteen focused correction regressions. R4-R3 corrected its build-context-sensitive assembly metadata and proved three byte-identical clean publishes from one Git-aware and two file-only contexts with distinct paths/timestamps. The executable is 73,606,961 bytes with SHA-256 `d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c`. This is repository evidence, not a live SCM/host claim.
 
 ### Repository-only candidate rehearsal harness — implemented pending review
 
@@ -161,6 +161,8 @@ The contract enumerates 23 ordered stages covering start/readiness, first-byte-s
 R4-R1 repository tests exercise deterministic plan equality, exact Node source/staged metadata rejection, exact retained-service definition/state and complete-snapshot equality, service/hash/path/ACL/listener rejection, result success/nonzero/stderr separation, malformed/stale/replay/partial rejection, recursive cleanup inventory containment/idempotency, exact sanitized mapping for all 23 failure stages and PowerShell 5.1 AST compatibility. They also prove no candidate script sends non-reboot Preshutdown control or targets `RisePalsProxy` with Start/Stop/Set/Restart. The elevated child repeats the exact clean-head/main/branch and ignored/untracked `.env.local` preflight before any future staging. A live attempt still requires a separate Project Codex authorization naming the exact reviewed R4-R1 head. Existing `RisePalsApp` and `RisePalsProxy` definitions remain untouched, Stopped and Disabled.
 
 The separately authorized LIVE1 attempt stopped before UAC in its fresh Phase A build after 50/51 tests: `ChildIsAssignedToJobBeforeSuspendedPrimaryThreadResumes` queried Job accounting immediately after child completion, before Windows reported the Job empty. R4-R2 treats that as a deterministic-test defect, not production evidence. Production orchestration remains byte-identical. Only post-exit/post-termination test assertions use a shared monotonic 20 ms poll with a strict three-second maximum and a final deadline query; immediate non-empty proof before primary-thread resume and descendant-absence checks remain unchanged. The exact failed test passed 10/10 consecutive runs, the full 51-test suite passed three consecutive runs and focused repository infrastructure tests passed 2 files / 26 tests. The LIVE1 authorization is not reusable.
+
+LIVE2 stopped before UAC and its authorization is invalid. R4-R3 pins explicit executable-only Version/AssemblyVersion/FileVersion/InformationalVersion and disables source-revision suffixing without changing service behavior. Artifact provenance records unchanged service-host production source tree `8df181147b0cfc9633c73a4022faeca3446648ea` and excludes volatile outer-repository commit metadata. Git-aware MSBuild discovery still observed the outer commit while file-only contexts did not, but all three outputs and assembly metadata were identical and neither outer commit identifier was embedded. No live/elevated execution or host mutation occurred.
 
 ### Separately authorized host rehearsal — not authorized
 
