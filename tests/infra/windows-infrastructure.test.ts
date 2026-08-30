@@ -198,7 +198,11 @@ describe("Windows infrastructure contract", () => {
       expect(script).toContain("SupportsShouldProcess = $true");
       expect(script).toContain("Set-StrictMode -Version Latest");
       expect(script).toContain('$ErrorActionPreference = "Stop"');
-      if (name !== "Invoke-RisePalsServiceStop.ps1") {
+      if (
+        !["Invoke-RisePalsServiceStop.ps1", "Invoke-RisePalsCandidateServiceControl.ps1"].includes(
+          name,
+        )
+      ) {
         expect(script).toMatch(/-LiteralPath|\[IO\.Directory\]/);
       }
       expect(script).not.toMatch(

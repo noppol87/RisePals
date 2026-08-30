@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -25,6 +25,8 @@ describe("repository-only candidate service rehearsal harness", () => {
         retainedServices: string[];
       };
       prototype: Record<string, unknown>;
+      node: Record<string, unknown>;
+      retainedServices: Array<Record<string, unknown>>;
       authorization: Record<string, boolean>;
     };
 
@@ -46,6 +48,43 @@ describe("repository-only candidate service rehearsal harness", () => {
       dependencyManifestLength: 5_116,
       dependencyManifestSha256: "6603b54d0abe79711b700b992bbff5de85ea04e74d6fc5d8ff245a3599b138d7",
     });
+    expect(contract.node).toEqual({
+      version: "v24.18.1",
+      sourcePath: "C:\\RisePals\\tools\\node\\24.18.1\\node.exe",
+      executableLength: 92_540_232,
+      executableSha256: "ac51903c4c111815d52280b1fdcc8da067cbb37e2fe1a765097b85c3292c8582",
+      authenticode: "Valid",
+      signerSubject:
+        "CN=OpenJS Foundation, O=OpenJS Foundation, L=San Francisco, S=California, C=US",
+      signerThumbprint: "285AE8801AFDD52B8F7B9B6436B50052911AF7C2",
+    });
+    expect(contract.retainedServices).toEqual([
+      {
+        serviceName: "RisePalsApp",
+        serviceType: "Own Process",
+        virtualAccount: "NT SERVICE\\RisePalsApp",
+        pathName: '"C:\\RisePals\\tools\\winsw\\2.12.0\\RisePalsApp.exe"',
+        executablePath: "C:\\RisePals\\tools\\winsw\\2.12.0\\RisePalsApp.exe",
+        executableLength: 18_243_033,
+        executableSha256: "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da",
+        expectedState: "Stopped",
+        expectedStartMode: "Disabled",
+        expectedProcessId: 0,
+      },
+      {
+        serviceName: "RisePalsProxy",
+        serviceType: "Own Process",
+        virtualAccount: "NT SERVICE\\RisePalsProxy",
+        pathName:
+          "C:\\RisePals\\tools\\caddy\\2.11.4\\caddy.exe run --config C:\\RisePals\\shared\\config\\Caddyfile --adapter caddyfile",
+        executablePath: "C:\\RisePals\\tools\\caddy\\2.11.4\\caddy.exe",
+        executableLength: 49_535_488,
+        executableSha256: "5cb9ab71e5756ce72840b8234177a2f40c8b4ab47a806b8e841e2b784e9df62b",
+        expectedState: "Stopped",
+        expectedStartMode: "Disabled",
+        expectedProcessId: 0,
+      },
+    ]);
     expect(contract.authorization).toEqual({
       repositoryOnly: true,
       liveExecutionAuthorized: false,
@@ -121,12 +160,12 @@ describe("repository-only candidate service rehearsal harness", () => {
       "complete-three-chunk-stream",
       "duplicate-stop",
       "verify-stop-checkpoints",
-      "verify-preshutdown-checkpoints",
+      "verify-preshutdown-registration",
       "verify-graceful-zero-job",
       "verify-timeout-cleanup",
       "verify-bounded-crash-restart",
       "verify-persistent-failure-terminal",
-      "verify-independent-proxy-restart",
+      "verify-retained-proxy-independence",
       "verify-process-ownership",
       "cleanup",
       "final-read-only-proof",
@@ -135,6 +174,68 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(new Set(contract.sanitizedFailureCodes).size).toBe(
       contract.sanitizedFailureCodes.length,
     );
+    expect(contract.sanitizedFailureCodes).toContain("proxy-state-preservation-failed");
+    expect(contract.sanitizedFailureCodes).not.toContain("proxy-independence-failed");
+  });
+
+  it("models read-only Preshutdown registration without dispatching a fake control", async () => {
+    const live = await text("scripts/infra/Invoke-RisePalsCandidateLiveSequence.ps1");
+    const control = await text("scripts/infra/Invoke-RisePalsCandidateServiceControl.ps1");
+    const adapter = await text(
+      "infra/windows-service-host/RisePals.ServiceHost/WindowsScmAdapter.cs",
+    );
+    const orchestrationTests = await text(
+      "infra/windows-service-host/RisePals.ServiceHost.Tests/OrchestrationTests.cs",
+    );
+    const nonRebootScripts = (
+      await Promise.all(
+        (await readdir(resolve(repositoryRoot, "scripts/infra")))
+          .filter(
+            (name) =>
+              name.endsWith(".ps1") && !name.includes("Reboot") && !name.startsWith("Test-"),
+          )
+          .map((name) => text(`scripts/infra/${name}`)),
+      )
+    ).join("\n");
+
+    expect(live).toContain("QueryServiceConfig2");
+    expect(live).toContain("QueryServiceStatusEx");
+    expect(live).toContain("SERVICE_ACCEPT_PRESHUTDOWN");
+    expect(live).toContain("Get-RisePalsCandidatePreshutdownRegistration");
+    expect(live).toContain("verify-preshutdown-registration");
+    expect(nonRebootScripts).not.toMatch(/sc(?:\.exe)?[^\r\n]*control[^\r\n]*15/iu);
+    expect(control).toContain('[ValidateSet("Stop")]');
+    expect(control).not.toContain('"Preshutdown"');
+    expect(adapter).toContain("ServiceAcceptPreshutdown");
+    expect(adapter).toContain("ServiceControlPreshutdown");
+    expect(orchestrationTests).toContain("PreshutdownUsesTheSameBoundedDrainContract");
+  });
+
+  it("keeps the retained proxy stopped and proves direct-loopback independence by snapshot", async () => {
+    const candidateScripts = (
+      await Promise.all(
+        [
+          "scripts/infra/candidate-rehearsal-contract.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateRehearsal.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateRehearsalChild.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateLiveSequence.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateServiceControl.ps1",
+        ].map(text),
+      )
+    ).join("\n");
+    const live = await text("scripts/infra/Invoke-RisePalsCandidateLiveSequence.ps1");
+
+    expect(live).toContain("verify-retained-proxy-independence");
+    expect(live).toContain("Assert-RisePalsCandidateRetainedSnapshotEquality");
+    expect(live).toContain("ServicesDependedOn");
+    expect(live).toContain('"http://127.0.0.1:3100"');
+    expect(candidateScripts).not.toMatch(
+      /(?:Start|Stop|Restart|Set)-Service[^\r\n]*RisePalsProxy/iu,
+    );
+    expect(candidateScripts).not.toMatch(
+      /(?:sc(?:\.exe)?|Invoke-RisePalsCandidateSc)[^\r\n]*(?:start|stop|control|config)[^\r\n]*RisePalsProxy/iu,
+    );
+    expect(candidateScripts).not.toContain("verify-independent-proxy-restart");
   });
 
   it("uses a separate-stream structured parent/child boundary and hard live authorization gate", async () => {

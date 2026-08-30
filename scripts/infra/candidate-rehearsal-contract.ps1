@@ -6,6 +6,7 @@ $script:RisePalsCandidateServiceName = "RisePalsServiceHostCandidate"
 $script:RisePalsCandidateAccount = "NT SERVICE\RisePalsServiceHostCandidate"
 $script:RisePalsCandidateRetainedServices = @("RisePalsApp", "RisePalsProxy")
 $script:RisePalsCandidateRoot = "C:\RisePals"
+$script:RisePalsCandidateNodeSource = "C:\RisePals\tools\node\24.18.1\node.exe"
 
 function Get-RisePalsCandidateRepositoryRoot {
   return [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
@@ -87,6 +88,85 @@ function Assert-RisePalsCandidateFilePin {
   return $exact
 }
 
+function Assert-RisePalsCandidateNodeMetadata {
+  param(
+    [Parameter(Mandatory = $true)][object]$Metadata,
+    [Parameter(Mandatory = $true)][object]$Contract,
+    [switch]$RequireSourcePath
+  )
+
+  if (($RequireSourcePath -and -not ([string]$Metadata.path).Equals(
+      [string]$Contract.sourcePath,
+      [StringComparison]::OrdinalIgnoreCase
+    )) -or
+    [string]$Metadata.version -cne [string]$Contract.version -or
+    [int64]$Metadata.executableLength -ne [int64]$Contract.executableLength -or
+    [string]$Metadata.executableSha256 -cne [string]$Contract.executableSha256 -or
+    [string]$Metadata.authenticode -cne [string]$Contract.authenticode -or
+    [string]$Metadata.signerSubject -cne [string]$Contract.signerSubject -or
+    [string]$Metadata.signerThumbprint -cne [string]$Contract.signerThumbprint) {
+    throw "Node executable metadata does not match the exact accepted pin."
+  }
+}
+
+function Assert-RisePalsCandidatePreshutdownRegistration {
+  param(
+    [Parameter(Mandatory = $true)][object]$Registration,
+    [Parameter(Mandatory = $true)][object]$Contract
+  )
+
+  if ([uint32]$Registration.TimeoutMilliseconds -ne
+      [uint32]$Contract.timing.preshutdownTimeoutMilliseconds -or
+    -not [bool]$Registration.AcceptsPreshutdown) {
+    throw "The running candidate did not advertise the exact Preshutdown registration."
+  }
+}
+
+function Assert-RisePalsCandidateRetainedSnapshot {
+  param(
+    [Parameter(Mandatory = $true)][object[]]$Snapshot,
+    [Parameter(Mandatory = $true)][object]$Contract
+  )
+
+  $expectedServices = @($Contract.retainedServices)
+  if (@($Snapshot).Count -ne $expectedServices.Count -or $expectedServices.Count -ne 2) {
+    throw "The retained-service inventory is missing or contains an additional service."
+  }
+  $activePids = @($Snapshot | Where-Object { [int]$_.processId -ne 0 } |
+    ForEach-Object { [int]$_.processId })
+  if (@($activePids | Sort-Object -Unique).Count -ne $activePids.Count) {
+    throw "Retained services share a process identifier."
+  }
+  foreach ($expected in $expectedServices) {
+    $actual = @($Snapshot | Where-Object { $_.name -ceq $expected.serviceName })
+    if ($actual.Count -ne 1 -or
+      [string]$actual[0].serviceType -cne [string]$expected.serviceType -or
+      [string]$actual[0].startName -cne [string]$expected.virtualAccount -or
+      [string]$actual[0].pathName -cne [string]$expected.pathName -or
+      [string]$actual[0].executablePath -cne [string]$expected.executablePath -or
+      [int64]$actual[0].executableLength -ne [int64]$expected.executableLength -or
+      [string]$actual[0].executableSha256 -cne [string]$expected.executableSha256 -or
+      [string]$actual[0].state -cne [string]$expected.expectedState -or
+      [string]$actual[0].startMode -cne [string]$expected.expectedStartMode -or
+      [int]$actual[0].processId -ne [int]$expected.expectedProcessId) {
+      throw "A retained service differs from its exact accepted definition or state."
+    }
+  }
+}
+
+function Assert-RisePalsCandidateRetainedSnapshotEquality {
+  param(
+    [Parameter(Mandatory = $true)][object[]]$Before,
+    [Parameter(Mandatory = $true)][object[]]$After
+  )
+
+  $beforeJson = @($Before | Sort-Object name) | ConvertTo-Json -Depth 4 -Compress
+  $afterJson = @($After | Sort-Object name) | ConvertTo-Json -Depth 4 -Compress
+  if ($beforeJson -cne $afterJson) {
+    throw "The complete retained-service snapshot changed."
+  }
+}
+
 function Assert-RisePalsCandidateContract {
   param(
     [Parameter(Mandatory = $true)][object]$Contract,
@@ -116,6 +196,45 @@ function Assert-RisePalsCandidateContract {
       "04e18bae3d0165118aa54676210a0425ee8a220cf33b9a6e17c29462093b985f" -or
     $Contract.prototype.authenticode -ne "NotSigned") {
     throw "The accepted unsigned prototype pin changed."
+  }
+  if ($Contract.node.version -cne "v24.18.1" -or
+    $Contract.node.sourcePath -cne $script:RisePalsCandidateNodeSource -or
+    [int64]$Contract.node.executableLength -ne 92540232 -or
+    $Contract.node.executableSha256 -cne
+      "ac51903c4c111815d52280b1fdcc8da067cbb37e2fe1a765097b85c3292c8582" -or
+    $Contract.node.authenticode -cne "Valid" -or
+    $Contract.node.signerSubject -cne
+      "CN=OpenJS Foundation, O=OpenJS Foundation, L=San Francisco, S=California, C=US" -or
+    $Contract.node.signerThumbprint -cne "285AE8801AFDD52B8F7B9B6436B50052911AF7C2") {
+    throw "The accepted Node executable metadata pin changed."
+  }
+  $retainedDefinitions = @($Contract.retainedServices)
+  if ($retainedDefinitions.Count -ne 2) {
+    throw "The exact retained-service definition count changed."
+  }
+  $app = @($retainedDefinitions | Where-Object { $_.serviceName -ceq "RisePalsApp" })
+  $proxy = @($retainedDefinitions | Where-Object { $_.serviceName -ceq "RisePalsProxy" })
+  if ($app.Count -ne 1 -or $proxy.Count -ne 1 -or
+    $app[0].serviceType -cne "Own Process" -or
+    $app[0].virtualAccount -cne "NT SERVICE\RisePalsApp" -or
+    $app[0].pathName -cne '"C:\RisePals\tools\winsw\2.12.0\RisePalsApp.exe"' -or
+    $app[0].executablePath -cne "C:\RisePals\tools\winsw\2.12.0\RisePalsApp.exe" -or
+    [int64]$app[0].executableLength -ne 18243033 -or
+    $app[0].executableSha256 -cne
+      "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da" -or
+    $proxy[0].serviceType -cne "Own Process" -or
+    $proxy[0].virtualAccount -cne "NT SERVICE\RisePalsProxy" -or
+    $proxy[0].pathName -cne
+      "C:\RisePals\tools\caddy\2.11.4\caddy.exe run --config C:\RisePals\shared\config\Caddyfile --adapter caddyfile" -or
+    $proxy[0].executablePath -cne "C:\RisePals\tools\caddy\2.11.4\caddy.exe" -or
+    [int64]$proxy[0].executableLength -ne 49535488 -or
+    $proxy[0].executableSha256 -cne
+      "5cb9ab71e5756ce72840b8234177a2f40c8b4ab47a806b8e841e2b784e9df62b" -or
+    @($retainedDefinitions | Where-Object {
+      $_.expectedState -cne "Stopped" -or $_.expectedStartMode -cne "Disabled" -or
+        [int]$_.expectedProcessId -ne 0
+    }).Count -ne 0) {
+    throw "An exact retained-service definition pin changed."
   }
 
   $schemaPath = Join-Path $RepositoryRoot $Contract.prototype.schemaRelativePath
@@ -285,13 +404,8 @@ function Assert-RisePalsCandidateHostSnapshot {
   if (@($Snapshot.unexpectedRisePalsServices).Count -ne 0) {
     throw "An unexpected Rise Pals service exists."
   }
-  foreach ($name in $script:RisePalsCandidateRetainedServices) {
-    $service = @($Snapshot.retainedServices | Where-Object { $_.name -eq $name })
-    if ($service.Count -ne 1 -or $service[0].state -ne "Stopped" -or
-      $service[0].startMode -ne "Disabled" -or [int]$service[0].processId -ne 0) {
-      throw "A retained Rise Pals service is outside Stopped/Disabled/PID 0."
-    }
-  }
+  Assert-RisePalsCandidateRetainedSnapshot -Snapshot @($Snapshot.retainedServices) `
+    -Contract $Contract
   if (@($Snapshot.relevantListeners).Count -ne 0 -or
     @($Snapshot.processesUnderRoot).Count -ne 0 -or
     @($Snapshot.unexpectedPaths).Count -ne 0 -or

@@ -46,10 +46,20 @@ function New-RisePalsCandidateValidHostSnapshot {
   return [pscustomobject]@{
     candidateServiceExists = $false
     unexpectedRisePalsServices = @()
-    retainedServices = @(
-      [pscustomobject]@{ name = "RisePalsApp"; state = "Stopped"; startMode = "Disabled"; processId = 0 },
-      [pscustomobject]@{ name = "RisePalsProxy"; state = "Stopped"; startMode = "Disabled"; processId = 0 }
-    )
+    retainedServices = @($Contract.retainedServices | ForEach-Object {
+      [pscustomobject][ordered]@{
+        name = [string]$_.serviceName
+        serviceType = [string]$_.serviceType
+        startName = [string]$_.virtualAccount
+        pathName = [string]$_.pathName
+        executablePath = [string]$_.executablePath
+        executableLength = [int64]$_.executableLength
+        executableSha256 = [string]$_.executableSha256
+        state = [string]$_.expectedState
+        startMode = [string]$_.expectedStartMode
+        processId = [int]$_.expectedProcessId
+      }
+    })
     relevantListeners = @()
     processesUnderRoot = @()
     unexpectedPaths = @()
@@ -89,6 +99,58 @@ function New-RisePalsCandidateValidResult {
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
 Write-Output "Candidate contract and accepted artifact pins PASS"
+
+$nodeMetadata = [pscustomobject][ordered]@{
+  path = [string]$contract.node.sourcePath
+  version = [string]$contract.node.version
+  executableLength = [int64]$contract.node.executableLength
+  executableSha256 = [string]$contract.node.executableSha256
+  authenticode = [string]$contract.node.authenticode
+  signerSubject = [string]$contract.node.signerSubject
+  signerThumbprint = [string]$contract.node.signerThumbprint
+}
+Assert-RisePalsCandidateNodeMetadata -Metadata $nodeMetadata -Contract $contract.node `
+  -RequireSourcePath
+$invalidNodeHash = $nodeMetadata.PSObject.Copy()
+$invalidNodeHash.executableSha256 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+Assert-RisePalsCandidateThrows -Label "Node source hash mismatch" -Action {
+  Assert-RisePalsCandidateNodeMetadata -Metadata $invalidNodeHash -Contract $contract.node `
+    -RequireSourcePath
+}
+$invalidNodeSignature = $nodeMetadata.PSObject.Copy()
+$invalidNodeSignature.authenticode = "NotSigned"
+Assert-RisePalsCandidateThrows -Label "Node source signature mismatch" -Action {
+  Assert-RisePalsCandidateNodeMetadata -Metadata $invalidNodeSignature `
+    -Contract $contract.node -RequireSourcePath
+}
+$stagedNode = $nodeMetadata.PSObject.Copy()
+$stagedNode.path = "C:\RisePals\staging\candidate-0123456789abcdef0123456789abcdef\runtime\node.exe"
+Assert-RisePalsCandidateNodeMetadata -Metadata $stagedNode -Contract $contract.node
+$stagedNode.executableLength++
+Assert-RisePalsCandidateThrows -Label "Staged Node mismatch" -Action {
+  Assert-RisePalsCandidateNodeMetadata -Metadata $stagedNode -Contract $contract.node
+}
+Write-Output "Node source/version/hash/signature and staged-copy mismatch gates PASS"
+
+$preshutdownRegistration = [pscustomobject]@{
+  TimeoutMilliseconds = [uint32]$contract.timing.preshutdownTimeoutMilliseconds
+  AcceptsPreshutdown = $true
+}
+Assert-RisePalsCandidatePreshutdownRegistration -Registration $preshutdownRegistration `
+  -Contract $contract
+$invalidPreshutdownTimeout = $preshutdownRegistration.PSObject.Copy()
+$invalidPreshutdownTimeout.TimeoutMilliseconds--
+Assert-RisePalsCandidateThrows -Label "Preshutdown timeout mismatch" -Action {
+  Assert-RisePalsCandidatePreshutdownRegistration -Registration $invalidPreshutdownTimeout `
+    -Contract $contract
+}
+$invalidPreshutdownControls = $preshutdownRegistration.PSObject.Copy()
+$invalidPreshutdownControls.AcceptsPreshutdown = $false
+Assert-RisePalsCandidateThrows -Label "Preshutdown accepted-control mismatch" -Action {
+  Assert-RisePalsCandidatePreshutdownRegistration -Registration $invalidPreshutdownControls `
+    -Contract $contract
+}
+Write-Output "Read-only Preshutdown timeout/accepted-control model PASS"
 
 $sid = Get-RisePalsServiceSid -ServiceName "RisePalsServiceHostCandidate"
 if ($sid -ne $contract.candidate.serviceSid) {
@@ -147,6 +209,14 @@ $hostFailures = @(
   "candidateServiceExists",
   "unexpectedRisePalsServices",
   "retainedServiceState",
+  "retainedPathSubstringSpoof",
+  "retainedArguments",
+  "retainedAccount",
+  "retainedType",
+  "retainedHash",
+  "retainedSharedPid",
+  "retainedMissing",
+  "retainedAdditional",
   "relevantListeners",
   "processesUnderRoot",
   "unexpectedPaths",
@@ -162,6 +232,26 @@ foreach ($failure in $hostFailures) {
     "candidateServiceExists" { $invalid.candidateServiceExists = $true }
     "unexpectedRisePalsServices" { $invalid.unexpectedRisePalsServices = @("RisePalsOther") }
     "retainedServiceState" { $invalid.retainedServices[0].state = "Running" }
+    "retainedPathSubstringSpoof" {
+      $invalid.retainedServices[0].pathName =
+        '"C:\RisePals\approved-but-not-exact\RisePalsApp.exe"'
+    }
+    "retainedArguments" { $invalid.retainedServices[1].pathName += " --watch" }
+    "retainedAccount" { $invalid.retainedServices[0].startName = "LocalSystem" }
+    "retainedType" { $invalid.retainedServices[1].serviceType = "Share Process" }
+    "retainedHash" {
+      $invalid.retainedServices[1].executableSha256 =
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+    "retainedSharedPid" {
+      $invalid.retainedServices[0].processId = 4444
+      $invalid.retainedServices[1].processId = 4444
+    }
+    "retainedMissing" { $invalid.retainedServices = @($invalid.retainedServices[0]) }
+    "retainedAdditional" {
+      $invalid.retainedServices += $invalid.retainedServices[0].PSObject.Copy()
+      $invalid.retainedServices[2].name = "RisePalsUnexpected"
+    }
     "relevantListeners" { $invalid.relevantListeners = @(3100) }
     "processesUnderRoot" { $invalid.processesUnderRoot = @(1234) }
     "unexpectedPaths" { $invalid.unexpectedPaths = @("unexpected") }
@@ -178,6 +268,15 @@ foreach ($failure in $hostFailures) {
   }
 }
 Write-Output "Service collision/executable/path/ACL/listener preflight rejections PASS"
+
+$retainedBefore = @((New-RisePalsCandidateValidHostSnapshot -Contract $contract).retainedServices)
+$retainedAfter = @((New-RisePalsCandidateValidHostSnapshot -Contract $contract).retainedServices)
+Assert-RisePalsCandidateRetainedSnapshotEquality -Before $retainedBefore -After $retainedAfter
+$retainedAfter[1].pathName += " --changed"
+Assert-RisePalsCandidateThrows -Label "Complete retained snapshot mismatch" -Action {
+  Assert-RisePalsCandidateRetainedSnapshotEquality -Before $retainedBefore -After $retainedAfter
+}
+Write-Output "Exact retained before/final snapshot equality PASS"
 
 Assert-RisePalsCandidateThrows -Label "Path traversal" -Action {
   Assert-RisePalsCandidateAuthorizedPath -Path "C:\Windows\candidate" `
@@ -341,10 +440,41 @@ $liveSource = [IO.File]::ReadAllText(
 )
 if (-not $liveSource.Contains("Get-RisePalsCandidateFailureCodeForStage") -or
   -not $liveSource.Contains("Assert-RisePalsCandidateTaskTreeInventory") -or
-  -not $liveSource.Contains("The elevated candidate preflight no longer matches")) {
+  -not $liveSource.Contains("The elevated candidate preflight no longer matches") -or
+  -not $liveSource.Contains("Get-RisePalsCandidatePreshutdownRegistration") -or
+  -not $liveSource.Contains("QueryServiceConfig2") -or
+  -not $liveSource.Contains("QueryServiceStatusEx") -or
+  -not $liveSource.Contains("verify-retained-proxy-independence") -or
+  -not $liveSource.Contains("Assert-RisePalsCandidateRetainedSnapshotEquality")) {
   throw "The live source does not consume the exact stage, tree and repository boundaries."
 }
 Write-Output "Live-stage code/tree/repository fail-closed wiring PASS"
+
+$controlSource = [IO.File]::ReadAllText(
+  (Join-Path $scripts "Invoke-RisePalsCandidateServiceControl.ps1")
+)
+if ($controlSource.Contains('"Preshutdown"') -or
+  $controlSource -match "(?i)sc(?:\.exe)?[^\r\n]*control[^\r\n]*15" -or
+  $liveSource.Contains("verify-preshutdown-checkpoints") -or
+  $liveSource.Contains("verify-independent-proxy-restart") -or
+  $liveSource.Contains("proxy-independence-failed")) {
+  throw "A non-reboot synthetic Preshutdown dispatch or stale stage claim remains."
+}
+$candidateSources = @(
+  "candidate-rehearsal-contract.ps1",
+  "Invoke-RisePalsCandidateRehearsal.ps1",
+  "Invoke-RisePalsCandidateRehearsalChild.ps1",
+  "Invoke-RisePalsCandidateLiveSequence.ps1",
+  "Invoke-RisePalsCandidateServiceControl.ps1"
+) | ForEach-Object { [IO.File]::ReadAllText((Join-Path $scripts $_)) }
+foreach ($source in $candidateSources) {
+  if ($source -match "(?i)(?:Start|Stop|Restart|Set)-Service[^\r\n]*RisePalsProxy" -or
+    $source -match
+      "(?i)(?:sc(?:\.exe)?|Invoke-RisePalsCandidateSc)[^\r\n]*(?:start|stop|control|config)[^\r\n]*RisePalsProxy") {
+    throw "A candidate script mutates the retained proxy."
+  }
+}
+Write-Output "Read-only Preshutdown registration and retained-proxy preservation wiring PASS"
 
 $parseTargets = @(
   "candidate-rehearsal-contract.ps1",
@@ -352,6 +482,7 @@ $parseTargets = @(
   "Invoke-RisePalsCandidateRehearsal.ps1",
   "Invoke-RisePalsCandidateRehearsalChild.ps1",
   "Invoke-RisePalsCandidateLiveSequence.ps1",
+  "Invoke-RisePalsCandidateServiceControl.ps1",
   "Test-RisePalsCandidateRehearsalHarness.ps1"
 )
 foreach ($name in $parseTargets) {

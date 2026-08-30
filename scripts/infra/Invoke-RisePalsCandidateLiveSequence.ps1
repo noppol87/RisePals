@@ -38,17 +38,41 @@ using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 namespace RisePalsCandidateNative {
+  public sealed class PreshutdownRegistration {
+    public uint TimeoutMilliseconds { get; set; }
+    public bool AcceptsPreshutdown { get; set; }
+  }
   public static class ServiceConfiguration {
     private const uint SERVICE_CHANGE_CONFIG = 0x0002;
+    private const uint SERVICE_QUERY_CONFIG = 0x0001;
+    private const uint SERVICE_QUERY_STATUS = 0x0004;
     private const uint SERVICE_CONFIG_PRESHUTDOWN_INFO = 7;
+    private const uint SERVICE_ACCEPT_PRESHUTDOWN = 0x00000100;
+    private const int SC_STATUS_PROCESS_INFO = 0;
     [StructLayout(LayoutKind.Sequential)]
     private struct SERVICE_PRESHUTDOWN_INFO { public uint dwPreshutdownTimeout; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SERVICE_STATUS_PROCESS {
+      public uint dwServiceType;
+      public uint dwCurrentState;
+      public uint dwControlsAccepted;
+      public uint dwWin32ExitCode;
+      public uint dwServiceSpecificExitCode;
+      public uint dwCheckPoint;
+      public uint dwWaitHint;
+      public uint dwProcessId;
+      public uint dwServiceFlags;
+    }
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr OpenSCManager(string machineName, string databaseName, uint access);
     [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr OpenService(IntPtr manager, string serviceName, uint access);
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool ChangeServiceConfig2(IntPtr service, uint infoLevel, ref SERVICE_PRESHUTDOWN_INFO info);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool QueryServiceConfig2(IntPtr service, uint infoLevel, IntPtr buffer, uint bufferSize, out uint bytesNeeded);
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool QueryServiceStatusEx(IntPtr service, int infoLevel, IntPtr buffer, uint bufferSize, out uint bytesNeeded);
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool CloseServiceHandle(IntPtr handle);
     public static void Set(string serviceName, uint milliseconds) {
@@ -64,11 +88,47 @@ namespace RisePalsCandidateNative {
         } finally { CloseServiceHandle(service); }
       } finally { CloseServiceHandle(manager); }
     }
+    public static PreshutdownRegistration Query(string serviceName) {
+      IntPtr manager = OpenSCManager(null, null, 0x0001);
+      if (manager == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+      try {
+        IntPtr service = OpenService(manager, serviceName, SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS);
+        if (service == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+        try {
+          int configSize = Marshal.SizeOf(typeof(SERVICE_PRESHUTDOWN_INFO));
+          IntPtr configBuffer = Marshal.AllocHGlobal(configSize);
+          int statusSize = Marshal.SizeOf(typeof(SERVICE_STATUS_PROCESS));
+          IntPtr statusBuffer = Marshal.AllocHGlobal(statusSize);
+          try {
+            uint needed;
+            if (!QueryServiceConfig2(service, SERVICE_CONFIG_PRESHUTDOWN_INFO, configBuffer, (uint)configSize, out needed))
+              throw new Win32Exception(Marshal.GetLastWin32Error());
+            if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, statusBuffer, (uint)statusSize, out needed))
+              throw new Win32Exception(Marshal.GetLastWin32Error());
+            var config = (SERVICE_PRESHUTDOWN_INFO)Marshal.PtrToStructure(configBuffer, typeof(SERVICE_PRESHUTDOWN_INFO));
+            var status = (SERVICE_STATUS_PROCESS)Marshal.PtrToStructure(statusBuffer, typeof(SERVICE_STATUS_PROCESS));
+            return new PreshutdownRegistration {
+              TimeoutMilliseconds = config.dwPreshutdownTimeout,
+              AcceptsPreshutdown = (status.dwControlsAccepted & SERVICE_ACCEPT_PRESHUTDOWN) != 0
+            };
+          } finally {
+            Marshal.FreeHGlobal(configBuffer);
+            Marshal.FreeHGlobal(statusBuffer);
+          }
+        } finally { CloseServiceHandle(service); }
+      } finally { CloseServiceHandle(manager); }
+    }
   }
 }
 "@
   }
   [RisePalsCandidateNative.ServiceConfiguration]::Set($ServiceName, $Milliseconds)
+}
+
+function Get-RisePalsCandidatePreshutdownRegistration {
+  param([Parameter(Mandatory = $true)][string]$ServiceName)
+
+  return [RisePalsCandidateNative.ServiceConfiguration]::Query($ServiceName)
 }
 
 function Write-RisePalsCandidateLiveState {
@@ -113,16 +173,71 @@ function Write-RisePalsCandidateLiveState {
   }
 }
 
+function Get-RisePalsCandidateNodeMetadata {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][object]$Contract,
+    [switch]$RequireSourcePath
+  )
+
+  $exact = Assert-RisePalsCandidateFilePin -Path $Path `
+    -ExpectedLength ([int64]$Contract.executableLength) `
+    -ExpectedSha256 ([string]$Contract.executableSha256) -Label "Node executable"
+  $signature = Get-AuthenticodeSignature -LiteralPath $exact
+  $metadata = [pscustomobject][ordered]@{
+    path = $exact
+    version = [string]$Contract.version
+    executableLength = [int64](Get-Item -LiteralPath $exact -Force).Length
+    executableSha256 = Get-RisePalsSha256 -LiteralPath $exact
+    authenticode = [string]$signature.Status
+    signerSubject = if ($null -eq $signature.SignerCertificate) {
+      ""
+    } else {
+      [string]$signature.SignerCertificate.Subject
+    }
+    signerThumbprint = if ($null -eq $signature.SignerCertificate) {
+      ""
+    } else {
+      [string]$signature.SignerCertificate.Thumbprint
+    }
+  }
+  Assert-RisePalsCandidateNodeMetadata -Metadata $metadata -Contract $Contract `
+    -RequireSourcePath:$RequireSourcePath
+  $versionOutput = @(& $exact --version)
+  if ($LASTEXITCODE -ne 0 -or $versionOutput.Count -ne 1) {
+    throw "The pinned Node executable did not report one version."
+  }
+  $metadata.version = ([string]$versionOutput[0]).Trim()
+  Assert-RisePalsCandidateNodeMetadata -Metadata $metadata -Contract $Contract `
+    -RequireSourcePath:$RequireSourcePath
+  return $metadata
+}
+
 function Get-RisePalsCandidateRetainedSnapshot {
+  param([Parameter(Mandatory = $true)][object]$Contract)
+
   $result = @()
-  foreach ($name in $script:RisePalsCandidateRetainedServices) {
-    $service = Get-CimInstance Win32_Service -Filter "Name='$name'" -ErrorAction Stop
-    $result += [pscustomobject]@{
-      name = $name
-      state = [string]$service.State
-      startMode = [string]$service.StartMode
-      processId = [int]$service.ProcessId
-      pathName = [string]$service.PathName
+  foreach ($expected in @($Contract.retainedServices | Sort-Object serviceName)) {
+    $name = [string]$expected.serviceName
+    $service = @(Get-CimInstance Win32_Service -Filter "Name='$name'" -ErrorAction Stop)
+    if ($service.Count -ne 1) {
+      throw "An exact retained service is missing or ambiguous."
+    }
+    $executable = Get-Item -LiteralPath ([string]$expected.executablePath) -Force
+    if (($executable.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "A retained service executable is a reparse point."
+    }
+    $result += [pscustomobject][ordered]@{
+      name = [string]$service[0].Name
+      serviceType = [string]$service[0].ServiceType
+      startName = [string]$service[0].StartName
+      pathName = [string]$service[0].PathName
+      executablePath = [string]$executable.FullName
+      executableLength = [int64]$executable.Length
+      executableSha256 = Get-RisePalsSha256 -LiteralPath $executable.FullName
+      state = [string]$service[0].State
+      startMode = [string]$service[0].StartMode
+      processId = [int]$service[0].ProcessId
     }
   }
   return $result
@@ -373,13 +488,8 @@ try {
     throw "The candidate executable signature state differs from the accepted prototype."
   }
   $nodeSource = [IO.Path]::GetFullPath($NodeExecutableSource)
-  if (-not [IO.File]::Exists($nodeSource) -or
-    -not $nodeSource.Equals(
-      "C:\RisePals\tools\node\24.18.1\node.exe",
-      [StringComparison]::OrdinalIgnoreCase
-    )) {
-    throw "The exact pinned Node source is absent."
-  }
+  [void](Get-RisePalsCandidateNodeMetadata -Path $nodeSource -Contract $contract.node `
+    -RequireSourcePath)
   $candidateService = Get-CimInstance Win32_Service `
     -Filter "Name='$script:RisePalsCandidateServiceName'" -ErrorAction SilentlyContinue
   if ($null -ne $candidateService) {
@@ -391,14 +501,8 @@ try {
   if ($unexpectedServices.Count -ne 0) {
     throw "An unexpected Rise Pals service exists."
   }
-  $retainedBefore = Get-RisePalsCandidateRetainedSnapshot
-  foreach ($service in $retainedBefore) {
-    if ($service.state -ne "Stopped" -or $service.startMode -ne "Disabled" -or
-      $service.processId -ne 0 -or
-      $service.pathName.IndexOf($script:RisePalsCandidateRoot, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
-      throw "A retained service is outside Stopped/Disabled/PID 0."
-    }
-  }
+  $retainedBefore = Get-RisePalsCandidateRetainedSnapshot -Contract $contract
+  Assert-RisePalsCandidateRetainedSnapshot -Snapshot $retainedBefore -Contract $contract
   $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object {
     $_.LocalPort -in @($contract.network.relevantPorts)
   })
@@ -452,6 +556,8 @@ try {
     -ExpectedLength ([int64]$contract.prototype.executableLength) `
     -ExpectedSha256 ([string]$contract.prototype.executableSha256) `
     -Label "Staged candidate executable")
+  [void](Get-RisePalsCandidateNodeMetadata -Path (Join-Path $paths.stagedRuntime "node.exe") `
+    -Contract $contract.node)
   $completed += "stage-immutable-inputs"
 
   $failedStage = "apply-exact-acls"
@@ -628,25 +734,16 @@ try {
   }
   $completed += "verify-stop-checkpoints"
 
-  $failedStage = "verify-preshutdown-checkpoints"
+  $failedStage = "verify-preshutdown-registration"
   Start-Service -Name $script:RisePalsCandidateServiceName
   [void](Wait-RisePalsCandidateServiceState -ExpectedState "Running" -TimeoutSeconds 20)
-  $preshutdown = Start-Process -FilePath $powerShell -ArgumentList @(
-    "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-    ('"' + $controlScript + '"'), "-Control", "Preshutdown", "-Confirm:`$false"
-  ) -WindowStyle Hidden -PassThru
-  $preshutdownPending = Wait-RisePalsCandidateServiceState -ExpectedState "Stop Pending" `
-    -TimeoutSeconds 10
-  if (-not $preshutdown.WaitForExit(20000) -or $preshutdown.ExitCode -ne 0) {
-    throw "Candidate Preshutdown control did not complete."
-  }
-  [void](Wait-RisePalsCandidateServiceState -ExpectedState "Stopped" -TimeoutSeconds 10)
-  if (@($preshutdownPending.samples | Where-Object {
-    $_.state -eq "Stop Pending" -and $_.checkpoint -gt 0 -and $_.waitHint -gt 0
-  }).Count -eq 0) {
-    throw "Preshutdown did not expose checkpoint and wait-hint progress."
-  }
-  $completed += "verify-preshutdown-checkpoints"
+  $preshutdownRegistration = Get-RisePalsCandidatePreshutdownRegistration `
+    -ServiceName $script:RisePalsCandidateServiceName
+  Assert-RisePalsCandidatePreshutdownRegistration -Registration $preshutdownRegistration `
+    -Contract $contract
+  Stop-Service -Name $script:RisePalsCandidateServiceName -ErrorAction Stop
+  [void](Wait-RisePalsCandidateServiceState -ExpectedState "Stopped" -TimeoutSeconds 20)
+  $completed += "verify-preshutdown-registration"
 
   $failedStage = "verify-graceful-zero-job"
   $ownedAfterStop = @(Get-CimInstance Win32_Process | Where-Object {
@@ -744,13 +841,19 @@ try {
   }
   $completed += "verify-persistent-failure-terminal"
 
-  $failedStage = "verify-independent-proxy-restart"
-  $retainedAfterBehavior = Get-RisePalsCandidateRetainedSnapshot
-  if ((ConvertTo-Json $retainedAfterBehavior -Compress) -ne
-    (ConvertTo-Json $retainedBefore -Compress)) {
-    throw "Candidate rehearsal changed a retained service definition or state."
+  $failedStage = "verify-retained-proxy-independence"
+  $retainedAfterBehavior = Get-RisePalsCandidateRetainedSnapshot -Contract $contract
+  Assert-RisePalsCandidateRetainedSnapshot -Snapshot $retainedAfterBehavior -Contract $contract
+  Assert-RisePalsCandidateRetainedSnapshotEquality -Before $retainedBefore `
+    -After $retainedAfterBehavior
+  $proxy = @($retainedAfterBehavior | Where-Object { $_.name -ceq "RisePalsProxy" })
+  $candidateDefinition = Get-Service -Name $script:RisePalsCandidateServiceName -ErrorAction Stop
+  if ($proxy.Count -ne 1 -or $proxy[0].state -cne "Stopped" -or
+    $proxy[0].startMode -cne "Disabled" -or [int]$proxy[0].processId -ne 0 -or
+    @($candidateDefinition.ServicesDependedOn).Count -ne 0) {
+    throw "Retained proxy state or candidate process independence changed."
   }
-  $completed += "verify-independent-proxy-restart"
+  $completed += "verify-retained-proxy-independence"
 
   $sequenceSucceeded = $true
   $failedStage = $null
@@ -819,7 +922,7 @@ try {
     }
     $candidateAfter = Get-CimInstance Win32_Service `
       -Filter "Name='$script:RisePalsCandidateServiceName'" -ErrorAction SilentlyContinue
-    $retainedAfter = Get-RisePalsCandidateRetainedSnapshot
+    $retainedAfter = Get-RisePalsCandidateRetainedSnapshot -Contract $contract
     $finalListeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object {
       $_.LocalPort -in @($contract.network.relevantPorts)
     })
@@ -829,9 +932,10 @@ try {
         [StringComparison]::OrdinalIgnoreCase
       )
     })
-    if ($null -ne $candidateAfter -or @($retainedAfter | Where-Object {
-      $_.state -ne "Stopped" -or $_.startMode -ne "Disabled" -or $_.processId -ne 0
-    }).Count -ne 0 -or $finalListeners.Count -ne 0 -or $finalRootProcesses.Count -ne 0) {
+    Assert-RisePalsCandidateRetainedSnapshot -Snapshot $retainedAfter -Contract $contract
+    Assert-RisePalsCandidateRetainedSnapshotEquality -Before $retainedBefore -After $retainedAfter
+    if ($null -ne $candidateAfter -or $finalListeners.Count -ne 0 -or
+      $finalRootProcesses.Count -ne 0) {
       throw "Final candidate or retained-service cleanup proof failed."
     }
     $cleanupCompleted = $true
