@@ -304,6 +304,7 @@ describe("repository-only candidate service rehearsal harness", () => {
     const child = await text("scripts/infra/Invoke-RisePalsCandidateRehearsalChild.ps1");
     const result = await text("scripts/infra/candidate-rehearsal-result.ps1");
     const transport = await text("scripts/infra/candidate-rehearsal-transport.ps1");
+    const processBoundary = await text("scripts/infra/Test-RisePalsCandidateProcessBoundary.ps1");
 
     expect(parent).toContain('$start.Verb = "RunAs"');
     expect(parent).toContain("$process.ExitCode");
@@ -344,9 +345,28 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(transport).toContain("final-invalid-or-inconsistent");
     expect(parent).toContain("Write-RisePalsCandidateDurableParentResultAtomic");
     expect(parent).toContain("Read-RisePalsCandidateDurableParentResult");
+    expect(parent).toContain("Write-RisePalsCandidateDurableParentCheckpointAtomic");
+    expect(parent).toContain("Read-RisePalsCandidateDurableParentCheckpoint");
+    expect(parent.indexOf("Write-RisePalsCandidateDurableParentCheckpointAtomic")).toBeLessThan(
+      parent.indexOf("transientCleanupAttempted = $true"),
+    );
+    expect(parent.indexOf("transientCleanupAttempted = $true")).toBeLessThan(
+      parent.indexOf("Write-RisePalsCandidateDurableParentResultAtomic"),
+    );
     expect(parent).toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
     expect(parent).not.toContain("RISE_PALS_CANDIDATE_PARENT_RESULT=");
-    expect(transport).toContain("rise-pals-candidate-parent-result-v2");
+    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v1");
+    expect(transport).toContain("rise-pals-candidate-parent-result-v3");
+    expect(transport).toContain("durableCheckpointValidated");
+    expect(transport).toContain("transientCleanupCompleted");
+    expect(transport).toContain("remainingTransientRelativePaths");
+    expect(processBoundary).toContain("Start-Process -FilePath $powerShell");
+    expect(processBoundary).toContain("-WindowStyle Hidden -Wait -PassThru");
+    expect(processBoundary).toContain("Assert-RisePalsCandidateParentCheckpoint");
+    expect(processBoundary).toContain("Assert-RisePalsCandidateParentResult");
+    expect(processBoundary).not.toContain("RedirectStandardOutput");
+    expect(processBoundary).not.toContain("RedirectStandardError");
+    expect(processBoundary).not.toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
   });
 
   it("wires exact stage failures and recursive cleanup refusal into the gated live source", async () => {

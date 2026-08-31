@@ -16,13 +16,17 @@ param(
     "CleanupFailure",
     "ChildProcessLaunchFailure",
     "ChildExitsBeforeStartMarker",
-    "MissingFinalAfterLive"
+    "MissingFinalAfterLive",
+    "TransientCleanupFailure",
+    "CheckpointWriteInterruption",
+    "FinalResultWriteInterruption"
   )][string]$SimulationScenario = "SuccessWithInformationalStderr",
   [string]$RepositoryRoot = "",
   [string]$EvidenceDirectory = "",
   [string]$FutureAuthorizationId = "",
   [string]$CandidateExecutableSource = "",
-  [string]$NodeExecutableSource = ""
+  [string]$NodeExecutableSource = "",
+  [ValidatePattern("^$|^[a-f0-9]{32}$")][string]$SimulationInvocationNonce = ""
 )
 
 Set-StrictMode -Version Latest
@@ -89,7 +93,16 @@ $launcherHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $launcher
 $bootstrapHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $bootstrap
 $transportHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $transport
 $childHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $child
-$nonce = [guid]::NewGuid().ToString("N")
+$nonce = if ($Mode -eq "Simulation" -and
+  -not [string]::IsNullOrWhiteSpace($SimulationInvocationNonce)) {
+  $SimulationInvocationNonce
+} else {
+  [guid]::NewGuid().ToString("N")
+}
+if ($Mode -ne "Simulation" -and
+  -not [string]::IsNullOrWhiteSpace($SimulationInvocationNonce)) {
+  throw "A fixed invocation nonce is permitted only for an isolated simulation."
+}
 $plan = New-RisePalsCandidateInstallationPlan -Contract $contract -Nonce $nonce `
   -RepositoryHead $head -LauncherScriptSha256 $launcherHash
 if ($Mode -eq "Plan") {
@@ -108,12 +121,14 @@ if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
 }
 $durableEvidenceDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
   -Path $EvidenceDirectory -Mode $Mode
+$durableParentCheckpointPath = Get-RisePalsCandidateDurableParentCheckpointPath `
+  -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce
 $durableParentResultPath = Get-RisePalsCandidateDurableParentResultPath `
   -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce
-if ([IO.File]::Exists($durableParentResultPath) -or
-  [IO.File]::Exists($durableParentResultPath + ".tmp")) {
-  throw "The durable parent-result path is not fresh."
-}
+$checkpointPathFresh = -not [IO.File]::Exists($durableParentCheckpointPath) -and
+  -not [IO.File]::Exists($durableParentCheckpointPath + ".tmp")
+$resultPathFresh = -not [IO.File]::Exists($durableParentResultPath) -and
+  -not [IO.File]::Exists($durableParentResultPath + ".tmp")
 $transientRoot = [IO.Path]::GetFullPath(
   (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
 )
@@ -136,10 +151,24 @@ $finalPresent = $false
 $finalValidated = $false
 $finalStatus = $null
 $returnCode = 86
-$durableResultValidated = $false
+$durableCheckpointValidated = $false
+$authoritativeResultValidated = $false
+$transientCleanupAttempted = $false
 $transientCleanupCompleted = $false
+$invocationDirectoryAbsent = $false
+$remainingTransientRelativePaths = @()
+$remainingTransientObjectCount = 0
+$remainingTemporaryObjectCount = 0
+$parentCheckpoint = $null
 
 try {
+  if (-not $resultPathFresh) {
+    throw "The authoritative durable parent-result path is not fresh."
+  }
+  if (-not $checkpointPathFresh) {
+    $launchDisposition = "launch-failure"
+    $evidenceInvalid = $true
+  } else {
   if (-not [IO.Directory]::Exists($transientRoot)) {
     [IO.Directory]::CreateDirectory($transientRoot) | Out-Null
   }
@@ -338,6 +367,7 @@ try {
   }).Count -ne 0) {
     $evidenceInvalid = $true
   }
+  }
 } catch {
   if ($launchDisposition -eq "not-launched") {
     $launchDisposition = "launch-failure"
@@ -350,7 +380,7 @@ $classification = Resolve-RisePalsCandidateParentClassification `
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
   -FinalValidated $finalValidated -EvidenceInvalid $evidenceInvalid -FinalStatus $finalStatus
-$parentResult = New-RisePalsCandidateParentResult -InvocationNonce $nonce `
+$parentCheckpoint = New-RisePalsCandidateParentCheckpoint -InvocationNonce $nonce `
   -AuthorizationId $authorizationId -RepositoryHead $head `
   -LauncherScriptSha256 $launcherHash -BootstrapScriptSha256 $bootstrapHash `
   -TransportScriptSha256 $transportHash -ChildScriptSha256 $childHash `
@@ -362,32 +392,45 @@ $parentResult = New-RisePalsCandidateParentResult -InvocationNonce $nonce `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
   -FinalValidated $finalValidated -FinalStatus $finalStatus
 
-try {
-  [void](Assert-RisePalsCandidateParentResult -Result $parentResult `
-    -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
-    -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
-    -ExpectedBootstrapScriptSha256 $bootstrapHash `
-    -ExpectedTransportScriptSha256 $transportHash `
-    -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
-    -ConsumedNonces @{})
-  $writtenPath = Write-RisePalsCandidateDurableParentResultAtomic `
-    -Result $parentResult -EvidenceDirectory $durableEvidenceDirectory -Mode $Mode
-  $reopened = Read-RisePalsCandidateDurableParentResult -Path $writtenPath `
-    -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce -Mode $Mode
-  [void](Assert-RisePalsCandidateParentResult -Result $reopened `
-    -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
-    -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
-    -ExpectedBootstrapScriptSha256 $bootstrapHash `
-    -ExpectedTransportScriptSha256 $transportHash `
-    -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
-    -ConsumedNonces @{})
-  $durableResultValidated = $true
-} catch {
-  $durableResultValidated = $false
-  $returnCode = 86
+if ($checkpointPathFresh -and $resultPathFresh) {
+  try {
+    [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $parentCheckpoint `
+      -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+      -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+      -ExpectedBootstrapScriptSha256 $bootstrapHash `
+      -ExpectedTransportScriptSha256 $transportHash `
+      -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+      -ConsumedNonces @{})
+    if ($Mode -eq "Simulation" -and
+      $SimulationScenario -eq "CheckpointWriteInterruption") {
+      [IO.File]::WriteAllText(
+        $durableParentCheckpointPath + ".tmp",
+        '{"schemaVersion":"interrupted-checkpoint"}',
+        [Text.UTF8Encoding]::new($false)
+      )
+    }
+    $writtenCheckpointPath = Write-RisePalsCandidateDurableParentCheckpointAtomic `
+      -Checkpoint $parentCheckpoint -EvidenceDirectory $durableEvidenceDirectory -Mode $Mode
+    $reopenedCheckpoint = Read-RisePalsCandidateDurableParentCheckpoint `
+      -Path $writtenCheckpointPath -EvidenceDirectory $durableEvidenceDirectory `
+      -InvocationNonce $nonce -Mode $Mode
+    [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
+      -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+      -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+      -ExpectedBootstrapScriptSha256 $bootstrapHash `
+      -ExpectedTransportScriptSha256 $transportHash `
+      -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+      -ConsumedNonces @{})
+    $parentCheckpoint = $reopenedCheckpoint
+    $durableCheckpointValidated = $true
+  } catch {
+    $durableCheckpointValidated = $false
+    $returnCode = 86
+  }
 }
 
-if ($durableResultValidated -and $directoryInitialized) {
+if ($durableCheckpointValidated -and $directoryInitialized) {
+  $transientCleanupAttempted = $true
   $allowedNames = @(
     "bootstrap-started.json",
     "bootstrap-started.json.tmp",
@@ -406,6 +449,12 @@ if ($durableResultValidated -and $directoryInitialized) {
     "stderr.log"
   )
   try {
+    if ($Mode -eq "Simulation" -and
+      $SimulationScenario -eq "TransientCleanupFailure") {
+      [IO.Directory]::CreateDirectory(
+        (Join-Path $invocationDirectory "simulated-cleanup-residue")
+      ) | Out-Null
+    }
     $children = @(Get-ChildItem -LiteralPath $invocationDirectory -Force)
     if (@($children | Where-Object {
       $_.PSIsContainer -or $_.Name -notin $allowedNames -or
@@ -432,21 +481,94 @@ if ($durableResultValidated -and $directoryInitialized) {
   }
 }
 
-if ($durableResultValidated -and $transientCleanupCompleted -and
-  $parentResult.status -eq "success") {
+$invocationDirectoryAbsent = -not [IO.Directory]::Exists($invocationDirectory) -and
+  -not [IO.File]::Exists($invocationDirectory)
+if (-not $invocationDirectoryAbsent) {
+  try {
+    $remainingItems = @(Get-ChildItem -LiteralPath $invocationDirectory -Force)
+    $remainingTransientRelativePaths = @($remainingItems | ForEach-Object {
+      if ($_.Name -match "^[a-z0-9][a-z0-9.-]{0,127}$" -and
+        -not $_.Name.Contains("..")) {
+        $_.Name
+      } else {
+        "unexpected-object"
+      }
+    } | Sort-Object -Unique)
+    $remainingTransientObjectCount = $remainingItems.Count
+    $remainingTemporaryObjectCount = @($remainingItems | Where-Object {
+      $_.Name.EndsWith(".tmp", [StringComparison]::OrdinalIgnoreCase)
+    }).Count
+  } catch {
+    $remainingTransientRelativePaths = @("unreadable-residue")
+    $remainingTransientObjectCount = 1
+    $remainingTemporaryObjectCount = 0
+  }
+}
+
+$checkpointFileName = [IO.Path]::GetFileName($durableParentCheckpointPath)
+$checkpointDigest = if ($durableCheckpointValidated) {
+  [string]$parentCheckpoint.checkpointDigest
+} else {
+  $null
+}
+$parentResult = New-RisePalsCandidateParentResult -Checkpoint $parentCheckpoint `
+  -CheckpointFileName $checkpointFileName -CheckpointDigest $checkpointDigest `
+  -DurableCheckpointValidated $durableCheckpointValidated `
+  -TransientCleanupAttempted $transientCleanupAttempted `
+  -TransientCleanupCompleted $transientCleanupCompleted `
+  -InvocationDirectoryAbsent $invocationDirectoryAbsent `
+  -RemainingTransientObjectCount $remainingTransientObjectCount `
+  -RemainingTemporaryObjectCount $remainingTemporaryObjectCount `
+  -RemainingTransientRelativePaths $remainingTransientRelativePaths
+
+if ($resultPathFresh) {
+  try {
+    [void](Assert-RisePalsCandidateParentResult -Result $parentResult `
+    -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+    -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+    -ExpectedBootstrapScriptSha256 $bootstrapHash `
+    -ExpectedTransportScriptSha256 $transportHash `
+    -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
+    -ExpectedCheckpointDigest $checkpointDigest -InvocationStartedAtUtc $startedAt `
+    -ConsumedNonces @{})
+    if ($Mode -eq "Simulation" -and
+      $SimulationScenario -eq "FinalResultWriteInterruption") {
+      [IO.File]::WriteAllText(
+        $durableParentResultPath + ".tmp",
+        '{"schemaVersion":"interrupted-final-result"}',
+        [Text.UTF8Encoding]::new($false)
+      )
+    }
+    $writtenResultPath = Write-RisePalsCandidateDurableParentResultAtomic `
+      -Result $parentResult -EvidenceDirectory $durableEvidenceDirectory -Mode $Mode
+    $reopenedResult = Read-RisePalsCandidateDurableParentResult -Path $writtenResultPath `
+      -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce -Mode $Mode
+    [void](Assert-RisePalsCandidateParentResult -Result $reopenedResult `
+      -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+      -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+      -ExpectedBootstrapScriptSha256 $bootstrapHash `
+      -ExpectedTransportScriptSha256 $transportHash `
+      -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
+      -ExpectedCheckpointDigest $checkpointDigest -InvocationStartedAtUtc $startedAt `
+      -ConsumedNonces @{})
+    $parentResult = $reopenedResult
+    $authoritativeResultValidated = $true
+  } catch {
+    $authoritativeResultValidated = $false
+    $returnCode = 86
+  }
+}
+
+if ($authoritativeResultValidated -and $parentResult.overallStatus -eq "success") {
   $returnCode = 0
 }
 
 $summary = [ordered]@{
-  durableResultPath = if ($durableResultValidated) { $durableParentResultPath } else { $null }
-  durableResultDigest = if ($durableResultValidated) { $parentResult.resultDigest } else { $null }
-  classification = $parentResult.classification
-  status = if ($durableResultValidated -and $transientCleanupCompleted) {
-    $parentResult.status
-  } else {
-    "failure"
-  }
-  durableResultValidated = $durableResultValidated
+  checkpointPath = if ($durableCheckpointValidated) { $durableParentCheckpointPath } else { $null }
+  resultPath = if ($authoritativeResultValidated) { $durableParentResultPath } else { $null }
+  status = if ($authoritativeResultValidated) { $parentResult.overallStatus } else { "failure" }
+  durableCheckpointValidated = $durableCheckpointValidated
+  authoritativeResultValidated = $authoritativeResultValidated
   transientCleanupCompleted = $transientCleanupCompleted
 }
 Write-Output ("RISE_PALS_CANDIDATE_PARENT_SUMMARY=" +

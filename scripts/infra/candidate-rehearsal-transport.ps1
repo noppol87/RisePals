@@ -2,7 +2,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
-$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v2"
+$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v1"
+$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v3"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
   "child-launch-attempted",
@@ -24,7 +25,7 @@ $script:RisePalsCandidateMarkerProperties = @(
   "sanitizedFailureCode",
   "markerDigest"
 )
-$script:RisePalsCandidateParentResultProperties = @(
+$script:RisePalsCandidateParentCheckpointProperties = @(
   "schemaVersion",
   "invocationNonce",
   "authorizationId",
@@ -47,6 +48,41 @@ $script:RisePalsCandidateParentResultProperties = @(
   "finalPresent",
   "finalValidated",
   "finalStatus",
+  "generatedAtUtc",
+  "checkpointDigest"
+)
+$script:RisePalsCandidateParentResultProperties = @(
+  "schemaVersion",
+  "invocationNonce",
+  "authorizationId",
+  "repositoryHead",
+  "launcherScriptSha256",
+  "bootstrapScriptSha256",
+  "transportScriptSha256",
+  "childScriptSha256",
+  "checkpointFileName",
+  "checkpointDigest",
+  "launchDisposition",
+  "processLaunched",
+  "elevatedExitCode",
+  "bootstrapEntered",
+  "bootstrapStarted",
+  "bootstrapFailurePresent",
+  "childLaunchAttempted",
+  "childStarted",
+  "liveStarted",
+  "finalPresent",
+  "finalValidated",
+  "functionalClassification",
+  "finalChildStatus",
+  "durableCheckpointValidated",
+  "transientCleanupAttempted",
+  "transientCleanupCompleted",
+  "invocationDirectoryAbsent",
+  "remainingTransientObjectCount",
+  "remainingTemporaryObjectCount",
+  "remainingTransientRelativePaths",
+  "overallStatus",
   "generatedAtUtc",
   "resultDigest"
 )
@@ -410,6 +446,17 @@ function Read-RisePalsCandidateTransportJson {
   return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
 }
 
+function Get-RisePalsCandidateDurableParentCheckpointPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce
+  )
+
+  return [IO.Path]::GetFullPath((Join-Path $EvidenceDirectory (
+    "candidate-parent-checkpoint-" + $InvocationNonce + ".json"
+  )))
+}
+
 function Get-RisePalsCandidateDurableParentResultPath {
   param(
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
@@ -446,6 +493,55 @@ function Assert-RisePalsCandidateEvidenceFileAcl {
   }
 }
 
+function Read-RisePalsCandidateDurableEvidenceRecord {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode,
+    [Parameter(Mandatory = $true)][ValidateSet("Checkpoint", "Result")][string]$RecordType
+  )
+
+  $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
+    -Mode $Mode
+  $exact = [IO.Path]::GetFullPath($Path)
+  $expected = if ($RecordType -eq "Checkpoint") {
+    Get-RisePalsCandidateDurableParentCheckpointPath `
+      -EvidenceDirectory $directory -InvocationNonce $InvocationNonce
+  } else {
+    Get-RisePalsCandidateDurableParentResultPath `
+      -EvidenceDirectory $directory -InvocationNonce $InvocationNonce
+  }
+  if (-not $exact.Equals($expected, [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.File]::Exists($exact)) {
+    throw "The durable parent evidence record is absent or outside the exact evidence directory."
+  }
+  $item = Get-Item -LiteralPath $exact -Force
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+    -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+    throw "The durable parent evidence record is unexpectedly linked."
+  }
+  Assert-RisePalsCandidateEvidenceFileAcl -Path $exact
+  $bytes = [IO.File]::ReadAllBytes($exact)
+  if ($bytes.Length -eq 0 -or $bytes.Length -gt 32768) {
+    throw "The durable parent evidence record has an invalid byte length."
+  }
+  return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
+}
+
+function Read-RisePalsCandidateDurableParentCheckpoint {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
+  return Read-RisePalsCandidateDurableEvidenceRecord -Path $Path `
+    -EvidenceDirectory $EvidenceDirectory -InvocationNonce $InvocationNonce `
+    -Mode $Mode -RecordType Checkpoint
+}
+
 function Read-RisePalsCandidateDurableParentResult {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
@@ -454,26 +550,25 @@ function Read-RisePalsCandidateDurableParentResult {
     [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
   )
 
+  return Read-RisePalsCandidateDurableEvidenceRecord -Path $Path `
+    -EvidenceDirectory $EvidenceDirectory -InvocationNonce $InvocationNonce `
+    -Mode $Mode -RecordType Result
+}
+
+function Write-RisePalsCandidateDurableParentCheckpointAtomic {
+  param(
+    [Parameter(Mandatory = $true)][object]$Checkpoint,
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
   $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
     -Mode $Mode
-  $exact = [IO.Path]::GetFullPath($Path)
-  $expected = Get-RisePalsCandidateDurableParentResultPath `
-    -EvidenceDirectory $directory -InvocationNonce $InvocationNonce
-  if (-not $exact.Equals($expected, [StringComparison]::OrdinalIgnoreCase) -or
-    -not [IO.File]::Exists($exact)) {
-    throw "The durable parent result is absent or outside the exact evidence directory."
-  }
-  $item = Get-Item -LiteralPath $exact -Force
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
-    -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
-    throw "The durable parent result is unexpectedly linked."
-  }
-  Assert-RisePalsCandidateEvidenceFileAcl -Path $exact
-  $bytes = [IO.File]::ReadAllBytes($exact)
-  if ($bytes.Length -eq 0 -or $bytes.Length -gt 32768) {
-    throw "The durable parent result has an invalid byte length."
-  }
-  return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
+  $path = Get-RisePalsCandidateDurableParentCheckpointPath `
+    -EvidenceDirectory $directory -InvocationNonce ([string]$Checkpoint.invocationNonce)
+  Write-RisePalsCandidateJsonAtomic -Value $Checkpoint -ResultPath $path `
+    -TemporaryPath ($path + ".tmp")
+  return $path
 }
 
 function Write-RisePalsCandidateDurableParentResultAtomic {
@@ -640,45 +735,54 @@ function Assert-RisePalsCandidateMarkerOrdering {
   return $true
 }
 
-function ConvertTo-RisePalsCandidateCanonicalParentResult {
-  param([Parameter(Mandatory = $true)][object]$Result)
+function Assert-RisePalsCandidateParentRecordPrivacy {
+  param([Parameter(Mandatory = $true)][object]$Record)
 
-  return [pscustomobject][ordered]@{
-    schemaVersion = [string]$Result.schemaVersion
-    invocationNonce = [string]$Result.invocationNonce
-    authorizationId = [string]$Result.authorizationId
-    repositoryHead = [string]$Result.repositoryHead
-    launcherScriptSha256 = [string]$Result.launcherScriptSha256
-    bootstrapScriptSha256 = [string]$Result.bootstrapScriptSha256
-    transportScriptSha256 = [string]$Result.transportScriptSha256
-    childScriptSha256 = [string]$Result.childScriptSha256
-    launchDisposition = [string]$Result.launchDisposition
-    classification = [string]$Result.classification
-    status = [string]$Result.status
-    processLaunched = [bool]$Result.processLaunched
-    elevatedExitCode = [int]$Result.elevatedExitCode
-    bootstrapEntered = [bool]$Result.bootstrapEntered
-    bootstrapStarted = [bool]$Result.bootstrapStarted
-    bootstrapFailurePresent = [bool]$Result.bootstrapFailurePresent
-    childLaunchAttempted = [bool]$Result.childLaunchAttempted
-    childStarted = [bool]$Result.childStarted
-    liveStarted = [bool]$Result.liveStarted
-    finalPresent = [bool]$Result.finalPresent
-    finalValidated = [bool]$Result.finalValidated
-    finalStatus = if ($null -eq $Result.finalStatus) { $null } else { [string]$Result.finalStatus }
-    generatedAtUtc = [string]$Result.generatedAtUtc
+  $json = $Record | ConvertTo-Json -Depth 8 -Compress
+  if ($json -match "(?i)(set-cookie|bearer[ ]|password|credential|request[ -]?body|@[a-z0-9.-]+\.[a-z]{2,}|(sk|pk)_(live|test)_)") {
+    throw "The durable parent record contains a prohibited privacy marker."
   }
 }
 
-function Get-RisePalsCandidateParentResultDigest {
-  param([Parameter(Mandatory = $true)][object]$Result)
+function ConvertTo-RisePalsCandidateCanonicalParentCheckpoint {
+  param([Parameter(Mandatory = $true)][object]$Checkpoint)
+
+  return [pscustomobject][ordered]@{
+    schemaVersion = [string]$Checkpoint.schemaVersion
+    invocationNonce = [string]$Checkpoint.invocationNonce
+    authorizationId = [string]$Checkpoint.authorizationId
+    repositoryHead = [string]$Checkpoint.repositoryHead
+    launcherScriptSha256 = [string]$Checkpoint.launcherScriptSha256
+    bootstrapScriptSha256 = [string]$Checkpoint.bootstrapScriptSha256
+    transportScriptSha256 = [string]$Checkpoint.transportScriptSha256
+    childScriptSha256 = [string]$Checkpoint.childScriptSha256
+    launchDisposition = [string]$Checkpoint.launchDisposition
+    classification = [string]$Checkpoint.classification
+    status = [string]$Checkpoint.status
+    processLaunched = [bool]$Checkpoint.processLaunched
+    elevatedExitCode = [int]$Checkpoint.elevatedExitCode
+    bootstrapEntered = [bool]$Checkpoint.bootstrapEntered
+    bootstrapStarted = [bool]$Checkpoint.bootstrapStarted
+    bootstrapFailurePresent = [bool]$Checkpoint.bootstrapFailurePresent
+    childLaunchAttempted = [bool]$Checkpoint.childLaunchAttempted
+    childStarted = [bool]$Checkpoint.childStarted
+    liveStarted = [bool]$Checkpoint.liveStarted
+    finalPresent = [bool]$Checkpoint.finalPresent
+    finalValidated = [bool]$Checkpoint.finalValidated
+    finalStatus = if ($null -eq $Checkpoint.finalStatus) { $null } else { [string]$Checkpoint.finalStatus }
+    generatedAtUtc = [string]$Checkpoint.generatedAtUtc
+  }
+}
+
+function Get-RisePalsCandidateParentCheckpointDigest {
+  param([Parameter(Mandatory = $true)][object]$Checkpoint)
 
   return Get-RisePalsCandidateObjectDigest -Canonical (
-    ConvertTo-RisePalsCandidateCanonicalParentResult -Result $Result
+    ConvertTo-RisePalsCandidateCanonicalParentCheckpoint -Checkpoint $Checkpoint
   )
 }
 
-function New-RisePalsCandidateParentResult {
+function New-RisePalsCandidateParentCheckpoint {
   param(
     [Parameter(Mandatory = $true)][string]$InvocationNonce,
     [Parameter(Mandatory = $true)][string]$AuthorizationId,
@@ -704,8 +808,8 @@ function New-RisePalsCandidateParentResult {
 
   $status = if ($Classification -eq "final-present-validated" -and
     $FinalStatus -eq "success") { "success" } else { "failure" }
-  $result = [ordered]@{
-    schemaVersion = $script:RisePalsCandidateParentResultSchema
+  $checkpoint = [ordered]@{
+    schemaVersion = $script:RisePalsCandidateParentCheckpointSchema
     invocationNonce = $InvocationNonce
     authorizationId = $AuthorizationId
     repositoryHead = $RepositoryHead
@@ -728,6 +832,198 @@ function New-RisePalsCandidateParentResult {
     finalValidated = $FinalValidated
     finalStatus = if ([string]::IsNullOrWhiteSpace($FinalStatus)) { $null } else { $FinalStatus }
     generatedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
+    checkpointDigest = ""
+  }
+  $checkpoint.checkpointDigest = Get-RisePalsCandidateParentCheckpointDigest `
+    -Checkpoint $checkpoint
+  return [pscustomobject]$checkpoint
+}
+
+function Assert-RisePalsCandidateParentCheckpoint {
+  param(
+    [Parameter(Mandatory = $true)][object]$Checkpoint,
+    [Parameter(Mandatory = $true)][string]$ExpectedNonce,
+    [Parameter(Mandatory = $true)][string]$ExpectedAuthorizationId,
+    [Parameter(Mandatory = $true)][string]$ExpectedHead,
+    [Parameter(Mandatory = $true)][string]$ExpectedLauncherScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
+    [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
+    [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
+    [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
+  )
+
+  Assert-RisePalsCandidateTransportExactPropertySet -Value $Checkpoint `
+    -Expected $script:RisePalsCandidateParentCheckpointProperties `
+    -Label "Candidate parent checkpoint"
+  if ($Checkpoint.schemaVersion -ne $script:RisePalsCandidateParentCheckpointSchema -or
+    $Checkpoint.classification -notin @(
+      "uac-not-launched", "uac-cancelled", "elevated-process-launch-failure",
+      "elevated-child-never-entered-bootstrap",
+      "bootstrap-entered-child-launch-not-attempted",
+      "child-launch-attempted-child-not-started",
+      "child-started-failed-before-live", "live-started-failed",
+      "final-present-validated", "final-invalid-or-inconsistent"
+    ) -or $Checkpoint.status -notin @("success", "failure") -or
+    $Checkpoint.invocationNonce -ne $ExpectedNonce -or
+    $Checkpoint.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
+    $ConsumedNonces.ContainsKey([string]$Checkpoint.invocationNonce) -or
+    $Checkpoint.authorizationId -ne $ExpectedAuthorizationId -or
+    $Checkpoint.repositoryHead -ne $ExpectedHead -or
+    $Checkpoint.launcherScriptSha256 -ne $ExpectedLauncherScriptSha256 -or
+    $Checkpoint.bootstrapScriptSha256 -ne $ExpectedBootstrapScriptSha256 -or
+    $Checkpoint.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
+    $Checkpoint.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
+    $Checkpoint.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Checkpoint.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Checkpoint.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Checkpoint.childScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Checkpoint.launchDisposition -notin @("not-launched", "cancelled", "launch-failure", "launched") -or
+    ([bool]$Checkpoint.processLaunched -ne ($Checkpoint.launchDisposition -eq "launched")) -or
+    ((
+      ([bool]$Checkpoint.bootstrapStarted -and -not [bool]$Checkpoint.bootstrapEntered) -or
+      ([bool]$Checkpoint.childLaunchAttempted -and -not [bool]$Checkpoint.bootstrapStarted) -or
+      ([bool]$Checkpoint.childStarted -and -not [bool]$Checkpoint.childLaunchAttempted) -or
+      ([bool]$Checkpoint.liveStarted -and -not [bool]$Checkpoint.childStarted) -or
+      ([bool]$Checkpoint.finalValidated -and (-not [bool]$Checkpoint.finalPresent -or
+        -not [bool]$Checkpoint.liveStarted))
+    ) -and $Checkpoint.classification -ne "final-invalid-or-inconsistent") -or
+    ($Checkpoint.status -eq "success" -and (
+      $Checkpoint.classification -ne "final-present-validated" -or
+      -not [bool]$Checkpoint.finalValidated -or $Checkpoint.finalStatus -ne "success"
+    )) -or
+    ($Checkpoint.status -eq "failure" -and $Checkpoint.finalStatus -eq "success" -and
+      $Checkpoint.classification -eq "final-present-validated") -or
+    $Checkpoint.checkpointDigest -ne (
+      Get-RisePalsCandidateParentCheckpointDigest -Checkpoint $Checkpoint
+    )) {
+    throw "The candidate parent checkpoint is invalid or internally inconsistent."
+  }
+  $generated = ConvertFrom-RisePalsCandidateUtc -Value ([string]$Checkpoint.generatedAtUtc)
+  if ($generated -lt $InvocationStartedAtUtc.AddSeconds(-2) -or
+    $generated -gt $ValidationNowUtc.AddMinutes(1) -or
+    ($generated - $InvocationStartedAtUtc) -gt [TimeSpan]::FromMinutes(31)) {
+    throw "The durable parent checkpoint timestamp is stale or incoherent."
+  }
+  $expectedClassification = Resolve-RisePalsCandidateParentClassification `
+    -LaunchDisposition ([string]$Checkpoint.launchDisposition) `
+    -BootstrapEntered ([bool]$Checkpoint.bootstrapEntered) `
+    -ChildLaunchAttempted ([bool]$Checkpoint.childLaunchAttempted) `
+    -ChildStarted ([bool]$Checkpoint.childStarted) `
+    -LiveStarted ([bool]$Checkpoint.liveStarted) `
+    -FinalPresent ([bool]$Checkpoint.finalPresent) `
+    -FinalValidated ([bool]$Checkpoint.finalValidated) `
+    -EvidenceInvalid ($Checkpoint.classification -eq "final-invalid-or-inconsistent") `
+    -FinalStatus $Checkpoint.finalStatus
+  if ($Checkpoint.classification -ne $expectedClassification) {
+    throw "The durable checkpoint classification disagrees with its marker state."
+  }
+  Assert-RisePalsCandidateParentRecordPrivacy -Record $Checkpoint
+  $ConsumedNonces[[string]$Checkpoint.invocationNonce] = $true
+  return $true
+}
+
+function ConvertTo-RisePalsCandidateCanonicalParentResult {
+  param([Parameter(Mandatory = $true)][object]$Result)
+
+  return [pscustomobject][ordered]@{
+    schemaVersion = [string]$Result.schemaVersion
+    invocationNonce = [string]$Result.invocationNonce
+    authorizationId = [string]$Result.authorizationId
+    repositoryHead = [string]$Result.repositoryHead
+    launcherScriptSha256 = [string]$Result.launcherScriptSha256
+    bootstrapScriptSha256 = [string]$Result.bootstrapScriptSha256
+    transportScriptSha256 = [string]$Result.transportScriptSha256
+    childScriptSha256 = [string]$Result.childScriptSha256
+    checkpointFileName = [string]$Result.checkpointFileName
+    checkpointDigest = if ($null -eq $Result.checkpointDigest) { $null } else { [string]$Result.checkpointDigest }
+    launchDisposition = [string]$Result.launchDisposition
+    processLaunched = [bool]$Result.processLaunched
+    elevatedExitCode = [int]$Result.elevatedExitCode
+    bootstrapEntered = [bool]$Result.bootstrapEntered
+    bootstrapStarted = [bool]$Result.bootstrapStarted
+    bootstrapFailurePresent = [bool]$Result.bootstrapFailurePresent
+    childLaunchAttempted = [bool]$Result.childLaunchAttempted
+    childStarted = [bool]$Result.childStarted
+    liveStarted = [bool]$Result.liveStarted
+    finalPresent = [bool]$Result.finalPresent
+    finalValidated = [bool]$Result.finalValidated
+    functionalClassification = [string]$Result.functionalClassification
+    finalChildStatus = if ($null -eq $Result.finalChildStatus) { $null } else { [string]$Result.finalChildStatus }
+    durableCheckpointValidated = [bool]$Result.durableCheckpointValidated
+    transientCleanupAttempted = [bool]$Result.transientCleanupAttempted
+    transientCleanupCompleted = [bool]$Result.transientCleanupCompleted
+    invocationDirectoryAbsent = [bool]$Result.invocationDirectoryAbsent
+    remainingTransientObjectCount = [int]$Result.remainingTransientObjectCount
+    remainingTemporaryObjectCount = [int]$Result.remainingTemporaryObjectCount
+    remainingTransientRelativePaths = @($Result.remainingTransientRelativePaths)
+    overallStatus = [string]$Result.overallStatus
+    generatedAtUtc = [string]$Result.generatedAtUtc
+  }
+}
+
+function Get-RisePalsCandidateParentResultDigest {
+  param([Parameter(Mandatory = $true)][object]$Result)
+
+  return Get-RisePalsCandidateObjectDigest -Canonical (
+    ConvertTo-RisePalsCandidateCanonicalParentResult -Result $Result
+  )
+}
+
+function New-RisePalsCandidateParentResult {
+  param(
+    [Parameter(Mandatory = $true)][object]$Checkpoint,
+    [Parameter(Mandatory = $true)][string]$CheckpointFileName,
+    [AllowNull()][string]$CheckpointDigest,
+    [Parameter(Mandatory = $true)][bool]$DurableCheckpointValidated,
+    [Parameter(Mandatory = $true)][bool]$TransientCleanupAttempted,
+    [Parameter(Mandatory = $true)][bool]$TransientCleanupCompleted,
+    [Parameter(Mandatory = $true)][bool]$InvocationDirectoryAbsent,
+    [Parameter(Mandatory = $true)][int]$RemainingTransientObjectCount,
+    [Parameter(Mandatory = $true)][int]$RemainingTemporaryObjectCount,
+    [string[]]$RemainingTransientRelativePaths = @()
+  )
+
+  $functionalSuccess = $Checkpoint.classification -eq "final-present-validated" -and
+    [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success"
+  $overallStatus = if ($functionalSuccess -and $DurableCheckpointValidated -and
+    $TransientCleanupAttempted -and $TransientCleanupCompleted -and
+    $InvocationDirectoryAbsent -and $RemainingTransientObjectCount -eq 0 -and
+    $RemainingTemporaryObjectCount -eq 0) { "success" } else { "failure" }
+  $result = [ordered]@{
+    schemaVersion = $script:RisePalsCandidateParentResultSchema
+    invocationNonce = [string]$Checkpoint.invocationNonce
+    authorizationId = [string]$Checkpoint.authorizationId
+    repositoryHead = [string]$Checkpoint.repositoryHead
+    launcherScriptSha256 = [string]$Checkpoint.launcherScriptSha256
+    bootstrapScriptSha256 = [string]$Checkpoint.bootstrapScriptSha256
+    transportScriptSha256 = [string]$Checkpoint.transportScriptSha256
+    childScriptSha256 = [string]$Checkpoint.childScriptSha256
+    checkpointFileName = $CheckpointFileName
+    checkpointDigest = if ([string]::IsNullOrWhiteSpace($CheckpointDigest)) { $null } else { $CheckpointDigest }
+    launchDisposition = [string]$Checkpoint.launchDisposition
+    processLaunched = [bool]$Checkpoint.processLaunched
+    elevatedExitCode = [int]$Checkpoint.elevatedExitCode
+    bootstrapEntered = [bool]$Checkpoint.bootstrapEntered
+    bootstrapStarted = [bool]$Checkpoint.bootstrapStarted
+    bootstrapFailurePresent = [bool]$Checkpoint.bootstrapFailurePresent
+    childLaunchAttempted = [bool]$Checkpoint.childLaunchAttempted
+    childStarted = [bool]$Checkpoint.childStarted
+    liveStarted = [bool]$Checkpoint.liveStarted
+    finalPresent = [bool]$Checkpoint.finalPresent
+    finalValidated = [bool]$Checkpoint.finalValidated
+    functionalClassification = [string]$Checkpoint.classification
+    finalChildStatus = if ($null -eq $Checkpoint.finalStatus) { $null } else { [string]$Checkpoint.finalStatus }
+    durableCheckpointValidated = $DurableCheckpointValidated
+    transientCleanupAttempted = $TransientCleanupAttempted
+    transientCleanupCompleted = $TransientCleanupCompleted
+    invocationDirectoryAbsent = $InvocationDirectoryAbsent
+    remainingTransientObjectCount = $RemainingTransientObjectCount
+    remainingTemporaryObjectCount = $RemainingTemporaryObjectCount
+    remainingTransientRelativePaths = @($RemainingTransientRelativePaths | Sort-Object -Unique)
+    overallStatus = $overallStatus
+    generatedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     resultDigest = ""
   }
   $result.resultDigest = Get-RisePalsCandidateParentResultDigest -Result $result
@@ -744,6 +1040,8 @@ function Assert-RisePalsCandidateParentResult {
     [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedCheckpointFileName,
+    [AllowNull()][string]$ExpectedCheckpointDigest,
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
@@ -751,19 +1049,18 @@ function Assert-RisePalsCandidateParentResult {
 
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Result `
     -Expected $script:RisePalsCandidateParentResultProperties -Label "Candidate parent result"
+  $paths = @($Result.remainingTransientRelativePaths)
+  $invalidPaths = @($paths | Where-Object {
+    $_ -notmatch "^[a-z0-9][a-z0-9.-]{0,127}$" -or $_.Contains("..")
+  })
+  $functionalSuccess = $Result.functionalClassification -eq "final-present-validated" -and
+    [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success"
+  $overallSuccess = $functionalSuccess -and [bool]$Result.durableCheckpointValidated -and
+    [bool]$Result.transientCleanupAttempted -and [bool]$Result.transientCleanupCompleted -and
+    [bool]$Result.invocationDirectoryAbsent -and
+    [int]$Result.remainingTransientObjectCount -eq 0 -and
+    [int]$Result.remainingTemporaryObjectCount -eq 0 -and $paths.Count -eq 0
   if ($Result.schemaVersion -ne $script:RisePalsCandidateParentResultSchema -or
-    $Result.classification -notin @(
-      "uac-not-launched",
-      "uac-cancelled",
-      "elevated-process-launch-failure",
-      "elevated-child-never-entered-bootstrap",
-      "bootstrap-entered-child-launch-not-attempted",
-      "child-launch-attempted-child-not-started",
-      "child-started-failed-before-live",
-      "live-started-failed",
-      "final-present-validated",
-      "final-invalid-or-inconsistent"
-    ) -or $Result.status -notin @("success", "failure") -or
     $Result.invocationNonce -ne $ExpectedNonce -or
     $Result.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
     $ConsumedNonces.ContainsKey([string]$Result.invocationNonce) -or
@@ -773,34 +1070,48 @@ function Assert-RisePalsCandidateParentResult {
     $Result.bootstrapScriptSha256 -ne $ExpectedBootstrapScriptSha256 -or
     $Result.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
     $Result.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
-    $Result.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
-    $Result.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
-    $Result.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
-    $Result.childScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.checkpointFileName -ne $ExpectedCheckpointFileName -or
+    $Result.checkpointDigest -ne $ExpectedCheckpointDigest -or
+    ([bool]$Result.durableCheckpointValidated -and
+      $Result.checkpointDigest -notmatch "^[a-f0-9]{64}$") -or
+    (-not [bool]$Result.durableCheckpointValidated -and $null -ne $Result.checkpointDigest) -or
     $Result.launchDisposition -notin @("not-launched", "cancelled", "launch-failure", "launched") -or
     ([bool]$Result.processLaunched -ne ($Result.launchDisposition -eq "launched")) -or
-    ((
-      ([bool]$Result.bootstrapStarted -and -not [bool]$Result.bootstrapEntered) -or
-      ([bool]$Result.childLaunchAttempted -and -not [bool]$Result.bootstrapStarted) -or
-      ([bool]$Result.childStarted -and -not [bool]$Result.childLaunchAttempted) -or
-      ([bool]$Result.liveStarted -and -not [bool]$Result.childStarted) -or
-      ([bool]$Result.finalValidated -and (-not [bool]$Result.finalPresent -or
-        -not [bool]$Result.liveStarted))
-    ) -and $Result.classification -ne "final-invalid-or-inconsistent") -or
-    ($Result.status -eq "success" -and (
-      $Result.classification -ne "final-present-validated" -or
-      -not [bool]$Result.finalValidated -or $Result.finalStatus -ne "success"
+    $Result.functionalClassification -notin @(
+      "uac-not-launched", "uac-cancelled", "elevated-process-launch-failure",
+      "elevated-child-never-entered-bootstrap",
+      "bootstrap-entered-child-launch-not-attempted",
+      "child-launch-attempted-child-not-started",
+      "child-started-failed-before-live", "live-started-failed",
+      "final-present-validated", "final-invalid-or-inconsistent"
+    ) -or $Result.finalChildStatus -notin @($null, "success", "failure") -or
+    [int]$Result.remainingTransientObjectCount -lt 0 -or
+    [int]$Result.remainingTransientObjectCount -gt 64 -or
+    [int]$Result.remainingTemporaryObjectCount -lt 0 -or
+    [int]$Result.remainingTemporaryObjectCount -gt [int]$Result.remainingTransientObjectCount -or
+    $paths.Count -gt [int]$Result.remainingTransientObjectCount -or
+    $invalidPaths.Count -ne 0 -or
+    ([bool]$Result.transientCleanupAttempted -and
+      -not [bool]$Result.durableCheckpointValidated) -or
+    ([bool]$Result.transientCleanupCompleted -and (
+      -not [bool]$Result.transientCleanupAttempted -or
+      -not [bool]$Result.invocationDirectoryAbsent -or
+      [int]$Result.remainingTransientObjectCount -ne 0 -or
+      [int]$Result.remainingTemporaryObjectCount -ne 0 -or $paths.Count -ne 0
     )) -or
-    ($Result.status -eq "failure" -and $Result.finalStatus -eq "success" -and
-      $Result.classification -eq "final-present-validated") -or
+    ([bool]$Result.invocationDirectoryAbsent -and
+      [int]$Result.remainingTransientObjectCount -ne 0) -or
+    $Result.overallStatus -notin @("success", "failure") -or
+    ($Result.overallStatus -eq "success" -and -not $overallSuccess) -or
+    ($Result.overallStatus -eq "failure" -and $overallSuccess) -or
     $Result.resultDigest -ne (Get-RisePalsCandidateParentResultDigest -Result $Result)) {
-    throw "The candidate parent result is invalid or internally inconsistent."
+    throw "The authoritative candidate parent result is invalid or inconsistent."
   }
   $generated = ConvertFrom-RisePalsCandidateUtc -Value ([string]$Result.generatedAtUtc)
   if ($generated -lt $InvocationStartedAtUtc.AddSeconds(-2) -or
     $generated -gt $ValidationNowUtc.AddMinutes(1) -or
     ($generated - $InvocationStartedAtUtc) -gt [TimeSpan]::FromMinutes(31)) {
-    throw "The durable parent result timestamp is stale or incoherent."
+    throw "The authoritative parent-result timestamp is stale or incoherent."
   }
   $expectedClassification = Resolve-RisePalsCandidateParentClassification `
     -LaunchDisposition ([string]$Result.launchDisposition) `
@@ -809,15 +1120,12 @@ function Assert-RisePalsCandidateParentResult {
     -ChildStarted ([bool]$Result.childStarted) -LiveStarted ([bool]$Result.liveStarted) `
     -FinalPresent ([bool]$Result.finalPresent) `
     -FinalValidated ([bool]$Result.finalValidated) `
-    -EvidenceInvalid ($Result.classification -eq "final-invalid-or-inconsistent") `
-    -FinalStatus $Result.finalStatus
-  if ($Result.classification -ne $expectedClassification) {
-    throw "The durable parent-result classification disagrees with its marker state."
+    -EvidenceInvalid ($Result.functionalClassification -eq "final-invalid-or-inconsistent") `
+    -FinalStatus $Result.finalChildStatus
+  if ($Result.functionalClassification -ne $expectedClassification) {
+    throw "The authoritative result classification disagrees with its marker state."
   }
-  $json = $Result | ConvertTo-Json -Depth 7 -Compress
-  if ($json -match "(?i)(set-cookie|bearer[ ]|password|credential|request[ -]?body|@[a-z0-9.-]+\.[a-z]{2,}|(sk|pk)_(live|test)_)") {
-    throw "The durable parent result contains a prohibited privacy marker."
-  }
+  Assert-RisePalsCandidateParentRecordPrivacy -Record $Result
   $ConsumedNonces[[string]$Result.invocationNonce] = $true
   return $true
 }

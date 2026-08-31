@@ -129,14 +129,14 @@ function New-RisePalsCandidateValidMarker {
     -SanitizedFailureCode $FailureCode -RecordedAtUtc $RecordedAtUtc
 }
 
-function New-RisePalsCandidateValidParentResult {
+function New-RisePalsCandidateValidParentCheckpoint {
   param(
     [string]$Nonce = "0123456789abcdef0123456789abcdef",
     [string]$AuthorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION",
     [string]$Head = "1111111111111111111111111111111111111111"
   )
 
-  return New-RisePalsCandidateParentResult -InvocationNonce $Nonce `
+  return New-RisePalsCandidateParentCheckpoint -InvocationNonce $Nonce `
     -AuthorizationId $AuthorizationId -RepositoryHead $Head `
     -LauncherScriptSha256 ("a" * 64) -BootstrapScriptSha256 ("b" * 64) `
     -TransportScriptSha256 ("c" * 64) -ChildScriptSha256 ("d" * 64) `
@@ -735,17 +735,18 @@ $durableJunction = Join-Path ([IO.Path]::GetTempPath()) (
 )
 $durableNonce = "0123456789abcdef0123456789abcdef"
 $interruptedNonce = "fedcba9876543210fedcba9876543210"
+$interruptedResultNonce = "00112233445566778899aabbccddeeff"
 try {
   $durableDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
     -Path $durableRoot -Mode Simulation
-  $parentResult = New-RisePalsCandidateValidParentResult -Nonce $durableNonce
-  $durablePath = Write-RisePalsCandidateDurableParentResultAtomic `
-    -Result $parentResult -EvidenceDirectory $durableDirectory -Mode Simulation
-  $reopenedParent = Read-RisePalsCandidateDurableParentResult -Path $durablePath `
+  $parentCheckpoint = New-RisePalsCandidateValidParentCheckpoint -Nonce $durableNonce
+  $checkpointPath = Write-RisePalsCandidateDurableParentCheckpointAtomic `
+    -Checkpoint $parentCheckpoint -EvidenceDirectory $durableDirectory -Mode Simulation
+  $reopenedCheckpoint = Read-RisePalsCandidateDurableParentCheckpoint -Path $checkpointPath `
     -EvidenceDirectory $durableDirectory -InvocationNonce $durableNonce `
     -Mode Simulation
   $parentValidationStarted = [DateTimeOffset]::UtcNow.AddMinutes(-1)
-  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+  [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
     -ExpectedNonce $durableNonce `
     -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
@@ -753,8 +754,8 @@ try {
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
-  $consumedParents = @{}
-  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+  $consumedCheckpoints = @{}
+  [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
     -ExpectedNonce $durableNonce `
     -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
@@ -762,7 +763,55 @@ try {
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
     -InvocationStartedAtUtc $parentValidationStarted `
-    -ConsumedNonces $consumedParents)
+    -ConsumedNonces $consumedCheckpoints)
+  Assert-RisePalsCandidateThrows -Label "Durable parent-checkpoint replay" -Action {
+    Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
+      -ExpectedNonce $durableNonce `
+      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+      -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+      -ExpectedBootstrapScriptSha256 ("b" * 64) `
+      -ExpectedTransportScriptSha256 ("c" * 64) `
+      -ExpectedChildScriptSha256 ("d" * 64) `
+      -InvocationStartedAtUtc $parentValidationStarted `
+      -ConsumedNonces $consumedCheckpoints
+  }
+  Assert-RisePalsCandidateThrows -Label "Existing durable parent-checkpoint path" -Action {
+    Write-RisePalsCandidateDurableParentCheckpointAtomic -Checkpoint $parentCheckpoint `
+      -EvidenceDirectory $durableDirectory -Mode Simulation
+  }
+
+  $checkpointFileName = [IO.Path]::GetFileName($checkpointPath)
+  $parentResult = New-RisePalsCandidateParentResult -Checkpoint $reopenedCheckpoint `
+    -CheckpointFileName $checkpointFileName `
+    -CheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+    -TransientCleanupCompleted $true -InvocationDirectoryAbsent $true `
+    -RemainingTransientObjectCount 0 -RemainingTemporaryObjectCount 0
+  $durablePath = Write-RisePalsCandidateDurableParentResultAtomic `
+    -Result $parentResult -EvidenceDirectory $durableDirectory -Mode Simulation
+  $reopenedParent = Read-RisePalsCandidateDurableParentResult -Path $durablePath `
+    -EvidenceDirectory $durableDirectory -InvocationNonce $durableNonce -Mode Simulation
+  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+    -ExpectedNonce $durableNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName $checkpointFileName `
+    -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
+  $consumedResults = @{}
+  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+    -ExpectedNonce $durableNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName $checkpointFileName `
+    -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults)
   Assert-RisePalsCandidateThrows -Label "Durable parent-result replay" -Action {
     Assert-RisePalsCandidateParentResult -Result $reopenedParent `
       -ExpectedNonce $durableNonce `
@@ -771,8 +820,9 @@ try {
       -ExpectedBootstrapScriptSha256 ("b" * 64) `
       -ExpectedTransportScriptSha256 ("c" * 64) `
       -ExpectedChildScriptSha256 ("d" * 64) `
-      -InvocationStartedAtUtc $parentValidationStarted `
-      -ConsumedNonces $consumedParents
+      -ExpectedCheckpointFileName $checkpointFileName `
+      -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+      -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults
   }
   Assert-RisePalsCandidateThrows -Label "Existing durable parent-result path" -Action {
     Write-RisePalsCandidateDurableParentResultAtomic -Result $parentResult `
@@ -784,25 +834,55 @@ try {
   )
   [IO.Directory]::CreateDirectory($transientSimulation) | Out-Null
   [IO.Directory]::Delete($transientSimulation, $false)
-  if (-not [IO.File]::Exists($durablePath)) {
-    throw "Transient cleanup deleted the durable parent result."
+  if (-not [IO.File]::Exists($checkpointPath) -or -not [IO.File]::Exists($durablePath)) {
+    throw "Transient cleanup deleted durable parent evidence."
   }
 
-  $interruptedResult = New-RisePalsCandidateValidParentResult `
+  $interruptedCheckpoint = New-RisePalsCandidateValidParentCheckpoint `
     -Nonce $interruptedNonce
-  $interruptedPath = Get-RisePalsCandidateDurableParentResultPath `
+  $interruptedCheckpointPath = Get-RisePalsCandidateDurableParentCheckpointPath `
     -EvidenceDirectory $durableDirectory -InvocationNonce $interruptedNonce
   [IO.File]::WriteAllText(
-    $interruptedPath + ".tmp",
+    $interruptedCheckpointPath + ".tmp",
     "partial",
     [Text.UTF8Encoding]::new($false)
   )
-  Assert-RisePalsCandidateThrows -Label "Interrupted durable parent-result write" -Action {
+  Assert-RisePalsCandidateThrows -Label "Interrupted durable parent-checkpoint write" -Action {
+    Write-RisePalsCandidateDurableParentCheckpointAtomic `
+      -Checkpoint $interruptedCheckpoint `
+      -EvidenceDirectory $durableDirectory -Mode Simulation
+  }
+  if ([IO.File]::Exists($interruptedCheckpointPath)) {
+    throw "An interrupted checkpoint write created a final checkpoint."
+  }
+
+  $interruptedResultCheckpoint = New-RisePalsCandidateValidParentCheckpoint `
+    -Nonce $interruptedResultNonce
+  $interruptedResultCheckpointPath = `
+    Write-RisePalsCandidateDurableParentCheckpointAtomic `
+      -Checkpoint $interruptedResultCheckpoint `
+      -EvidenceDirectory $durableDirectory -Mode Simulation
+  $interruptedResult = New-RisePalsCandidateParentResult `
+    -Checkpoint $interruptedResultCheckpoint `
+    -CheckpointFileName ([IO.Path]::GetFileName($interruptedResultCheckpointPath)) `
+    -CheckpointDigest ([string]$interruptedResultCheckpoint.checkpointDigest) `
+    -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+    -TransientCleanupCompleted $true -InvocationDirectoryAbsent $true `
+    -RemainingTransientObjectCount 0 -RemainingTemporaryObjectCount 0
+  $interruptedResultPath = Get-RisePalsCandidateDurableParentResultPath `
+    -EvidenceDirectory $durableDirectory -InvocationNonce $interruptedResultNonce
+  [IO.File]::WriteAllText(
+    $interruptedResultPath + ".tmp",
+    "partial",
+    [Text.UTF8Encoding]::new($false)
+  )
+  Assert-RisePalsCandidateThrows -Label "Interrupted authoritative parent-result write" -Action {
     Write-RisePalsCandidateDurableParentResultAtomic -Result $interruptedResult `
       -EvidenceDirectory $durableDirectory -Mode Simulation
   }
-  if ([IO.File]::Exists($interruptedPath)) {
-    throw "An interrupted durable write created a final success artifact."
+  if ([IO.File]::Exists($interruptedResultPath) -or
+    -not [IO.File]::Exists($interruptedResultCheckpointPath)) {
+    throw "An interrupted final-result write did not preserve only its checkpoint."
   }
 
   [IO.Directory]::CreateDirectory($unauthorizedRoot) | Out-Null
@@ -880,6 +960,8 @@ if ($parentSource.Contains("RedirectStandardOutput") -or
   -not $bootstrapSource.Contains('MarkerType "child-launch-attempted"') -or
   $bootstrapSource.Contains('MarkerType "child-started"') -or
   -not $childSource.Contains('MarkerType "child-started"') -or
+  -not $parentSource.Contains("Write-RisePalsCandidateDurableParentCheckpointAtomic") -or
+  -not $parentSource.Contains("Read-RisePalsCandidateDurableParentCheckpoint") -or
   -not $parentSource.Contains("Write-RisePalsCandidateDurableParentResultAtomic") -or
   -not $parentSource.Contains("Read-RisePalsCandidateDurableParentResult")) {
   throw "The parent/bootstrap boundary depends on raw streams or unsupported hashing."
