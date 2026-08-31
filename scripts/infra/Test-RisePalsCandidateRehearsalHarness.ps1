@@ -133,7 +133,9 @@ function New-RisePalsCandidateValidMarker {
 
 function New-RisePalsCandidateValidLaunchDiagnostic {
   param(
-    [ValidateSet("Simulation", "Live")][string]$ExecutionMode = "Simulation",
+    [ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode = "Simulation",
     [string[]]$Arguments = @("-NoLogo", "-NoProfile")
   )
 
@@ -142,10 +144,25 @@ function New-RisePalsCandidateValidLaunchDiagnostic {
     -LaunchDisposition launched -SanitizedLaunchFailureCode none `
     -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
     -LauncherExecutableExists $true -LauncherSignatureStatus valid `
-    -LaunchVerb $(if ($ExecutionMode -eq "Live") { "RunAs" } else { "None" }) `
+    -LaunchVerb $(if ($ExecutionMode -in @("Live", "ElevationProbe")) {
+      "RunAs"
+    } else {
+      "None"
+    }) `
     -ArgumentCount $Arguments.Count `
     -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
       -Arguments $Arguments)
+}
+
+function New-RisePalsCandidateValidProbeDiagnostic {
+  return New-RisePalsCandidateProbeDiagnostic -ProbeStatus success `
+    -FailedStage $null -SanitizedFailureCode $null `
+    -ElevatedChildEntered $true -AdministratorRoleConfirmed $true `
+    -IntegrityLevel high -RepositoryHeadMatched $true `
+    -AuthorizationMatched $true -InvocationNonceMatched $true `
+    -LauncherHashMatched $true -BootstrapHashMatched $true `
+    -TransportHashMatched $true -ChildHashMatched $true `
+    -LiveSequenceInvoked $false -HostMutationAttempted $false
 }
 
 function New-RisePalsCandidateSyntheticLiveResult {
@@ -229,6 +246,7 @@ function New-RisePalsCandidateValidParentCheckpoint {
     -AuthorizationId $AuthorizationId -RepositoryHead $Head `
     -LauncherScriptSha256 ("a" * 64) -BootstrapScriptSha256 ("b" * 64) `
     -TransportScriptSha256 ("c" * 64) -ChildScriptSha256 ("d" * 64) `
+    -ExecutionMode Simulation `
     -LaunchDiagnostic $launchDiagnostic `
     -LaunchDisposition "launched" -Classification "final-present-validated" `
     -ProcessLaunched $true -ElevatedExitCode 0 -BootstrapEntered $true `
@@ -416,7 +434,8 @@ $failureClaimingStages = New-RisePalsCandidateParentCheckpoint `
   -AuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
   -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
   -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
-  -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failureLaunchDiagnostic `
+  -ChildScriptSha256 ("d" * 64) -ExecutionMode Live `
+  -LaunchDiagnostic $failureLaunchDiagnostic `
   -LaunchDisposition launch-failure -Classification elevated-process-launch-failure `
   -ProcessLaunched $false -ElevatedExitCode -1 -BootstrapEntered $true `
   -BootstrapStarted $true -BootstrapFailurePresent $false `
@@ -436,6 +455,257 @@ Assert-RisePalsCandidateThrows -Label "Launch failure claiming a later stage" -A
     -ConsumedNonces @{}
 }
 Write-Output "Authenticated closed elevated-launch diagnostic unit simulations PASS"
+
+$probeNonce = "fedcba9876543210fedcba9876543210"
+$probeAuthorization = "RP-TURN-019-R4-PROBE-A1B2C3D4"
+$liveAuthorization = "RP-TURN-019-R4-LIVE-A1B2C3D4"
+$canonicalLaunchValues = @{
+  SimulationScenario = "success"
+  RepositoryRoot = $repository
+  RepositoryHead = ("1" * 40)
+  InvocationNonce = $probeNonce
+  ResultRoot = (Join-Path ([IO.Path]::GetTempPath()) "risepals-probe-builder")
+  InvocationDirectory = (Join-Path ([IO.Path]::GetTempPath()) "risepals-probe-builder\invocation")
+  LauncherScriptPath = (Join-Path $scripts "Invoke-RisePalsCandidateRehearsal.ps1")
+  LauncherScriptSha256 = ("a" * 64)
+  BootstrapScriptPath = (Join-Path $scripts "Invoke-RisePalsCandidateElevatedBootstrap.ps1")
+  BootstrapScriptSha256 = ("b" * 64)
+  TransportScriptPath = (Join-Path $scripts "candidate-rehearsal-transport.ps1")
+  TransportScriptSha256 = ("c" * 64)
+  ChildScriptPath = (Join-Path $scripts "Invoke-RisePalsCandidateElevationProbeChild.ps1")
+  ChildScriptSha256 = ("d" * 64)
+  CandidateExecutableSource = ""
+  NodeExecutableSource = ""
+}
+$liveLaunchRequest = New-RisePalsCandidateCanonicalLaunchRequest `
+  @canonicalLaunchValues -ExecutionMode Live -AuthorizationId $liveAuthorization
+$probeLaunchRequest = New-RisePalsCandidateCanonicalLaunchRequest `
+  @canonicalLaunchValues -ExecutionMode ElevationProbe -AuthorizationId $probeAuthorization
+if ($liveLaunchRequest.filePath -ne $probeLaunchRequest.filePath -or
+  $liveLaunchRequest.verb -ne "RunAs" -or $probeLaunchRequest.verb -ne "RunAs" -or
+  $liveLaunchRequest.windowStyle -ne $probeLaunchRequest.windowStyle -or
+  $liveLaunchRequest.waitRequested -ne $probeLaunchRequest.waitRequested -or
+  $liveLaunchRequest.passThruRequested -ne $probeLaunchRequest.passThruRequested -or
+  $liveLaunchRequest.argumentCount -ne $probeLaunchRequest.argumentCount) {
+  throw "Live and ElevationProbe do not share one canonical RunAs launch shape."
+}
+$normalizedLiveArguments = @($liveLaunchRequest.arguments)
+$normalizedProbeArguments = @($probeLaunchRequest.arguments)
+foreach ($flag in @("-Mode", "-AuthorizationId", "-FutureAuthorizationId")) {
+  $liveIndex = [Array]::IndexOf($normalizedLiveArguments, $flag)
+  $probeIndex = [Array]::IndexOf($normalizedProbeArguments, $flag)
+  if ($liveIndex -lt 0 -or $probeIndex -ne $liveIndex) {
+    throw "A canonical mode-bound launch argument is missing or reordered."
+  }
+  $normalizedLiveArguments[$liveIndex + 1] = "<mode-bound>"
+  $normalizedProbeArguments[$probeIndex + 1] = "<mode-bound>"
+}
+if (@(Compare-Object -ReferenceObject $normalizedLiveArguments `
+    -DifferenceObject $normalizedProbeArguments -SyncWindow 0).Count -ne 0) {
+  throw "Live and ElevationProbe canonical launch machinery diverged."
+}
+Assert-RisePalsCandidateThrows -Label "Live accepting probe authorization" -Action {
+  Assert-RisePalsCandidateModeAuthorization -ExecutionMode Live `
+    -AuthorizationId $probeAuthorization
+}
+Assert-RisePalsCandidateThrows -Label "Probe accepting Live authorization" -Action {
+  Assert-RisePalsCandidateModeAuthorization -ExecutionMode ElevationProbe `
+    -AuthorizationId $liveAuthorization
+}
+
+$validProbeDiagnostic = New-RisePalsCandidateValidProbeDiagnostic
+[void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $validProbeDiagnostic)
+foreach ($property in @(
+    "repositoryHeadMatched", "authorizationMatched", "invocationNonceMatched",
+    "launcherHashMatched", "bootstrapHashMatched", "transportHashMatched",
+    "childHashMatched"
+  )) {
+  $failureParameters = @{
+    ProbeStatus = "failure"
+    FailedStage = "probe-entry-validation"
+    SanitizedFailureCode = "probe-provenance-mismatch"
+    ElevatedChildEntered = $true
+    AdministratorRoleConfirmed = $true
+    IntegrityLevel = "high"
+    RepositoryHeadMatched = $true
+    AuthorizationMatched = $true
+    InvocationNonceMatched = $true
+    LauncherHashMatched = $true
+    BootstrapHashMatched = $true
+    TransportHashMatched = $true
+    ChildHashMatched = $true
+    LiveSequenceInvoked = $false
+    HostMutationAttempted = $false
+  }
+  $failureParameters[$property.Substring(0, 1).ToUpperInvariant() + $property.Substring(1)] = $false
+  $provenanceFailure = New-RisePalsCandidateProbeDiagnostic @failureParameters
+  if (Test-RisePalsCandidateProbeDiagnosticSuccess -Diagnostic $provenanceFailure) {
+    throw "A probe provenance mismatch qualified as success."
+  }
+}
+$insufficientProbeDiagnostic = New-RisePalsCandidateProbeDiagnostic `
+  -ProbeStatus failure -FailedStage probe-elevation-validation `
+  -SanitizedFailureCode probe-insufficient-elevation `
+  -ElevatedChildEntered $true -AdministratorRoleConfirmed $false `
+  -IntegrityLevel insufficient -RepositoryHeadMatched $true `
+  -AuthorizationMatched $true -InvocationNonceMatched $true `
+  -LauncherHashMatched $true -BootstrapHashMatched $true `
+  -TransportHashMatched $true -ChildHashMatched $true
+foreach ($tamper in @("missing-property", "extra-property", "digest", "live", "mutation")) {
+  $invalidProbe = Copy-RisePalsCandidateContract -Contract $validProbeDiagnostic
+  switch ($tamper) {
+    "missing-property" { $invalidProbe.PSObject.Properties.Remove("integrityLevel") }
+    "extra-property" { $invalidProbe | Add-Member -NotePropertyName accountName -NotePropertyValue "prohibited" }
+    "digest" { $invalidProbe.probeDigest = "f" * 64 }
+    "live" {
+      $invalidProbe.liveSequenceInvoked = $true
+      $invalidProbe.probeDigest = Get-RisePalsCandidateProbeDiagnosticDigest -Diagnostic $invalidProbe
+    }
+    "mutation" {
+      $invalidProbe.hostMutationAttempted = $true
+      $invalidProbe.probeDigest = Get-RisePalsCandidateProbeDiagnosticDigest -Diagnostic $invalidProbe
+    }
+  }
+  Assert-RisePalsCandidateThrows -Label ("Probe diagnostic " + $tamper) -Action {
+    Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $invalidProbe
+  }
+}
+
+$probeChildDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $null `
+  -ExecutionMode ElevationProbe -CleanupResponsibilityTransferredToParent $true
+if (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $probeChildDiagnostic) {
+  throw "ElevationProbe incorrectly satisfied the Live functional-success predicate."
+}
+foreach ($gate in @($script:RisePalsCandidateFunctionalGateMap.Keys)) {
+  if ($probeChildDiagnostic.functionalGates.$gate -ne "not_applicable") {
+    throw "An ElevationProbe Live gate was not marked not_applicable."
+  }
+}
+foreach ($lifecycleProperty in $script:RisePalsCandidateLifecycleEvidenceProperties) {
+  if ([bool]$probeChildDiagnostic.$lifecycleProperty) {
+    throw "An ElevationProbe Live lifecycle boolean was true."
+  }
+}
+$invalidProbeGate = Copy-RisePalsCandidateContract -Contract $probeChildDiagnostic
+$invalidProbeGate.functionalGates.immutableInputStaging = "passed"
+$invalidProbeGate.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest `
+  -Diagnostic $invalidProbeGate
+Assert-RisePalsCandidateThrows -Label "Probe claiming a Live gate" -Action {
+  Assert-RisePalsCandidateChildDiagnostic -Diagnostic $invalidProbeGate
+}
+$invalidProbeLifecycle = Copy-RisePalsCandidateContract -Contract $probeChildDiagnostic
+$invalidProbeLifecycle.liveHostMutationBegan = $true
+$invalidProbeLifecycle.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest `
+  -Diagnostic $invalidProbeLifecycle
+Assert-RisePalsCandidateThrows -Label "Probe claiming a Live lifecycle state" -Action {
+  Assert-RisePalsCandidateChildDiagnostic -Diagnostic $invalidProbeLifecycle
+}
+
+$probeLaunchDiagnostic = New-RisePalsCandidateValidLaunchDiagnostic `
+  -ExecutionMode ElevationProbe -Arguments $probeLaunchRequest.arguments
+$probeCheckpoint = New-RisePalsCandidateParentCheckpoint `
+  -InvocationNonce $probeNonce -AuthorizationId $probeAuthorization `
+  -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
+  -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
+  -ChildScriptSha256 ("d" * 64) -ExecutionMode ElevationProbe `
+  -LaunchDiagnostic $probeLaunchDiagnostic -ProbeDiagnostic $validProbeDiagnostic `
+  -LaunchDisposition launched -Classification elevation-probe-success `
+  -ProcessLaunched $true -ElevatedExitCode 0 -BootstrapEntered $true `
+  -BootstrapStarted $true -BootstrapFailurePresent $false `
+  -ChildLaunchAttempted $true -ChildStarted $true -LiveStarted $false `
+  -FinalPresent $true -FinalValidated $true -FinalStatus success `
+  -ChildDiagnostic $probeChildDiagnostic
+$probeStarted = [DateTimeOffset]::UtcNow.AddMinutes(-1)
+[void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $probeCheckpoint `
+  -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+  -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+  -ExpectedBootstrapScriptSha256 ("b" * 64) `
+  -ExpectedTransportScriptSha256 ("c" * 64) `
+  -ExpectedChildScriptSha256 ("d" * 64) `
+  -ExpectedLaunchDiagnosticDigest $probeLaunchDiagnostic.diagnosticDigest `
+  -ExpectedProbeDiagnosticDigest $validProbeDiagnostic.probeDigest `
+  -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStarted `
+  -ConsumedNonces @{})
+$probeCheckpointFileName = "candidate-parent-checkpoint-$probeNonce.json"
+$probeParentResult = New-RisePalsCandidateParentResult -Checkpoint $probeCheckpoint `
+  -CheckpointFileName $probeCheckpointFileName `
+  -CheckpointDigest $probeCheckpoint.checkpointDigest `
+  -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+  -TransientCleanupCompleted $true -InvocationDirectoryAbsent $true `
+  -RemainingTransientObjectCount 0 -RemainingTemporaryObjectCount 0
+[void](Assert-RisePalsCandidateParentResult -Result $probeParentResult `
+  -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+  -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+  -ExpectedBootstrapScriptSha256 ("b" * 64) `
+  -ExpectedTransportScriptSha256 ("c" * 64) `
+  -ExpectedChildScriptSha256 ("d" * 64) `
+  -ExpectedCheckpointFileName $probeCheckpointFileName `
+  -ExpectedCheckpointDigest $probeCheckpoint.checkpointDigest `
+  -ExpectedLaunchDiagnosticDigest $probeLaunchDiagnostic.diagnosticDigest `
+  -ExpectedChildDiagnosticDigest $probeChildDiagnostic.diagnosticDigest `
+  -ExpectedProbeDiagnosticDigest $validProbeDiagnostic.probeDigest `
+  -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStarted `
+  -ConsumedNonces @{})
+if ($probeParentResult.overallStatus -ne "success" -or
+  $probeParentResult.functionalClassification -ne "elevation-probe-success") {
+  throw "The successful simulated probe did not preserve its distinct classification."
+}
+$mismatchedProbeResult = Copy-RisePalsCandidateContract -Contract $probeParentResult
+$systemProbe = Copy-RisePalsCandidateContract -Contract $validProbeDiagnostic
+$systemProbe.integrityLevel = "system"
+$systemProbe.probeDigest = Get-RisePalsCandidateProbeDiagnosticDigest -Diagnostic $systemProbe
+$mismatchedProbeResult.probeDiagnostic = $systemProbe
+$mismatchedProbeResult.resultDigest = Get-RisePalsCandidateParentResultDigest `
+  -Result $mismatchedProbeResult
+Assert-RisePalsCandidateThrows -Label "Checkpoint/result probe-digest mismatch" -Action {
+  Assert-RisePalsCandidateParentResult -Result $mismatchedProbeResult `
+    -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName $probeCheckpointFileName `
+    -ExpectedCheckpointDigest $probeCheckpoint.checkpointDigest `
+    -ExpectedLaunchDiagnosticDigest $probeLaunchDiagnostic.diagnosticDigest `
+    -ExpectedChildDiagnosticDigest $probeChildDiagnostic.diagnosticDigest `
+    -ExpectedProbeDiagnosticDigest $validProbeDiagnostic.probeDigest `
+    -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStarted `
+    -ConsumedNonces @{}
+}
+$failedProbeClassification = Resolve-RisePalsCandidateParentClassification `
+  -ExecutionMode ElevationProbe -LaunchDisposition launched `
+  -BootstrapEntered $true -ChildLaunchAttempted $true -ChildStarted $true `
+  -LiveStarted $false -FinalPresent $true -FinalValidated $true `
+  -EvidenceInvalid $false -FinalStatus failure `
+  -ProbeDiagnostic $insufficientProbeDiagnostic
+if ($failedProbeClassification -ne "elevation-probe-failure") {
+  throw "A post-entry probe failure lost its sanitized probe classification."
+}
+$probeCleanupFailure = New-RisePalsCandidateParentResult -Checkpoint $probeCheckpoint `
+  -CheckpointFileName $probeCheckpointFileName `
+  -CheckpointDigest $probeCheckpoint.checkpointDigest `
+  -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+  -TransientCleanupCompleted $false -InvocationDirectoryAbsent $false `
+  -RemainingTransientObjectCount 1 -RemainingTemporaryObjectCount 1 `
+  -RemainingTransientRelativePaths @("probe-result.json.tmp")
+[void](Assert-RisePalsCandidateParentResult -Result $probeCleanupFailure `
+  -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+  -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+  -ExpectedBootstrapScriptSha256 ("b" * 64) `
+  -ExpectedTransportScriptSha256 ("c" * 64) `
+  -ExpectedChildScriptSha256 ("d" * 64) `
+  -ExpectedCheckpointFileName $probeCheckpointFileName `
+  -ExpectedCheckpointDigest $probeCheckpoint.checkpointDigest `
+  -ExpectedLaunchDiagnosticDigest $probeLaunchDiagnostic.diagnosticDigest `
+  -ExpectedChildDiagnosticDigest $probeChildDiagnostic.diagnosticDigest `
+  -ExpectedProbeDiagnosticDigest $validProbeDiagnostic.probeDigest `
+  -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStarted `
+  -ConsumedNonces @{})
+if ($probeCleanupFailure.overallStatus -ne "failure" -or
+  $probeCleanupFailure.remainingTransientRelativePaths[0] -ne "probe-result.json.tmp") {
+  throw "Probe cleanup failure did not retain truthful sanitized residue evidence."
+}
+Write-Output "Non-mutating ElevationProbe launch/diagnostic/transport simulations PASS"
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
 Write-Output "Candidate contract and accepted artifact pins PASS"
@@ -971,7 +1241,8 @@ $transportScenarios = @(
 )
 foreach ($scenario in $transportScenarios) {
   $actual = Resolve-RisePalsCandidateParentClassification `
-    -LaunchDisposition $scenario.Launch -BootstrapEntered $scenario.B `
+    -ExecutionMode Simulation -LaunchDisposition $scenario.Launch `
+    -BootstrapEntered $scenario.B `
     -ChildLaunchAttempted $scenario.A -ChildStarted $scenario.C `
     -LiveStarted $scenario.L -FinalPresent $scenario.P `
     -FinalValidated $scenario.V -EvidenceInvalid $scenario.I -FinalStatus $scenario.S
@@ -1264,7 +1535,8 @@ try {
     -AuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
     -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
     -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
-    -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failureLaunchDiagnostic `
+    -ChildScriptSha256 ("d" * 64) -ExecutionMode Live `
+    -LaunchDiagnostic $failureLaunchDiagnostic `
     -LaunchDisposition launch-failure `
     -Classification elevated-process-launch-failure -ProcessLaunched $false `
     -ElevatedExitCode -1 -BootstrapEntered $false -BootstrapStarted $false `
@@ -1342,7 +1614,8 @@ try {
     -AuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
     -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
-    -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failedLaunchDiagnostic `
+    -ChildScriptSha256 ("d" * 64) -ExecutionMode Live `
+    -LaunchDiagnostic $failedLaunchDiagnostic `
     -LaunchDisposition launched `
     -Classification final-present-validated -ProcessLaunched $true `
     -ElevatedExitCode 23 -BootstrapEntered $true -BootstrapStarted $true `
@@ -1530,6 +1803,45 @@ $bootstrapSource = [IO.File]::ReadAllText(
 $childSource = [IO.File]::ReadAllText(
   (Join-Path $scripts "Invoke-RisePalsCandidateRehearsalChild.ps1")
 )
+$transportSource = [IO.File]::ReadAllText(
+  (Join-Path $scripts "candidate-rehearsal-transport.ps1")
+)
+$probeChildPath = Join-Path $scripts `
+  "Invoke-RisePalsCandidateElevationProbeChild.ps1"
+$probeChildSource = [IO.File]::ReadAllText($probeChildPath)
+$probeTokens = $null
+$probeErrors = $null
+$probeAst = [Management.Automation.Language.Parser]::ParseFile(
+  $probeChildPath,
+  [ref]$probeTokens,
+  [ref]$probeErrors
+)
+$probeCommandNames = @($probeAst.FindAll({
+    param($node)
+    $node -is [Management.Automation.Language.CommandAst]
+  }, $true) | ForEach-Object { $_.GetCommandName() } | Where-Object {
+    -not [string]::IsNullOrWhiteSpace($_)
+  })
+$probeProhibitedCommands = @(
+  "Get-Service", "Set-Service", "New-Service", "Start-Service", "Stop-Service",
+  "Restart-Service", "Remove-Service", "Get-NetTCPConnection",
+  "New-NetFirewallRule", "Set-NetFirewallRule", "Remove-NetFirewallRule",
+  "Get-ChildItem", "Remove-Item", "New-Item", "Copy-Item", "Move-Item",
+  "Get-Acl", "Set-Acl", "Restart-Computer", "Stop-Computer"
+)
+$probeProhibitedText = @(
+  "Invoke-RisePalsCandidateLiveSequence", "OpenSCManager", "CreateService",
+  "ChangeServiceConfig", "ControlService", "DeleteService", "sc.exe",
+  "C:\RisePals\", "node.exe", "RisePalsServiceHostCandidate",
+  "New-SelfSignedCertificate", "Import-Certificate", "Preshutdown"
+)
+if ($probeErrors.Count -ne 0 -or
+  @($probeCommandNames | Where-Object { $_ -in $probeProhibitedCommands }).Count -ne 0 -or
+  @($probeProhibitedText | Where-Object {
+    $probeChildSource.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0
+  }).Count -ne 0) {
+  throw "The ElevationProbe child can reach a prohibited Live or host-mutation operation."
+}
 if ($parentSource.Contains("RedirectStandardOutput") -or
   $parentSource.Contains("RedirectStandardError") -or
   $bootstrapSource.Contains("RedirectStandardOutput") -or
@@ -1544,11 +1856,16 @@ if ($parentSource.Contains("RedirectStandardOutput") -or
   -not $parentSource.Contains("Read-RisePalsCandidateDurableParentCheckpoint") -or
   -not $parentSource.Contains("Write-RisePalsCandidateDurableParentResultAtomic") -or
   -not $parentSource.Contains("Read-RisePalsCandidateDurableParentResult") -or
-  -not $parentSource.Contains('$quotedValues') -or
+  -not $parentSource.Contains("New-RisePalsCandidateCanonicalLaunchRequest") -or
+  -not $transportSource.Contains('$quotedValues') -or
+  -not $transportSource.Contains("New-RisePalsCandidateCanonicalLaunchRequest") -or
+  ([regex]::Matches($parentSource, "New-RisePalsCandidateCanonicalLaunchRequest")).Count -ne 1 -or
+  ([regex]::Matches($parentSource, "Start-Process")).Count -ne 1 -or
   -not $parentSource.Contains('SanitizedLaunchFailureCode "malformed-launch-request"')) {
   throw "The parent/bootstrap boundary depends on raw streams or unsupported hashing."
 }
 Write-Output "Durable parent transport, truthful child ownership and no raw-output dependency PASS"
+Write-Output "ElevationProbe PowerShell 5.1 AST and prohibited-operation boundary PASS"
 
 $stages = @($contract.rehearsalStages)
 $codes = @($contract.sanitizedFailureCodes)

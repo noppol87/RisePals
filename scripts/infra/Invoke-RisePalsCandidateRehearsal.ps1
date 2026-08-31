@@ -1,7 +1,9 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$ExpectedRepositoryHead,
-  [ValidateSet("Plan", "Simulation", "Live")][string]$Mode = "Plan",
+  [ValidateSet(
+    "Plan", "Simulation", "Live", "ElevationProbe"
+  )][string]$Mode = "Plan",
   [ValidateSet(
     "SuccessWithInformationalStderr",
     "NativeFailure",
@@ -43,19 +45,6 @@ function Get-RisePalsCandidateGitExecutable {
   return $portable
 }
 
-function ConvertTo-RisePalsCandidateProcessArgument {
-  param(
-    [Parameter(Mandatory = $true)]
-    [AllowEmptyString()]
-    [string]$Value
-  )
-
-  if ($Value.Contains('"')) {
-    throw "A candidate process argument contains a prohibited quote."
-  }
-  return '"' + $Value + '"'
-}
-
 $repository = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
   Get-RisePalsCandidateRepositoryRoot
 } else {
@@ -88,7 +77,9 @@ if ($gitStatusExit -ne 0 -or $head -ne $ExpectedRepositoryHead -or
 $launcher = [IO.Path]::GetFullPath($PSCommandPath)
 $bootstrap = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateElevatedBootstrap.ps1"
 $transport = Join-Path $PSScriptRoot "candidate-rehearsal-transport.ps1"
-$child = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateRehearsalChild.ps1"
+$rehearsalChild = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateRehearsalChild.ps1"
+$probeChild = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateElevationProbeChild.ps1"
+$child = if ($Mode -eq "ElevationProbe") { $probeChild } else { $rehearsalChild }
 $launcherHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $launcher
 $bootstrapHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $bootstrap
 $transportHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $transport
@@ -116,8 +107,16 @@ $authorizationId = if ($Mode -eq "Simulation") {
 } else {
   $FutureAuthorizationId
 }
+[void](Assert-RisePalsCandidateModeAuthorization -ExecutionMode $Mode `
+  -AuthorizationId $authorizationId)
+if ($Mode -eq "ElevationProbe" -and (
+    -not [string]::IsNullOrWhiteSpace($CandidateExecutableSource) -or
+    -not [string]::IsNullOrWhiteSpace($NodeExecutableSource)
+  )) {
+  throw "ElevationProbe cannot receive candidate or Node executable sources."
+}
 if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
-  throw "Simulation and Live modes require an explicit durable evidence directory."
+  throw "Simulation, Live, and ElevationProbe modes require an explicit durable evidence directory."
 }
 $durableEvidenceDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
   -Path $EvidenceDirectory -Mode $Mode
@@ -133,9 +132,10 @@ $transientRoot = [IO.Path]::GetFullPath(
   (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
 )
 $invocationDirectory = Join-Path $transientRoot ("invocation-" + $nonce)
-$resultPath = Join-Path $invocationDirectory "result.json"
+$resultName = if ($Mode -eq "ElevationProbe") { "probe-result.json" } else { "result.json" }
+$resultPath = Join-Path $invocationDirectory $resultName
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-$launchVerb = if ($Mode -eq "Live") { "RunAs" } else { "None" }
+$launchVerb = if ($Mode -in @("Live", "ElevationProbe")) { "RunAs" } else { "None" }
 $launcherExecutableExists = [IO.File]::Exists($powerShell)
 $launcherSignatureStatus = Get-RisePalsCandidateLauncherSignatureStatus `
   -LiteralPath $powerShell
@@ -173,6 +173,7 @@ $remainingTransientObjectCount = 0
 $remainingTemporaryObjectCount = 0
 $parentCheckpoint = $null
 $childDiagnostic = $null
+$probeDiagnostic = $null
 
 try {
   if (-not $resultPathFresh) {
@@ -206,14 +207,20 @@ try {
   $directoryInitialized = $true
 
   $shouldLaunch = $true
-  if ($Mode -eq "Live" -and (
-    $authorizationId -notmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$" -or
-    -not $PSCmdlet.ShouldProcess(
-      $script:RisePalsCandidateServiceName,
+  if ($Mode -in @("Live", "ElevationProbe")) {
+    $launchTarget = if ($Mode -eq "Live") {
+      $script:RisePalsCandidateServiceName
+    } else {
+      "Windows PowerShell elevation boundary"
+    }
+    $launchAction = if ($Mode -eq "Live") {
       "Launch the separately authorized candidate rehearsal bootstrap"
-    )
-  )) {
-    $shouldLaunch = $false
+    } else {
+      "Launch the separately authorized non-mutating elevation probe"
+    }
+    if (-not $PSCmdlet.ShouldProcess($launchTarget, $launchAction)) {
+      $shouldLaunch = $false
+    }
   }
   if ($Mode -eq "Simulation" -and -not $PSCmdlet.ShouldProcess(
     $invocationDirectory,
@@ -223,78 +230,29 @@ try {
   }
 
   if ($shouldLaunch) {
-    $quotedValues = @(
-      $bootstrap, $repository, $transientRoot, $invocationDirectory,
-      $launcher, $transport, $child, $FutureAuthorizationId,
-      $CandidateExecutableSource, $NodeExecutableSource
-    )
-    if (@($quotedValues | Where-Object { ([string]$_).Contains('"') }).Count -ne 0) {
-      $launchDisposition = "launch-failure"
-      $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
-        -LaunchAttempted $false -ProcessCreated $false `
-        -LaunchDisposition $launchDisposition `
-        -SanitizedLaunchFailureCode "malformed-launch-request" `
-        -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
-        -LauncherExecutableExists $launcherExecutableExists `
-        -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
-        -ArgumentCount 0 -CanonicalArgumentDigest $emptyArgumentDigest
-    } else {
-      $arguments = @(
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $bootstrap),
-        "-Mode",
-        $Mode,
-        "-SimulationScenario",
-        $SimulationScenario,
-        "-RepositoryRoot",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $repository),
-        "-RepositoryHead",
-        $head,
-        "-AuthorizationId",
-        $authorizationId,
-        "-InvocationNonce",
-        $nonce,
-        "-ResultRoot",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $transientRoot),
-        "-InvocationDirectory",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $invocationDirectory),
-        "-LauncherScriptPath",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $launcher),
-        "-LauncherScriptSha256",
-        $launcherHash,
-        "-BootstrapScriptSha256",
-        $bootstrapHash,
-        "-TransportScriptPath",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $transport),
-        "-TransportScriptSha256",
-        $transportHash,
-        "-ChildScriptPath",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $child),
-        "-ChildScriptSha256",
-        $childHash,
-        "-FutureAuthorizationId",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $FutureAuthorizationId),
-        "-CandidateExecutableSource",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $CandidateExecutableSource),
-        "-NodeExecutableSource",
-        (ConvertTo-RisePalsCandidateProcessArgument -Value $NodeExecutableSource)
-      )
-      $argumentDigest = Get-RisePalsCandidateCanonicalArgumentDigest `
-        -Arguments $arguments
-      $start = @{
-        FilePath = $powerShell
-        ArgumentList = $arguments
-        WindowStyle = "Hidden"
-        Wait = $true
-        PassThru = $true
-      }
-      if ($Mode -eq "Live") {
-        $start.Verb = "RunAs"
-      }
+    $launchRequest = New-RisePalsCandidateCanonicalLaunchRequest `
+      -ExecutionMode $Mode -SimulationScenario $SimulationScenario `
+      -RepositoryRoot $repository -RepositoryHead $head `
+      -AuthorizationId $authorizationId -InvocationNonce $nonce `
+      -ResultRoot $transientRoot -InvocationDirectory $invocationDirectory `
+      -LauncherScriptPath $launcher -LauncherScriptSha256 $launcherHash `
+      -BootstrapScriptPath $bootstrap -BootstrapScriptSha256 $bootstrapHash `
+      -TransportScriptPath $transport -TransportScriptSha256 $transportHash `
+      -ChildScriptPath $child -ChildScriptSha256 $childHash `
+      -CandidateExecutableSource $CandidateExecutableSource `
+      -NodeExecutableSource $NodeExecutableSource
+    $arguments = @($launchRequest.arguments)
+    $argumentDigest = [string]$launchRequest.canonicalArgumentDigest
+    $start = @{
+      FilePath = [string]$launchRequest.filePath
+      ArgumentList = $arguments
+      WindowStyle = [string]$launchRequest.windowStyle
+      Wait = [bool]$launchRequest.waitRequested
+      PassThru = [bool]$launchRequest.passThruRequested
+    }
+    if ($launchRequest.verb -eq "RunAs") {
+      $start.Verb = [string]$launchRequest.verb
+    }
       if (-not $launcherExecutableExists) {
         $launchDisposition = "launch-failure"
         $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
@@ -368,7 +326,6 @@ try {
             -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
         }
       }
-    }
   }
 
   $consumedMarkers = @{}
@@ -441,18 +398,31 @@ try {
   if ($finalPresent) {
     try {
       $validated = Read-RisePalsCandidateTransportJson -Path $resultPath `
-        -InvocationDirectory $invocationDirectory -ExpectedName "result.json"
-      [void](Assert-RisePalsCandidateResult -Result $validated -ExpectedNonce $nonce `
-        -ExpectedAuthorizationId $authorizationId -ExpectedHead $head `
-        -ExpectedLauncherScriptSha256 $launcherHash `
-        -ExpectedBootstrapScriptSha256 $bootstrapHash `
-        -ExpectedTransportScriptSha256 $transportHash `
-        -ExpectedChildScriptSha256 $childHash -ObservedExitCode $processExitCode `
-        -InvocationStartedAtUtc $startedAt -ConsumedNonces @{})
+        -InvocationDirectory $invocationDirectory -ExpectedName $resultName
+      if ($Mode -eq "ElevationProbe") {
+        [void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $validated)
+        if (($validated.probeStatus -eq "success" -and $processExitCode -ne 0) -or
+          ($validated.probeStatus -eq "failure" -and $processExitCode -eq 0)) {
+          throw "The probe diagnostic disagrees with the elevated child exit code."
+        }
+        $probeDiagnostic = $validated
+        $finalStatus = [string]$validated.probeStatus
+        $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $null `
+          -ExecutionMode ElevationProbe `
+          -CleanupResponsibilityTransferredToParent $true
+      } else {
+        [void](Assert-RisePalsCandidateResult -Result $validated -ExpectedNonce $nonce `
+          -ExpectedAuthorizationId $authorizationId -ExpectedHead $head `
+          -ExpectedLauncherScriptSha256 $launcherHash `
+          -ExpectedBootstrapScriptSha256 $bootstrapHash `
+          -ExpectedTransportScriptSha256 $transportHash `
+          -ExpectedChildScriptSha256 $childHash -ObservedExitCode $processExitCode `
+          -InvocationStartedAtUtc $startedAt -ConsumedNonces @{})
+        $finalStatus = [string]$validated.status
+        $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $validated `
+          -ExecutionMode $Mode -CleanupResponsibilityTransferredToParent $true
+      }
       $finalValidated = $true
-      $finalStatus = [string]$validated.status
-      $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $validated `
-        -ExecutionMode $Mode -CleanupResponsibilityTransferredToParent $true
       [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $childDiagnostic)
     } catch {
       $evidenceInvalid = $true
@@ -464,7 +434,8 @@ try {
     "child-started.json",
     "live-started.json",
     "bootstrap-failure.json",
-    "result.json"
+    "result.json",
+    "probe-result.json"
   )
   if (@(Get-ChildItem -LiteralPath $invocationDirectory -Force | Where-Object {
     $_.PSIsContainer -or $_.Name -notin $preParentAllowed
@@ -495,14 +466,17 @@ if ($null -eq $childDiagnostic) {
 }
 
 $classification = Resolve-RisePalsCandidateParentClassification `
-  -LaunchDisposition $launchDisposition -BootstrapEntered $bootstrapEntered `
+  -ExecutionMode $Mode -LaunchDisposition $launchDisposition `
+  -BootstrapEntered $bootstrapEntered `
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
-  -FinalValidated $finalValidated -EvidenceInvalid $evidenceInvalid -FinalStatus $finalStatus
+  -FinalValidated $finalValidated -EvidenceInvalid $evidenceInvalid `
+  -FinalStatus $finalStatus -ProbeDiagnostic $probeDiagnostic
 $parentCheckpoint = New-RisePalsCandidateParentCheckpoint -InvocationNonce $nonce `
   -AuthorizationId $authorizationId -RepositoryHead $head `
   -LauncherScriptSha256 $launcherHash -BootstrapScriptSha256 $bootstrapHash `
   -TransportScriptSha256 $transportHash -ChildScriptSha256 $childHash `
+  -ExecutionMode $Mode `
   -LaunchDisposition $launchDisposition -Classification $classification `
   -ProcessLaunched $processLaunched -ElevatedExitCode $processExitCode `
   -BootstrapEntered $bootstrapEntered -BootstrapStarted $bootstrapStarted `
@@ -510,7 +484,14 @@ $parentCheckpoint = New-RisePalsCandidateParentCheckpoint -InvocationNonce $nonc
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
   -FinalValidated $finalValidated -FinalStatus $finalStatus `
-  -ChildDiagnostic $childDiagnostic -LaunchDiagnostic $launchDiagnostic
+  -ChildDiagnostic $childDiagnostic -LaunchDiagnostic $launchDiagnostic `
+  -ProbeDiagnostic $probeDiagnostic
+
+$probeDiagnosticDigest = if ($null -eq $probeDiagnostic) {
+  $null
+} else {
+  [string]$probeDiagnostic.probeDigest
+}
 
 if ($checkpointPathFresh -and $resultPathFresh) {
   try {
@@ -521,6 +502,7 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedTransportScriptSha256 $transportHash `
       -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
       -ExpectedLaunchDiagnosticDigest ([string]$launchDiagnostic.diagnosticDigest) `
+      -ExpectedProbeDiagnosticDigest $probeDiagnosticDigest `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     if ($Mode -eq "Simulation" -and
@@ -543,6 +525,7 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedTransportScriptSha256 $transportHash `
       -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
       -ExpectedLaunchDiagnosticDigest ([string]$launchDiagnostic.diagnosticDigest) `
+      -ExpectedProbeDiagnosticDigest $probeDiagnosticDigest `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     $parentCheckpoint = $reopenedCheckpoint
@@ -568,6 +551,8 @@ if ($durableCheckpointValidated -and $directoryInitialized) {
     "bootstrap-failure.json.tmp",
     "result.json",
     "result.tmp",
+    "probe-result.json",
+    "probe-result.tmp",
     "live-state.json",
     "stdout.log",
     "stderr.log"
@@ -656,6 +641,7 @@ if ($resultPathFresh) {
     -ExpectedCheckpointDigest $checkpointDigest `
     -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
     -ExpectedLaunchDiagnosticDigest ([string]$parentCheckpoint.launchDiagnostic.diagnosticDigest) `
+    -ExpectedProbeDiagnosticDigest $probeDiagnosticDigest `
     -ExpectedExecutionMode $Mode `
     -InvocationStartedAtUtc $startedAt `
     -ConsumedNonces @{})
@@ -680,6 +666,7 @@ if ($resultPathFresh) {
       -ExpectedCheckpointDigest $checkpointDigest `
       -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
       -ExpectedLaunchDiagnosticDigest ([string]$parentCheckpoint.launchDiagnostic.diagnosticDigest) `
+      -ExpectedProbeDiagnosticDigest $probeDiagnosticDigest `
       -ExpectedExecutionMode $Mode `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})

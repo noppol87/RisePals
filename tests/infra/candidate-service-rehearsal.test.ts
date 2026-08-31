@@ -278,6 +278,7 @@ describe("repository-only candidate service rehearsal harness", () => {
           "scripts/infra/Invoke-RisePalsCandidateRehearsal.ps1",
           "scripts/infra/Invoke-RisePalsCandidateElevatedBootstrap.ps1",
           "scripts/infra/Invoke-RisePalsCandidateRehearsalChild.ps1",
+          "scripts/infra/Invoke-RisePalsCandidateElevationProbeChild.ps1",
           "scripts/infra/Invoke-RisePalsCandidateLiveSequence.ps1",
           "scripts/infra/Invoke-RisePalsCandidateServiceControl.ps1",
         ].map(text),
@@ -306,12 +307,13 @@ describe("repository-only candidate service rehearsal harness", () => {
     const transport = await text("scripts/infra/candidate-rehearsal-transport.ps1");
     const processBoundary = await text("scripts/infra/Test-RisePalsCandidateProcessBoundary.ps1");
 
-    expect(parent).toContain('$start.Verb = "RunAs"');
+    expect(parent).toContain("New-RisePalsCandidateCanonicalLaunchRequest");
+    expect(parent).toContain("$start.Verb = [string]$launchRequest.verb");
     expect(parent).toContain("$process.ExitCode");
     expect(parent).toContain("Assert-RisePalsCandidateResult");
     expect(parent).not.toContain("RedirectStandardOutput");
     expect(parent).not.toContain("RedirectStandardError");
-    expect(parent).toContain("[AllowEmptyString()]");
+    expect(transport).toContain("[AllowEmptyString()]");
     expect(bootstrap).not.toContain("RedirectStandardOutput");
     expect(bootstrap).not.toContain("RedirectStandardError");
     expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "bootstrap-started"');
@@ -321,8 +323,8 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(bootstrap).toContain("[Security.Cryptography.SHA256]::Create()");
     expect(bootstrap).toContain("ComputeHash");
     expect(bootstrap).not.toContain("Get-FileHash");
-    expect(parent).toContain('if ($Mode -eq "Live")');
-    expect(parent).toContain('"-FutureAuthorizationId",');
+    expect(parent).toContain('$Mode -in @("Live", "ElevationProbe")');
+    expect(transport).toContain('"-FutureAuthorizationId",');
     expect(child).toContain("-RedirectStandardOutput $stdoutPath");
     expect(child).toContain("-RedirectStandardError $stderrPath");
     expect(child).toContain("$process.ExitCode");
@@ -356,9 +358,9 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(parent).toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
     expect(parent).not.toContain("RISE_PALS_CANDIDATE_PARENT_RESULT=");
     expect(result).toContain("rise-pals-candidate-rehearsal-result-v2");
-    expect(result).toContain("rise-pals-candidate-child-diagnostic-v1");
-    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v3");
-    expect(transport).toContain("rise-pals-candidate-parent-result-v5");
+    expect(result).toContain("rise-pals-candidate-child-diagnostic-v2");
+    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v4");
+    expect(transport).toContain("rise-pals-candidate-parent-result-v6");
     expect(transport).toContain("rise-pals-candidate-launch-diagnostic-v1");
     expect(transport).toContain("Get-RisePalsCandidateLaunchExceptionEvidence");
     expect(transport).toContain("Get-RisePalsCandidateCanonicalArgumentDigest");
@@ -381,6 +383,40 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(processBoundary).not.toContain("RedirectStandardOutput");
     expect(processBoundary).not.toContain("RedirectStandardError");
     expect(processBoundary).not.toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
+  });
+
+  it("keeps ElevationProbe closed, non-mutating, and distinct from Live success", async () => {
+    const parent = await text("scripts/infra/Invoke-RisePalsCandidateRehearsal.ps1");
+    const transport = await text("scripts/infra/candidate-rehearsal-transport.ps1");
+    const result = await text("scripts/infra/candidate-rehearsal-result.ps1");
+    const probeChild = await text("scripts/infra/Invoke-RisePalsCandidateElevationProbeChild.ps1");
+    const processBoundary = await text("scripts/infra/Test-RisePalsCandidateProcessBoundary.ps1");
+
+    expect(parent.match(/New-RisePalsCandidateCanonicalLaunchRequest/gu)).toHaveLength(1);
+    expect(parent.match(/Start-Process/gu)).toHaveLength(1);
+    expect(transport).toContain("RP-TURN-019-R4-PROBE-[A-F0-9]{8}");
+    expect(transport).toContain("RP-TURN-019-R4-LIVE-[A-F0-9]{8}");
+    expect(transport).toContain("rise-pals-candidate-elevation-probe-diagnostic-v1");
+    expect(transport).toContain("elevation-probe-success");
+    expect(transport).toContain("ExpectedProbeDiagnosticDigest");
+    expect(result).toContain('if ($Diagnostic.executionMode -eq "ElevationProbe")');
+    expect(result).toContain('"not_applicable"');
+    expect(probeChild).toContain('[ValidateSet("ElevationProbe")]');
+    expect(probeChild).toContain("administratorRoleConfirmed");
+    expect(probeChild).toContain("Get-RisePalsElevationProbeIntegrityLevel");
+    expect(probeChild).toContain("-LiveSequenceInvoked $false");
+    expect(probeChild).toContain("-HostMutationAttempted $false");
+    expect(probeChild).not.toMatch(/Invoke-RisePalsCandidateLiveSequence/iu);
+    expect(probeChild).not.toMatch(
+      /(?:Get|Set|New|Start|Stop|Restart|Remove)-Service|OpenSCManager|CreateService|ChangeServiceConfig|ControlService|DeleteService/iu,
+    );
+    expect(probeChild).not.toContain("C:\\RisePals\\");
+    expect(probeChild).not.toMatch(/node\.exe|RisePalsServiceHostCandidate/iu);
+    expect(probeChild).not.toMatch(
+      /New-NetFirewallRule|Set-NetFirewallRule|Remove-NetFirewallRule|New-SelfSignedCertificate|Import-Certificate|Restart-Computer|Stop-Computer/iu,
+    );
+    expect(processBoundary).toContain("elevation-probe-transport");
+    expect(processBoundary).toContain("PASS (11 scenarios)");
   });
 
   it("wires exact stage failures and recursive cleanup refusal into the gated live source", async () => {

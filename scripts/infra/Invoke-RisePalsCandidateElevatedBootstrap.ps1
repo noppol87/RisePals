@@ -205,17 +205,25 @@ $childLaunchAttemptedMarkerWritten = $false
 $childExitCode = 92
 
 try {
-  if ($Mode -notin @("Simulation", "Live") -or
+  $authorizationValid = ($Mode -eq "Simulation" -and
+      $AuthorizationId -eq "RP-TURN-019-R4-DIAG2-SIMULATION") -or
+    ($Mode -eq "Live" -and
+      $AuthorizationId -match "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") -or
+    ($Mode -eq "ElevationProbe" -and
+      $AuthorizationId -match "^RP-TURN-019-R4-PROBE-[A-F0-9]{8}$")
+  if ($Mode -notin @("Simulation", "Live", "ElevationProbe") -or
     $InvocationNonce -notmatch "^[a-f0-9]{32}$" -or
     $RepositoryHead -notmatch "^[a-f0-9]{40}$" -or
     $LauncherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $BootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $TransportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
-    $ChildScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
-    (($Mode -eq "Live") -and
-      $AuthorizationId -notmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") -or
-    (($Mode -eq "Simulation") -and
-      $AuthorizationId -ne "RP-TURN-019-R4-DIAG2-SIMULATION")) {
+    $ChildScriptSha256 -notmatch "^[a-f0-9]{64}$" -or -not $authorizationValid -or
+    ($Mode -in @("Live", "ElevationProbe") -and
+      $FutureAuthorizationId -ne $AuthorizationId) -or
+    ($Mode -eq "ElevationProbe" -and (
+      -not [string]::IsNullOrWhiteSpace($CandidateExecutableSource) -or
+      -not [string]::IsNullOrWhiteSpace($NodeExecutableSource)
+    ))) {
     throw "The primitive bootstrap arguments are invalid."
   }
   $approvedRepository = "C:\Codex PC SG2\Jeff\risepals"
@@ -294,14 +302,31 @@ try {
     "-ResultRoot",
     (ConvertTo-RisePalsBootstrapProcessArgument -Value $ResultRoot),
     "-InvocationDirectory",
-    (ConvertTo-RisePalsBootstrapProcessArgument -Value $safeDirectory),
-    "-FutureAuthorizationId",
-    (ConvertTo-RisePalsBootstrapProcessArgument -Value $FutureAuthorizationId),
-    "-CandidateExecutableSource",
-    (ConvertTo-RisePalsBootstrapProcessArgument -Value $CandidateExecutableSource),
-    "-NodeExecutableSource",
-    (ConvertTo-RisePalsBootstrapProcessArgument -Value $NodeExecutableSource)
+    (ConvertTo-RisePalsBootstrapProcessArgument -Value $safeDirectory)
   )
+  if ($Mode -eq "ElevationProbe") {
+    $arguments += @(
+      "-RepositoryRoot",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $exactRepository),
+      "-LauncherScriptPath",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $LauncherScriptPath),
+      "-BootstrapScriptPath",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $PSCommandPath),
+      "-TransportScriptPath",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $TransportScriptPath),
+      "-ChildScriptPath",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $ChildScriptPath)
+    )
+  } else {
+    $arguments += @(
+      "-FutureAuthorizationId",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $FutureAuthorizationId),
+      "-CandidateExecutableSource",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $CandidateExecutableSource),
+      "-NodeExecutableSource",
+      (ConvertTo-RisePalsBootstrapProcessArgument -Value $NodeExecutableSource)
+    )
+  }
   Write-RisePalsBootstrapMarkerAtomic -Marker (
     New-RisePalsBootstrapMarker -MarkerType "child-launch-attempted" -FailureCode $null
   ) -Directory $safeDirectory
@@ -310,9 +335,16 @@ try {
   $process = Start-Process -FilePath $powerShell -ArgumentList $arguments `
     -WindowStyle Hidden -Wait -PassThru
   $childExitCode = [int]$process.ExitCode
-  if (-not [IO.File]::Exists((Join-Path $safeDirectory "result.json"))) {
+  $expectedResultName = if ($Mode -eq "ElevationProbe") {
+    "probe-result.json"
+  } else {
+    "result.json"
+  }
+  if (-not [IO.File]::Exists((Join-Path $safeDirectory $expectedResultName))) {
     $failureCode = if ([IO.File]::Exists((Join-Path $safeDirectory "live-started.json"))) {
       "live-child-exited-without-final"
+    } elseif ($Mode -eq "ElevationProbe") {
+      "probe-child-exited-without-final"
     } else {
       "committed-child-exited-before-live"
     }

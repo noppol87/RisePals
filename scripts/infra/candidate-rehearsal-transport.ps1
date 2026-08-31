@@ -2,9 +2,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
-$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v3"
-$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v5"
+$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v4"
+$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v6"
 $script:RisePalsCandidateLaunchDiagnosticSchema = "rise-pals-candidate-launch-diagnostic-v1"
+$script:RisePalsCandidateProbeDiagnosticSchema = "rise-pals-candidate-elevation-probe-diagnostic-v1"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
   "child-launch-attempted",
@@ -45,6 +46,25 @@ $script:RisePalsCandidateLaunchDiagnosticProperties = @(
   "hiddenWindowRequested",
   "diagnosticDigest"
 )
+$script:RisePalsCandidateProbeDiagnosticProperties = @(
+  "schemaVersion",
+  "probeStatus",
+  "failedStage",
+  "sanitizedFailureCode",
+  "elevatedChildEntered",
+  "administratorRoleConfirmed",
+  "integrityLevel",
+  "repositoryHeadMatched",
+  "authorizationMatched",
+  "invocationNonceMatched",
+  "launcherHashMatched",
+  "bootstrapHashMatched",
+  "transportHashMatched",
+  "childHashMatched",
+  "liveSequenceInvoked",
+  "hostMutationAttempted",
+  "probeDigest"
+)
 $script:RisePalsCandidateParentCheckpointProperties = @(
   "schemaVersion",
   "invocationNonce",
@@ -54,7 +74,9 @@ $script:RisePalsCandidateParentCheckpointProperties = @(
   "bootstrapScriptSha256",
   "transportScriptSha256",
   "childScriptSha256",
+  "executionMode",
   "launchDiagnostic",
+  "probeDiagnostic",
   "launchDisposition",
   "classification",
   "status",
@@ -82,9 +104,11 @@ $script:RisePalsCandidateParentResultProperties = @(
   "bootstrapScriptSha256",
   "transportScriptSha256",
   "childScriptSha256",
+  "executionMode",
   "checkpointFileName",
   "checkpointDigest",
   "launchDiagnostic",
+  "probeDiagnostic",
   "launchDisposition",
   "processLaunched",
   "elevatedExitCode",
@@ -180,6 +204,150 @@ function Get-RisePalsCandidateCanonicalArgumentDigest {
     argumentCount = $values.Count
     arguments = $values
   })
+}
+
+function Assert-RisePalsCandidateModeAuthorization {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode,
+    [Parameter(Mandatory = $true)][string]$AuthorizationId
+  )
+
+  $valid = switch ($ExecutionMode) {
+    "Simulation" { $AuthorizationId -eq "RP-TURN-019-R4-DIAG2-SIMULATION" }
+    "Live" { $AuthorizationId -match "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$" }
+    "ElevationProbe" {
+      $AuthorizationId -match "^RP-TURN-019-R4-PROBE-[A-F0-9]{8}$"
+    }
+  }
+  if (-not $valid) {
+    throw "The authorization identifier does not match the closed execution mode."
+  }
+  return $true
+}
+
+function ConvertTo-RisePalsCandidateLaunchArgument {
+  param(
+    [Parameter(Mandatory = $true)]
+    [AllowEmptyString()]
+    [string]$Value
+  )
+
+  if ($Value.Contains('"')) {
+    throw "A candidate launch argument contains a prohibited quote."
+  }
+  return '"' + $Value + '"'
+}
+
+function New-RisePalsCandidateCanonicalLaunchRequest {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode,
+    [Parameter(Mandatory = $true)][string]$SimulationScenario,
+    [Parameter(Mandatory = $true)][string]$RepositoryRoot,
+    [Parameter(Mandatory = $true)][string]$RepositoryHead,
+    [Parameter(Mandatory = $true)][string]$AuthorizationId,
+    [Parameter(Mandatory = $true)][string]$InvocationNonce,
+    [Parameter(Mandatory = $true)][string]$ResultRoot,
+    [Parameter(Mandatory = $true)][string]$InvocationDirectory,
+    [Parameter(Mandatory = $true)][string]$LauncherScriptPath,
+    [Parameter(Mandatory = $true)][string]$LauncherScriptSha256,
+    [Parameter(Mandatory = $true)][string]$BootstrapScriptPath,
+    [Parameter(Mandatory = $true)][string]$BootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][string]$TransportScriptPath,
+    [Parameter(Mandatory = $true)][string]$TransportScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ChildScriptPath,
+    [Parameter(Mandatory = $true)][string]$ChildScriptSha256,
+    [AllowEmptyString()][string]$CandidateExecutableSource = "",
+    [AllowEmptyString()][string]$NodeExecutableSource = ""
+  )
+
+  [void](Assert-RisePalsCandidateModeAuthorization -ExecutionMode $ExecutionMode `
+    -AuthorizationId $AuthorizationId)
+  if ($RepositoryHead -notmatch "^[a-f0-9]{40}$" -or
+    $InvocationNonce -notmatch "^[a-f0-9]{32}$" -or
+    @(@(
+      $LauncherScriptSha256,
+      $BootstrapScriptSha256,
+      $TransportScriptSha256,
+      $ChildScriptSha256
+    ) | Where-Object { $_ -notmatch "^[a-f0-9]{64}$" }).Count -ne 0 -or
+    ($ExecutionMode -eq "ElevationProbe" -and (
+      -not [string]::IsNullOrWhiteSpace($CandidateExecutableSource) -or
+      -not [string]::IsNullOrWhiteSpace($NodeExecutableSource)
+    ))) {
+    throw "The canonical candidate launch request is malformed."
+  }
+  $quotedValues = @(
+    $BootstrapScriptPath, $RepositoryRoot, $ResultRoot, $InvocationDirectory,
+    $LauncherScriptPath, $TransportScriptPath, $ChildScriptPath,
+    $CandidateExecutableSource, $NodeExecutableSource
+  )
+  if (@($quotedValues | Where-Object { ([string]$_).Contains('"') }).Count -ne 0) {
+    throw "The canonical candidate launch request contains a prohibited quote."
+  }
+  $arguments = @(
+    "-NoLogo",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $BootstrapScriptPath),
+    "-Mode",
+    $ExecutionMode,
+    "-SimulationScenario",
+    $SimulationScenario,
+    "-RepositoryRoot",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $RepositoryRoot),
+    "-RepositoryHead",
+    $RepositoryHead,
+    "-AuthorizationId",
+    $AuthorizationId,
+    "-InvocationNonce",
+    $InvocationNonce,
+    "-ResultRoot",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $ResultRoot),
+    "-InvocationDirectory",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $InvocationDirectory),
+    "-LauncherScriptPath",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $LauncherScriptPath),
+    "-LauncherScriptSha256",
+    $LauncherScriptSha256,
+    "-BootstrapScriptSha256",
+    $BootstrapScriptSha256,
+    "-TransportScriptPath",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $TransportScriptPath),
+    "-TransportScriptSha256",
+    $TransportScriptSha256,
+    "-ChildScriptPath",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $ChildScriptPath),
+    "-ChildScriptSha256",
+    $ChildScriptSha256,
+    "-FutureAuthorizationId",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $AuthorizationId),
+    "-CandidateExecutableSource",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $CandidateExecutableSource),
+    "-NodeExecutableSource",
+    (ConvertTo-RisePalsCandidateLaunchArgument -Value $NodeExecutableSource)
+  )
+  $powerShell = Join-Path $env:SystemRoot `
+    "System32\WindowsPowerShell\v1.0\powershell.exe"
+  $verb = if ($ExecutionMode -in @("Live", "ElevationProbe")) { "RunAs" } else { "None" }
+  return [pscustomobject][ordered]@{
+    executionMode = $ExecutionMode
+    filePath = $powerShell
+    launcherExecutableBasename = "powershell.exe"
+    verb = $verb
+    windowStyle = "Hidden"
+    waitRequested = $true
+    passThruRequested = $true
+    arguments = $arguments
+    argumentCount = $arguments.Count
+    canonicalArgumentDigest = Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $arguments
+  }
 }
 
 function ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic {
@@ -485,6 +653,169 @@ function Assert-RisePalsCandidateLaunchDiagnostic {
   return $true
 }
 
+function ConvertTo-RisePalsCandidateCanonicalProbeDiagnostic {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  return [pscustomobject][ordered]@{
+    schemaVersion = [string]$Diagnostic.schemaVersion
+    probeStatus = [string]$Diagnostic.probeStatus
+    failedStage = if ($null -eq $Diagnostic.failedStage) {
+      $null
+    } else {
+      [string]$Diagnostic.failedStage
+    }
+    sanitizedFailureCode = if ($null -eq $Diagnostic.sanitizedFailureCode) {
+      $null
+    } else {
+      [string]$Diagnostic.sanitizedFailureCode
+    }
+    elevatedChildEntered = [bool]$Diagnostic.elevatedChildEntered
+    administratorRoleConfirmed = [bool]$Diagnostic.administratorRoleConfirmed
+    integrityLevel = [string]$Diagnostic.integrityLevel
+    repositoryHeadMatched = [bool]$Diagnostic.repositoryHeadMatched
+    authorizationMatched = [bool]$Diagnostic.authorizationMatched
+    invocationNonceMatched = [bool]$Diagnostic.invocationNonceMatched
+    launcherHashMatched = [bool]$Diagnostic.launcherHashMatched
+    bootstrapHashMatched = [bool]$Diagnostic.bootstrapHashMatched
+    transportHashMatched = [bool]$Diagnostic.transportHashMatched
+    childHashMatched = [bool]$Diagnostic.childHashMatched
+    liveSequenceInvoked = [bool]$Diagnostic.liveSequenceInvoked
+    hostMutationAttempted = [bool]$Diagnostic.hostMutationAttempted
+  }
+}
+
+function Get-RisePalsCandidateProbeDiagnosticDigest {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  return Get-RisePalsCandidateObjectDigest -Canonical (
+    ConvertTo-RisePalsCandidateCanonicalProbeDiagnostic -Diagnostic $Diagnostic
+  )
+}
+
+function New-RisePalsCandidateProbeDiagnostic {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet("success", "failure")][string]$ProbeStatus,
+    [AllowNull()][string]$FailedStage,
+    [AllowNull()][string]$SanitizedFailureCode,
+    [Parameter(Mandatory = $true)][bool]$ElevatedChildEntered,
+    [Parameter(Mandatory = $true)][bool]$AdministratorRoleConfirmed,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "high", "system", "insufficient", "unavailable"
+    )][string]$IntegrityLevel,
+    [Parameter(Mandatory = $true)][bool]$RepositoryHeadMatched,
+    [Parameter(Mandatory = $true)][bool]$AuthorizationMatched,
+    [Parameter(Mandatory = $true)][bool]$InvocationNonceMatched,
+    [Parameter(Mandatory = $true)][bool]$LauncherHashMatched,
+    [Parameter(Mandatory = $true)][bool]$BootstrapHashMatched,
+    [Parameter(Mandatory = $true)][bool]$TransportHashMatched,
+    [Parameter(Mandatory = $true)][bool]$ChildHashMatched,
+    [bool]$LiveSequenceInvoked = $false,
+    [bool]$HostMutationAttempted = $false
+  )
+
+  $diagnostic = [ordered]@{
+    schemaVersion = $script:RisePalsCandidateProbeDiagnosticSchema
+    probeStatus = $ProbeStatus
+    failedStage = if ([string]::IsNullOrWhiteSpace($FailedStage)) { $null } else { $FailedStage }
+    sanitizedFailureCode = if ([string]::IsNullOrWhiteSpace($SanitizedFailureCode)) {
+      $null
+    } else {
+      $SanitizedFailureCode
+    }
+    elevatedChildEntered = $ElevatedChildEntered
+    administratorRoleConfirmed = $AdministratorRoleConfirmed
+    integrityLevel = $IntegrityLevel
+    repositoryHeadMatched = $RepositoryHeadMatched
+    authorizationMatched = $AuthorizationMatched
+    invocationNonceMatched = $InvocationNonceMatched
+    launcherHashMatched = $LauncherHashMatched
+    bootstrapHashMatched = $BootstrapHashMatched
+    transportHashMatched = $TransportHashMatched
+    childHashMatched = $ChildHashMatched
+    liveSequenceInvoked = $LiveSequenceInvoked
+    hostMutationAttempted = $HostMutationAttempted
+    probeDigest = ""
+  }
+  $diagnostic.probeDigest = Get-RisePalsCandidateProbeDiagnosticDigest `
+    -Diagnostic $diagnostic
+  $diagnosticObject = [pscustomobject]$diagnostic
+  [void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $diagnosticObject)
+  return $diagnosticObject
+}
+
+function Assert-RisePalsCandidateProbeDiagnostic {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  Assert-RisePalsCandidateTransportExactPropertySet -Value $Diagnostic `
+    -Expected $script:RisePalsCandidateProbeDiagnosticProperties `
+    -Label "Candidate elevation-probe diagnostic"
+  $booleanProperties = @(
+    "elevatedChildEntered", "administratorRoleConfirmed", "repositoryHeadMatched",
+    "authorizationMatched", "invocationNonceMatched", "launcherHashMatched",
+    "bootstrapHashMatched", "transportHashMatched", "childHashMatched",
+    "liveSequenceInvoked", "hostMutationAttempted"
+  )
+  if ($Diagnostic.schemaVersion -ne $script:RisePalsCandidateProbeDiagnosticSchema -or
+    $Diagnostic.probeStatus -notin @("success", "failure") -or
+    $Diagnostic.integrityLevel -notin @("high", "system", "insufficient", "unavailable") -or
+    @($booleanProperties | Where-Object {
+      $Diagnostic.$_ -isnot [bool]
+    }).Count -ne 0 -or
+    -not [bool]$Diagnostic.elevatedChildEntered -or
+    [bool]$Diagnostic.liveSequenceInvoked -or
+    [bool]$Diagnostic.hostMutationAttempted -or
+    $Diagnostic.probeDigest -notmatch "^[a-f0-9]{64}$" -or
+    $Diagnostic.probeDigest -ne (
+      Get-RisePalsCandidateProbeDiagnosticDigest -Diagnostic $Diagnostic
+    )) {
+    throw "The elevation-probe diagnostic schema, safety state, or digest is invalid."
+  }
+  $provenanceMatched = [bool]$Diagnostic.repositoryHeadMatched -and
+    [bool]$Diagnostic.authorizationMatched -and
+    [bool]$Diagnostic.invocationNonceMatched -and
+    [bool]$Diagnostic.launcherHashMatched -and
+    [bool]$Diagnostic.bootstrapHashMatched -and
+    [bool]$Diagnostic.transportHashMatched -and
+    [bool]$Diagnostic.childHashMatched
+  $elevationMatched = [bool]$Diagnostic.administratorRoleConfirmed -and
+    $Diagnostic.integrityLevel -in @("high", "system")
+  if ($Diagnostic.probeStatus -eq "success") {
+    if ($null -ne $Diagnostic.failedStage -or
+      $null -ne $Diagnostic.sanitizedFailureCode -or
+      -not $provenanceMatched -or -not $elevationMatched) {
+      throw "A successful elevation-probe diagnostic lacks exact provenance or elevation proof."
+    }
+  } else {
+    $failureMap = [ordered]@{
+      "probe-entry-validation" = "probe-provenance-mismatch"
+      "probe-elevation-validation" = "probe-insufficient-elevation"
+      "probe-result-finalization" = "probe-finalization-failed"
+    }
+    if (-not $failureMap.Contains([string]$Diagnostic.failedStage) -or
+      [string]$Diagnostic.sanitizedFailureCode -ne
+        [string]$failureMap[[string]$Diagnostic.failedStage] -or
+      ($Diagnostic.failedStage -eq "probe-entry-validation" -and $provenanceMatched) -or
+      ($Diagnostic.failedStage -eq "probe-elevation-validation" -and
+        (-not $provenanceMatched -or $elevationMatched)) -or
+      ($Diagnostic.failedStage -eq "probe-result-finalization" -and
+        (-not $provenanceMatched -or -not $elevationMatched))) {
+      throw "A failed elevation-probe diagnostic lacks exact sanitized provenance."
+    }
+  }
+  Assert-RisePalsCandidateParentRecordPrivacy -Record $Diagnostic
+  return $true
+}
+
+function Test-RisePalsCandidateProbeDiagnosticSuccess {
+  param([AllowNull()][object]$Diagnostic)
+
+  if ($null -eq $Diagnostic) {
+    return $false
+  }
+  [void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $Diagnostic)
+  return $Diagnostic.probeStatus -eq "success"
+}
+
 function ConvertTo-RisePalsCandidateCanonicalMarker {
   param([Parameter(Mandatory = $true)][object]$Marker)
 
@@ -665,16 +996,18 @@ function Assert-RisePalsCandidateProtectedAcl {
 function Assert-RisePalsCandidateEvidenceDirectory {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
-  $authorizedRoot = if ($Mode -eq "Live") {
-    "C:\Users\Administrator\Documents\Codex"
-  } else {
+  $authorizedRoot = if ($Mode -eq "Simulation") {
     [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
       [IO.Path]::DirectorySeparatorChar
     )
+  } else {
+    "C:\Users\Administrator\Documents\Codex"
   }
   $prefix = $authorizedRoot + [IO.Path]::DirectorySeparatorChar
   if (-not $exact.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
@@ -703,16 +1036,18 @@ function Assert-RisePalsCandidateEvidenceDirectory {
 function Initialize-RisePalsCandidateEvidenceDirectory {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
-  $authorizedRoot = if ($Mode -eq "Live") {
-    "C:\Users\Administrator\Documents\Codex"
-  } else {
+  $authorizedRoot = if ($Mode -eq "Simulation") {
     [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
       [IO.Path]::DirectorySeparatorChar
     )
+  } else {
+    "C:\Users\Administrator\Documents\Codex"
   }
   if (-not $exact.StartsWith(
     $authorizedRoot + [IO.Path]::DirectorySeparatorChar,
@@ -847,7 +1182,9 @@ function Read-RisePalsCandidateDurableEvidenceRecord {
     [Parameter(Mandatory = $true)][string]$Path,
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode,
     [Parameter(Mandatory = $true)][ValidateSet("Checkpoint", "Result")][string]$RecordType
   )
 
@@ -883,7 +1220,9 @@ function Read-RisePalsCandidateDurableParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$Path,
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   return Read-RisePalsCandidateDurableEvidenceRecord -Path $Path `
@@ -896,7 +1235,9 @@ function Read-RisePalsCandidateDurableParentResult {
     [Parameter(Mandatory = $true)][string]$Path,
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
     [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   return Read-RisePalsCandidateDurableEvidenceRecord -Path $Path `
@@ -908,7 +1249,9 @@ function Write-RisePalsCandidateDurableParentCheckpointAtomic {
   param(
     [Parameter(Mandatory = $true)][object]$Checkpoint,
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
@@ -924,7 +1267,9 @@ function Write-RisePalsCandidateDurableParentResultAtomic {
   param(
     [Parameter(Mandatory = $true)][object]$Result,
     [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$Mode
   )
 
   $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
@@ -1002,6 +1347,9 @@ function Assert-RisePalsCandidateMarker {
 function Resolve-RisePalsCandidateParentClassification {
   param(
     [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode,
+    [Parameter(Mandatory = $true)][ValidateSet(
       "not-launched",
       "cancelled",
       "launch-failure",
@@ -1014,7 +1362,8 @@ function Resolve-RisePalsCandidateParentClassification {
     [Parameter(Mandatory = $true)][bool]$FinalPresent,
     [Parameter(Mandatory = $true)][bool]$FinalValidated,
     [Parameter(Mandatory = $true)][bool]$EvidenceInvalid,
-    [AllowNull()][string]$FinalStatus
+    [AllowNull()][string]$FinalStatus,
+    [AllowNull()][object]$ProbeDiagnostic
   )
 
   switch ($LaunchDisposition) {
@@ -1025,10 +1374,7 @@ function Resolve-RisePalsCandidateParentClassification {
   if ($EvidenceInvalid -or ($FinalPresent -and -not $FinalValidated) -or
     ($ChildLaunchAttempted -and -not $BootstrapEntered) -or
     ($ChildStarted -and -not $ChildLaunchAttempted) -or
-    ($LiveStarted -and -not $ChildStarted) -or
-    ($FinalValidated -and (-not $BootstrapEntered -or -not $ChildLaunchAttempted -or
-        -not $ChildStarted -or -not $LiveStarted -or
-        $FinalStatus -notin @("success", "failure")))) {
+    ($LiveStarted -and -not $ChildStarted)) {
     return "final-invalid-or-inconsistent"
   }
   if (-not $BootstrapEntered) {
@@ -1040,8 +1386,31 @@ function Resolve-RisePalsCandidateParentClassification {
   if (-not $ChildStarted) {
     return "child-launch-attempted-child-not-started"
   }
+  if ($ExecutionMode -eq "ElevationProbe") {
+    if ($LiveStarted -or ($FinalValidated -and (
+        $FinalStatus -notin @("success", "failure") -or
+        $null -eq $ProbeDiagnostic
+      ))) {
+      return "final-invalid-or-inconsistent"
+    }
+    if (-not $FinalPresent) {
+      return "elevation-probe-child-failed"
+    }
+    if (-not $FinalValidated) {
+      return "final-invalid-or-inconsistent"
+    }
+    if (Test-RisePalsCandidateProbeDiagnosticSuccess -Diagnostic $ProbeDiagnostic) {
+      return "elevation-probe-success"
+    }
+    return "elevation-probe-failure"
+  }
   if (-not $LiveStarted) {
     return "child-started-failed-before-live"
+  }
+  if ($FinalValidated -and (-not $BootstrapEntered -or
+      -not $ChildLaunchAttempted -or -not $ChildStarted -or
+      $FinalStatus -notin @("success", "failure"))) {
+    return "final-invalid-or-inconsistent"
   }
   if (-not $FinalPresent) {
     return "live-started-failed"
@@ -1105,8 +1474,15 @@ function ConvertTo-RisePalsCandidateCanonicalParentCheckpoint {
     bootstrapScriptSha256 = [string]$Checkpoint.bootstrapScriptSha256
     transportScriptSha256 = [string]$Checkpoint.transportScriptSha256
     childScriptSha256 = [string]$Checkpoint.childScriptSha256
+    executionMode = [string]$Checkpoint.executionMode
     launchDiagnostic = ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic `
       -Diagnostic $Checkpoint.launchDiagnostic
+    probeDiagnostic = if ($null -eq $Checkpoint.probeDiagnostic) {
+      $null
+    } else {
+      ConvertTo-RisePalsCandidateCanonicalProbeDiagnostic `
+        -Diagnostic $Checkpoint.probeDiagnostic
+    }
     launchDisposition = [string]$Checkpoint.launchDisposition
     classification = [string]$Checkpoint.classification
     status = [string]$Checkpoint.status
@@ -1144,7 +1520,11 @@ function New-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$BootstrapScriptSha256,
     [Parameter(Mandatory = $true)][string]$TransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ChildScriptSha256,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode,
     [Parameter(Mandatory = $true)][object]$LaunchDiagnostic,
+    [AllowNull()][object]$ProbeDiagnostic,
     [Parameter(Mandatory = $true)][string]$LaunchDisposition,
     [Parameter(Mandatory = $true)][string]$Classification,
     [Parameter(Mandatory = $true)][bool]$ProcessLaunched,
@@ -1161,11 +1541,18 @@ function New-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][object]$ChildDiagnostic
   )
 
-  $status = if ($Classification -eq "final-present-validated" -and
+  $functionalSuccess = $Classification -eq "final-present-validated" -and
     $LaunchDisposition -eq "launched" -and
     [bool]$LaunchDiagnostic.processCreated -and
     $FinalStatus -eq "success" -and
-    (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $ChildDiagnostic)) {
+    (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $ChildDiagnostic)
+  $probeSuccess = $ExecutionMode -eq "ElevationProbe" -and
+    $Classification -eq "elevation-probe-success" -and
+    $LaunchDisposition -eq "launched" -and
+    [bool]$LaunchDiagnostic.processCreated -and
+    $FinalStatus -eq "success" -and
+    (Test-RisePalsCandidateProbeDiagnosticSuccess -Diagnostic $ProbeDiagnostic)
+  $status = if ($functionalSuccess -or $probeSuccess) {
     "success"
   } else {
     "failure"
@@ -1179,7 +1566,9 @@ function New-RisePalsCandidateParentCheckpoint {
     bootstrapScriptSha256 = $BootstrapScriptSha256
     transportScriptSha256 = $TransportScriptSha256
     childScriptSha256 = $ChildScriptSha256
+    executionMode = $ExecutionMode
     launchDiagnostic = $LaunchDiagnostic
+    probeDiagnostic = $ProbeDiagnostic
     launchDisposition = $LaunchDisposition
     classification = $Classification
     status = $status
@@ -1214,7 +1603,10 @@ function Assert-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedLaunchDiagnosticDigest,
-    [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
+    [AllowNull()][object]$ExpectedProbeDiagnosticDigest,
+    [ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
@@ -1225,9 +1617,20 @@ function Assert-RisePalsCandidateParentCheckpoint {
     -Label "Candidate parent checkpoint"
   [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $Checkpoint.launchDiagnostic)
   [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Checkpoint.childDiagnostic)
+  if ($null -ne $Checkpoint.probeDiagnostic) {
+    [void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $Checkpoint.probeDiagnostic)
+  }
   $diagnosticSuccess = Test-RisePalsCandidateDiagnosticFunctionalSuccess `
     -Diagnostic $Checkpoint.childDiagnostic
+  $probeSuccess = Test-RisePalsCandidateProbeDiagnosticSuccess `
+    -Diagnostic $Checkpoint.probeDiagnostic
+  $actualProbeDigest = if ($null -eq $Checkpoint.probeDiagnostic) {
+    $null
+  } else {
+    [string]$Checkpoint.probeDiagnostic.probeDigest
+  }
   if ($Checkpoint.schemaVersion -ne $script:RisePalsCandidateParentCheckpointSchema -or
+    $Checkpoint.executionMode -ne $ExpectedExecutionMode -or
     $Checkpoint.childDiagnostic.executionMode -ne $ExpectedExecutionMode -or
     $Checkpoint.classification -notin @(
       "uac-not-launched", "uac-cancelled", "elevated-process-launch-failure",
@@ -1235,7 +1638,9 @@ function Assert-RisePalsCandidateParentCheckpoint {
       "bootstrap-entered-child-launch-not-attempted",
       "child-launch-attempted-child-not-started",
       "child-started-failed-before-live", "live-started-failed",
-      "final-present-validated", "final-invalid-or-inconsistent"
+      "elevation-probe-child-failed", "elevation-probe-failure",
+      "elevation-probe-success", "final-present-validated",
+      "final-invalid-or-inconsistent"
     ) -or $Checkpoint.status -notin @("success", "failure") -or
     $Checkpoint.invocationNonce -ne $ExpectedNonce -or
     $Checkpoint.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
@@ -1247,6 +1652,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
     $Checkpoint.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
     $Checkpoint.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
     $Checkpoint.launchDiagnostic.diagnosticDigest -ne $ExpectedLaunchDiagnosticDigest -or
+    $actualProbeDigest -ne $ExpectedProbeDiagnosticDigest -or
     $Checkpoint.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
@@ -1255,9 +1661,9 @@ function Assert-RisePalsCandidateParentCheckpoint {
     $Checkpoint.launchDisposition -ne $Checkpoint.launchDiagnostic.launchDisposition -or
     ([bool]$Checkpoint.processLaunched -ne ($Checkpoint.launchDisposition -eq "launched")) -or
     ([bool]$Checkpoint.processLaunched -ne [bool]$Checkpoint.launchDiagnostic.processCreated) -or
-    ($Checkpoint.childDiagnostic.executionMode -eq "Live" -and
+    ($Checkpoint.executionMode -in @("Live", "ElevationProbe") -and
       $Checkpoint.launchDiagnostic.launchVerb -ne "RunAs") -or
-    ($Checkpoint.childDiagnostic.executionMode -eq "Simulation" -and
+    ($Checkpoint.executionMode -eq "Simulation" -and
       $Checkpoint.launchDiagnostic.launchVerb -ne "None") -or
     ($Checkpoint.launchDisposition -ne "launched" -and (
       [bool]$Checkpoint.bootstrapEntered -or [bool]$Checkpoint.bootstrapStarted -or
@@ -1272,21 +1678,39 @@ function Assert-RisePalsCandidateParentCheckpoint {
       ([bool]$Checkpoint.childStarted -and -not [bool]$Checkpoint.childLaunchAttempted) -or
       ([bool]$Checkpoint.liveStarted -and -not [bool]$Checkpoint.childStarted) -or
       ([bool]$Checkpoint.finalValidated -and (-not [bool]$Checkpoint.finalPresent -or
-        -not [bool]$Checkpoint.liveStarted))
+        ($Checkpoint.executionMode -ne "ElevationProbe" -and
+          -not [bool]$Checkpoint.liveStarted)))
     ) -and $Checkpoint.classification -ne "final-invalid-or-inconsistent") -or
+    ($Checkpoint.executionMode -eq "ElevationProbe" -and (
+      [bool]$Checkpoint.liveStarted -or
+      (($null -ne $Checkpoint.probeDiagnostic) -ne [bool]$Checkpoint.finalValidated) -or
+      $null -ne $Checkpoint.childDiagnostic.childResultDigest -or
+      $null -ne $Checkpoint.childDiagnostic.childStatus -or
+      $diagnosticSuccess
+    )) -or
+    ($Checkpoint.executionMode -ne "ElevationProbe" -and
+      $null -ne $Checkpoint.probeDiagnostic) -or
     ($Checkpoint.status -eq "success" -and (
-      $Checkpoint.classification -ne "final-present-validated" -or
       -not [bool]$Checkpoint.finalValidated -or $Checkpoint.finalStatus -ne "success" -or
-      -not $diagnosticSuccess
+      (($Checkpoint.executionMode -eq "ElevationProbe") -and (
+        $Checkpoint.classification -ne "elevation-probe-success" -or
+        -not $probeSuccess
+      )) -or
+      (($Checkpoint.executionMode -ne "ElevationProbe") -and (
+        $Checkpoint.classification -ne "final-present-validated" -or
+        -not $diagnosticSuccess
+      ))
     )) -or
     ($Checkpoint.status -eq "failure" -and $Checkpoint.finalStatus -eq "success" -and
-      $Checkpoint.classification -eq "final-present-validated") -or
-    ([bool]$Checkpoint.finalValidated -and (
-      $null -eq $Checkpoint.childDiagnostic.childResultDigest -or
-      $Checkpoint.childDiagnostic.childStatus -ne $Checkpoint.finalStatus
+      $Checkpoint.classification -in @("final-present-validated", "elevation-probe-success")) -or
+    ($Checkpoint.executionMode -ne "ElevationProbe" -and (
+      ([bool]$Checkpoint.finalValidated -and (
+        $null -eq $Checkpoint.childDiagnostic.childResultDigest -or
+        $Checkpoint.childDiagnostic.childStatus -ne $Checkpoint.finalStatus
+      )) -or
+      (-not [bool]$Checkpoint.finalValidated -and
+        $null -ne $Checkpoint.childDiagnostic.childResultDigest)
     )) -or
-    (-not [bool]$Checkpoint.finalValidated -and
-      $null -ne $Checkpoint.childDiagnostic.childResultDigest) -or
     $Checkpoint.checkpointDigest -ne (
       Get-RisePalsCandidateParentCheckpointDigest -Checkpoint $Checkpoint
     )) {
@@ -1299,6 +1723,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
     throw "The durable parent checkpoint timestamp is stale or incoherent."
   }
   $expectedClassification = Resolve-RisePalsCandidateParentClassification `
+    -ExecutionMode $Checkpoint.executionMode `
     -LaunchDisposition ([string]$Checkpoint.launchDisposition) `
     -BootstrapEntered ([bool]$Checkpoint.bootstrapEntered) `
     -ChildLaunchAttempted ([bool]$Checkpoint.childLaunchAttempted) `
@@ -1307,7 +1732,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
     -FinalPresent ([bool]$Checkpoint.finalPresent) `
     -FinalValidated ([bool]$Checkpoint.finalValidated) `
     -EvidenceInvalid ($Checkpoint.classification -eq "final-invalid-or-inconsistent") `
-    -FinalStatus $Checkpoint.finalStatus
+    -FinalStatus $Checkpoint.finalStatus -ProbeDiagnostic $Checkpoint.probeDiagnostic
   if ($Checkpoint.classification -ne $expectedClassification) {
     throw "The durable checkpoint classification disagrees with its marker state."
   }
@@ -1328,10 +1753,17 @@ function ConvertTo-RisePalsCandidateCanonicalParentResult {
     bootstrapScriptSha256 = [string]$Result.bootstrapScriptSha256
     transportScriptSha256 = [string]$Result.transportScriptSha256
     childScriptSha256 = [string]$Result.childScriptSha256
+    executionMode = [string]$Result.executionMode
     checkpointFileName = [string]$Result.checkpointFileName
     checkpointDigest = if ($null -eq $Result.checkpointDigest) { $null } else { [string]$Result.checkpointDigest }
     launchDiagnostic = ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic `
       -Diagnostic $Result.launchDiagnostic
+    probeDiagnostic = if ($null -eq $Result.probeDiagnostic) {
+      $null
+    } else {
+      ConvertTo-RisePalsCandidateCanonicalProbeDiagnostic `
+        -Diagnostic $Result.probeDiagnostic
+    }
     launchDisposition = [string]$Result.launchDisposition
     processLaunched = [bool]$Result.processLaunched
     elevatedExitCode = [int]$Result.elevatedExitCode
@@ -1387,7 +1819,15 @@ function New-RisePalsCandidateParentResult {
     [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success" -and
     (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
       -Diagnostic $Checkpoint.childDiagnostic)
-  $overallStatus = if ($functionalSuccess -and $DurableCheckpointValidated -and
+  $probeSuccess = $Checkpoint.executionMode -eq "ElevationProbe" -and
+    $Checkpoint.classification -eq "elevation-probe-success" -and
+    $Checkpoint.launchDisposition -eq "launched" -and
+    [bool]$Checkpoint.launchDiagnostic.processCreated -and
+    [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success" -and
+    (Test-RisePalsCandidateProbeDiagnosticSuccess `
+      -Diagnostic $Checkpoint.probeDiagnostic)
+  $overallStatus = if (($functionalSuccess -or $probeSuccess) -and
+    $DurableCheckpointValidated -and
     $TransientCleanupAttempted -and $TransientCleanupCompleted -and
     $InvocationDirectoryAbsent -and $RemainingTransientObjectCount -eq 0 -and
     $RemainingTemporaryObjectCount -eq 0) { "success" } else { "failure" }
@@ -1400,9 +1840,11 @@ function New-RisePalsCandidateParentResult {
     bootstrapScriptSha256 = [string]$Checkpoint.bootstrapScriptSha256
     transportScriptSha256 = [string]$Checkpoint.transportScriptSha256
     childScriptSha256 = [string]$Checkpoint.childScriptSha256
+    executionMode = [string]$Checkpoint.executionMode
     checkpointFileName = $CheckpointFileName
     checkpointDigest = if ([string]::IsNullOrWhiteSpace($CheckpointDigest)) { $null } else { $CheckpointDigest }
     launchDiagnostic = $Checkpoint.launchDiagnostic
+    probeDiagnostic = $Checkpoint.probeDiagnostic
     launchDisposition = [string]$Checkpoint.launchDisposition
     processLaunched = [bool]$Checkpoint.processLaunched
     elevatedExitCode = [int]$Checkpoint.elevatedExitCode
@@ -1446,7 +1888,10 @@ function Assert-RisePalsCandidateParentResult {
     [AllowNull()][object]$ExpectedCheckpointDigest,
     [Parameter(Mandatory = $true)][string]$ExpectedLaunchDiagnosticDigest,
     [Parameter(Mandatory = $true)][string]$ExpectedChildDiagnosticDigest,
-    [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
+    [AllowNull()][object]$ExpectedProbeDiagnosticDigest,
+    [ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
@@ -1456,6 +1901,9 @@ function Assert-RisePalsCandidateParentResult {
     -Expected $script:RisePalsCandidateParentResultProperties -Label "Candidate parent result"
   [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $Result.launchDiagnostic)
   [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Result.childDiagnostic)
+  if ($null -ne $Result.probeDiagnostic) {
+    [void](Assert-RisePalsCandidateProbeDiagnostic -Diagnostic $Result.probeDiagnostic)
+  }
   $paths = @($Result.remainingTransientRelativePaths)
   $invalidPaths = @($paths | Where-Object {
     $_ -notmatch "^[a-z0-9][a-z0-9.-]{0,127}$" -or $_.Contains("..")
@@ -1466,12 +1914,25 @@ function Assert-RisePalsCandidateParentResult {
     [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success" -and
     (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
       -Diagnostic $Result.childDiagnostic)
-  $overallSuccess = $functionalSuccess -and [bool]$Result.durableCheckpointValidated -and
+  $probeSuccess = $Result.executionMode -eq "ElevationProbe" -and
+    $Result.functionalClassification -eq "elevation-probe-success" -and
+    $Result.launchDisposition -eq "launched" -and
+    [bool]$Result.launchDiagnostic.processCreated -and
+    [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success" -and
+    (Test-RisePalsCandidateProbeDiagnosticSuccess -Diagnostic $Result.probeDiagnostic)
+  $actualProbeDigest = if ($null -eq $Result.probeDiagnostic) {
+    $null
+  } else {
+    [string]$Result.probeDiagnostic.probeDigest
+  }
+  $overallSuccess = ($functionalSuccess -or $probeSuccess) -and
+    [bool]$Result.durableCheckpointValidated -and
     [bool]$Result.transientCleanupAttempted -and [bool]$Result.transientCleanupCompleted -and
     [bool]$Result.invocationDirectoryAbsent -and
     [int]$Result.remainingTransientObjectCount -eq 0 -and
     [int]$Result.remainingTemporaryObjectCount -eq 0 -and $paths.Count -eq 0
   if ($Result.schemaVersion -ne $script:RisePalsCandidateParentResultSchema -or
+    $Result.executionMode -ne $ExpectedExecutionMode -or
     $Result.childDiagnostic.executionMode -ne $ExpectedExecutionMode -or
     $Result.invocationNonce -ne $ExpectedNonce -or
     $Result.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
@@ -1486,6 +1947,7 @@ function Assert-RisePalsCandidateParentResult {
     $Result.checkpointDigest -ne $ExpectedCheckpointDigest -or
     $Result.launchDiagnostic.diagnosticDigest -ne $ExpectedLaunchDiagnosticDigest -or
     $Result.childDiagnostic.diagnosticDigest -ne $ExpectedChildDiagnosticDigest -or
+    $actualProbeDigest -ne $ExpectedProbeDiagnosticDigest -or
     ([bool]$Result.durableCheckpointValidated -and
       $Result.checkpointDigest -notmatch "^[a-f0-9]{64}$") -or
     (-not [bool]$Result.durableCheckpointValidated -and $null -ne $Result.checkpointDigest) -or
@@ -1493,9 +1955,9 @@ function Assert-RisePalsCandidateParentResult {
     $Result.launchDisposition -ne $Result.launchDiagnostic.launchDisposition -or
     ([bool]$Result.processLaunched -ne ($Result.launchDisposition -eq "launched")) -or
     ([bool]$Result.processLaunched -ne [bool]$Result.launchDiagnostic.processCreated) -or
-    ($Result.childDiagnostic.executionMode -eq "Live" -and
+    ($Result.executionMode -in @("Live", "ElevationProbe") -and
       $Result.launchDiagnostic.launchVerb -ne "RunAs") -or
-    ($Result.childDiagnostic.executionMode -eq "Simulation" -and
+    ($Result.executionMode -eq "Simulation" -and
       $Result.launchDiagnostic.launchVerb -ne "None") -or
     ($Result.launchDisposition -ne "launched" -and (
       [bool]$Result.bootstrapEntered -or [bool]$Result.bootstrapStarted -or
@@ -1510,14 +1972,26 @@ function Assert-RisePalsCandidateParentResult {
       "bootstrap-entered-child-launch-not-attempted",
       "child-launch-attempted-child-not-started",
       "child-started-failed-before-live", "live-started-failed",
-      "final-present-validated", "final-invalid-or-inconsistent"
+      "elevation-probe-child-failed", "elevation-probe-failure",
+      "elevation-probe-success", "final-present-validated",
+      "final-invalid-or-inconsistent"
     ) -or $Result.finalChildStatus -notin @($null, "success", "failure") -or
-    ([bool]$Result.finalValidated -and (
-      $null -eq $Result.childDiagnostic.childResultDigest -or
-      $Result.childDiagnostic.childStatus -ne $Result.finalChildStatus
+    ($Result.executionMode -eq "ElevationProbe" -and (
+      [bool]$Result.liveStarted -or
+      (($null -ne $Result.probeDiagnostic) -ne [bool]$Result.finalValidated) -or
+      $null -ne $Result.childDiagnostic.childResultDigest -or
+      $null -ne $Result.childDiagnostic.childStatus -or
+      $functionalSuccess
     )) -or
-    (-not [bool]$Result.finalValidated -and
-      $null -ne $Result.childDiagnostic.childResultDigest) -or
+    ($Result.executionMode -ne "ElevationProbe" -and (
+      $null -ne $Result.probeDiagnostic -or
+      ([bool]$Result.finalValidated -and (
+        $null -eq $Result.childDiagnostic.childResultDigest -or
+        $Result.childDiagnostic.childStatus -ne $Result.finalChildStatus
+      )) -or
+      (-not [bool]$Result.finalValidated -and
+        $null -ne $Result.childDiagnostic.childResultDigest)
+    )) -or
     [int]$Result.remainingTransientObjectCount -lt 0 -or
     [int]$Result.remainingTransientObjectCount -gt 64 -or
     [int]$Result.remainingTemporaryObjectCount -lt 0 -or
@@ -1547,6 +2021,7 @@ function Assert-RisePalsCandidateParentResult {
     throw "The authoritative parent-result timestamp is stale or incoherent."
   }
   $expectedClassification = Resolve-RisePalsCandidateParentClassification `
+    -ExecutionMode $Result.executionMode `
     -LaunchDisposition ([string]$Result.launchDisposition) `
     -BootstrapEntered ([bool]$Result.bootstrapEntered) `
     -ChildLaunchAttempted ([bool]$Result.childLaunchAttempted) `
@@ -1554,7 +2029,7 @@ function Assert-RisePalsCandidateParentResult {
     -FinalPresent ([bool]$Result.finalPresent) `
     -FinalValidated ([bool]$Result.finalValidated) `
     -EvidenceInvalid ($Result.functionalClassification -eq "final-invalid-or-inconsistent") `
-    -FinalStatus $Result.finalChildStatus
+    -FinalStatus $Result.finalChildStatus -ProbeDiagnostic $Result.probeDiagnostic
   if ($Result.functionalClassification -ne $expectedClassification) {
     throw "The authoritative result classification disagrees with its marker state."
   }

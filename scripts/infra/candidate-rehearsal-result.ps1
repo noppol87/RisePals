@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateResultSchema = "rise-pals-candidate-rehearsal-result-v2"
-$script:RisePalsCandidateChildDiagnosticSchema = "rise-pals-candidate-child-diagnostic-v1"
+$script:RisePalsCandidateChildDiagnosticSchema = "rise-pals-candidate-child-diagnostic-v2"
 $script:RisePalsCandidateLiveStateSchema = "rise-pals-candidate-live-state-v2"
 $script:RisePalsCandidateResultProperties = @(
   "schemaVersion",
@@ -663,7 +663,9 @@ function Get-RisePalsCandidateChildDiagnosticDigest {
 function New-RisePalsCandidateChildDiagnostic {
   param(
     [AllowNull()][object]$Result,
-    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$ExecutionMode,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "Simulation", "Live", "ElevationProbe"
+    )][string]$ExecutionMode,
     [Parameter(Mandatory = $true)][bool]$CleanupResponsibilityTransferredToParent
   )
 
@@ -676,7 +678,7 @@ function New-RisePalsCandidateChildDiagnostic {
   $gates = [ordered]@{}
   foreach ($name in $script:RisePalsCandidateFunctionalGateMap.Keys) {
     $stage = [string]$script:RisePalsCandidateFunctionalGateMap[$name]
-    $gates[$name] = if ($ExecutionMode -eq "Simulation") {
+    $gates[$name] = if ($ExecutionMode -in @("Simulation", "ElevationProbe")) {
       "not_applicable"
     } elseif ($completed -contains $stage) {
       "passed"
@@ -736,7 +738,7 @@ function Assert-RisePalsCandidateChildDiagnostic {
       -not [bool]$Diagnostic.candidateServiceStartReached
   )
   if ($Diagnostic.schemaVersion -ne $script:RisePalsCandidateChildDiagnosticSchema -or
-    $Diagnostic.executionMode -notin @("Simulation", "Live") -or
+    $Diagnostic.executionMode -notin @("Simulation", "Live", "ElevationProbe") -or
     ($completed -join "|") -ne ($expectedPrefix -join "|") -or
     @($completed | Select-Object -Unique).Count -ne $completed.Count -or
     $lifecycleImpossible -or
@@ -780,7 +782,7 @@ function Assert-RisePalsCandidateChildDiagnostic {
   }
   foreach ($name in $script:RisePalsCandidateFunctionalGateMap.Keys) {
     $stage = [string]$script:RisePalsCandidateFunctionalGateMap[$name]
-    $expected = if ($Diagnostic.executionMode -eq "Simulation") {
+    $expected = if ($Diagnostic.executionMode -in @("Simulation", "ElevationProbe")) {
       "not_applicable"
     } elseif ($completed -contains $stage) {
       "passed"
@@ -793,13 +795,13 @@ function Assert-RisePalsCandidateChildDiagnostic {
       throw "A candidate functional gate is missing, extra, or inconsistent."
     }
   }
-  if ($Diagnostic.executionMode -eq "Simulation" -and (
+  if ($Diagnostic.executionMode -in @("Simulation", "ElevationProbe") -and (
     $completed.Count -ne 0 -or [bool]$Diagnostic.liveHostMutationBegan -or
     [bool]$Diagnostic.candidateServiceInstallationBegan -or
     [bool]$Diagnostic.candidateServiceStartReached -or
     [bool]$Diagnostic.directStopServiceReached
   )) {
-    throw "Simulation diagnostic evidence claims a live lifecycle transition."
+    throw "A non-Live diagnostic claims a Live lifecycle transition."
   }
   if ($Diagnostic.executionMode -eq "Live") {
     $stageCount = $completed.Count
@@ -847,6 +849,9 @@ function Test-RisePalsCandidateDiagnosticFunctionalSuccess {
   }
   if ($Diagnostic.executionMode -eq "Simulation") {
     return $true
+  }
+  if ($Diagnostic.executionMode -eq "ElevationProbe") {
+    return $false
   }
   return @($script:RisePalsCandidateFunctionalGateMap.Keys | Where-Object {
     [string]$Diagnostic.functionalGates.$_ -ne "passed"

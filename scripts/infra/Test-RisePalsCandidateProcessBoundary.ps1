@@ -21,8 +21,12 @@ $scripts = Join-Path $repository "scripts\infra"
 . (Join-Path $scripts "candidate-rehearsal-transport.ps1")
 $parent = Join-Path $scripts "Invoke-RisePalsCandidateRehearsal.ps1"
 $bootstrap = Join-Path $scripts "Invoke-RisePalsCandidateElevatedBootstrap.ps1"
+$resultScript = Join-Path $scripts "candidate-rehearsal-result.ps1"
 $transport = Join-Path $scripts "candidate-rehearsal-transport.ps1"
 $child = Join-Path $scripts "Invoke-RisePalsCandidateRehearsalChild.ps1"
+$probeChild = Join-Path $scripts "Invoke-RisePalsCandidateElevationProbeChild.ps1"
+$probeFixture = Join-Path $repository `
+  "tests\infra\fixtures\Invoke-RisePalsCandidateProbeTransportFixture.ps1"
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $git = "C:\Users\Administrator\AppData\Local\Programs\PortableGit-2.55.0.3\cmd\git.exe"
 $safe = "safe.directory=C:/Codex PC SG2/Jeff/risepals"
@@ -149,6 +153,7 @@ $taskRoot = Join-Path $tempRoot (
 $beforeHost = Get-RisePalsProcessSuiteHostSnapshot
 $scenarioResults = @()
 $invocationPaths = @()
+$probeDirectory = $null
 
 $scenarios = @(
   @{ Name = "success"; ParentScenario = "SuccessWithInformationalStderr"; Exit = 0; Checkpoint = $true; Result = $true; Cleanup = $true; Overall = "success" },
@@ -296,6 +301,86 @@ try {
     Remove-RisePalsProcessSuiteTree -Path $directory -ExpectedParent $taskRoot
     Write-Output ("Process-boundary simulation PASS: " + [string]$scenario.Name)
   }
+
+  $probeNonce = [guid]::NewGuid().ToString("N")
+  $probeAuthorization = "RP-TURN-019-R4-PROBE-A1B2C3D4"
+  $probeDirectory = Join-Path $taskRoot "elevation-probe"
+  [IO.Directory]::CreateDirectory($probeDirectory) | Out-Null
+  $probeCheckpointPath = Join-Path $probeDirectory `
+    ("candidate-parent-checkpoint-" + $probeNonce + ".json")
+  $probeResultPath = Join-Path $probeDirectory `
+    ("candidate-parent-result-" + $probeNonce + ".json")
+  $probeChildHash = Get-RisePalsCandidateTransportSha256 -LiteralPath $probeChild
+  $probeStartedAt = [DateTimeOffset]::UtcNow
+  $probeArguments = @(
+    "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+    (ConvertTo-RisePalsProcessSuiteArgument -Value $probeFixture),
+    "-ResultScriptPath", (ConvertTo-RisePalsProcessSuiteArgument -Value $resultScript),
+    "-TransportScriptPath", (ConvertTo-RisePalsProcessSuiteArgument -Value $transport),
+    "-CheckpointPath", (ConvertTo-RisePalsProcessSuiteArgument -Value $probeCheckpointPath),
+    "-ResultPath", (ConvertTo-RisePalsProcessSuiteArgument -Value $probeResultPath),
+    "-InvocationNonce", $probeNonce,
+    "-RepositoryHead", $ExpectedRepositoryHead,
+    "-LauncherScriptSha256", $launcherHash,
+    "-BootstrapScriptSha256", $bootstrapHash,
+    "-TransportScriptSha256", $transportHash,
+    "-ChildScriptSha256", $probeChildHash
+  )
+  $probeProcess = Start-Process -FilePath $powerShell -ArgumentList $probeArguments `
+    -WindowStyle Hidden -Wait -PassThru
+  if ([int]$probeProcess.ExitCode -ne 0 -or
+    -not [IO.File]::Exists($probeCheckpointPath) -or
+    -not [IO.File]::Exists($probeResultPath)) {
+    throw "The hidden ElevationProbe transport process did not produce both records."
+  }
+  $strictUtf8 = [Text.UTF8Encoding]::new($false, $true)
+  $probeCheckpoint = $strictUtf8.GetString(
+    [IO.File]::ReadAllBytes($probeCheckpointPath)
+  ) | ConvertFrom-Json
+  $probeResult = $strictUtf8.GetString(
+    [IO.File]::ReadAllBytes($probeResultPath)
+  ) | ConvertFrom-Json
+  [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $probeCheckpoint `
+    -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+    -ExpectedHead $ExpectedRepositoryHead `
+    -ExpectedLauncherScriptSha256 $launcherHash `
+    -ExpectedBootstrapScriptSha256 $bootstrapHash `
+    -ExpectedTransportScriptSha256 $transportHash `
+    -ExpectedChildScriptSha256 $probeChildHash `
+    -ExpectedLaunchDiagnosticDigest $probeCheckpoint.launchDiagnostic.diagnosticDigest `
+    -ExpectedProbeDiagnosticDigest $probeCheckpoint.probeDiagnostic.probeDigest `
+    -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStartedAt `
+    -ConsumedNonces @{})
+  [void](Assert-RisePalsCandidateParentResult -Result $probeResult `
+    -ExpectedNonce $probeNonce -ExpectedAuthorizationId $probeAuthorization `
+    -ExpectedHead $ExpectedRepositoryHead `
+    -ExpectedLauncherScriptSha256 $launcherHash `
+    -ExpectedBootstrapScriptSha256 $bootstrapHash `
+    -ExpectedTransportScriptSha256 $transportHash `
+    -ExpectedChildScriptSha256 $probeChildHash `
+    -ExpectedCheckpointFileName ([IO.Path]::GetFileName($probeCheckpointPath)) `
+    -ExpectedCheckpointDigest $probeCheckpoint.checkpointDigest `
+    -ExpectedLaunchDiagnosticDigest $probeCheckpoint.launchDiagnostic.diagnosticDigest `
+    -ExpectedChildDiagnosticDigest $probeCheckpoint.childDiagnostic.diagnosticDigest `
+    -ExpectedProbeDiagnosticDigest $probeCheckpoint.probeDiagnostic.probeDigest `
+    -ExpectedExecutionMode ElevationProbe -InvocationStartedAtUtc $probeStartedAt `
+    -ConsumedNonces @{})
+  if ($probeResult.overallStatus -ne "success" -or
+    $probeResult.functionalClassification -ne "elevation-probe-success" -or
+    $probeResult.probeDiagnostic.probeDigest -ne
+      $probeCheckpoint.probeDiagnostic.probeDigest -or
+    [bool]$probeResult.liveStarted) {
+    throw "The hidden ElevationProbe transport records are inconsistent."
+  }
+  $scenarioResults += [pscustomobject]@{
+    scenario = "elevation-probe-transport"
+    exitCode = [int]$probeProcess.ExitCode
+    checkpointExpected = $true
+    resultExpected = $true
+  }
+  Remove-RisePalsProcessSuiteTree -Path $probeDirectory -ExpectedParent $taskRoot
+  $probeDirectory = $null
+  Write-Output "Process-boundary simulation PASS: elevation-probe-transport"
 } finally {
   foreach ($invocation in $invocationPaths) {
     if ([IO.Directory]::Exists($invocation)) {
@@ -308,6 +393,9 @@ try {
       Remove-RisePalsProcessSuiteTree -Path $path -ExpectedParent $taskRoot
     }
   }
+  if ($null -ne $probeDirectory -and [IO.Directory]::Exists($probeDirectory)) {
+    Remove-RisePalsProcessSuiteTree -Path $probeDirectory -ExpectedParent $taskRoot
+  }
   if ([IO.Directory]::Exists($taskRoot) -and
     @(Get-ChildItem -LiteralPath $taskRoot -Force).Count -eq 0) {
     [IO.Directory]::Delete($taskRoot, $false)
@@ -317,7 +405,7 @@ try {
 $afterHost = Get-RisePalsProcessSuiteHostSnapshot
 Assert-RisePalsProcessSuiteHostUnchanged -Before $beforeHost -After $afterHost
 Assert-RisePalsProcessSuiteRepository
-if ($scenarioResults.Count -ne 10 -or [IO.Directory]::Exists($taskRoot)) {
-  throw "The process-boundary suite did not complete ten isolated scenarios cleanly."
+if ($scenarioResults.Count -ne 11 -or [IO.Directory]::Exists($taskRoot)) {
+  throw "The process-boundary suite did not complete eleven isolated scenarios cleanly."
 }
-Write-Output "Candidate separate-process boundary suite PASS (10 scenarios); stdout was not authoritative."
+Write-Output "Candidate separate-process boundary suite PASS (11 scenarios); stdout was not authoritative."
