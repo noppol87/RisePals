@@ -135,6 +135,18 @@ $transientRoot = [IO.Path]::GetFullPath(
 $invocationDirectory = Join-Path $transientRoot ("invocation-" + $nonce)
 $resultPath = Join-Path $invocationDirectory "result.json"
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+$launchVerb = if ($Mode -eq "Live") { "RunAs" } else { "None" }
+$launcherExecutableExists = [IO.File]::Exists($powerShell)
+$launcherSignatureStatus = Get-RisePalsCandidateLauncherSignatureStatus `
+  -LiteralPath $powerShell
+$emptyArgumentDigest = Get-RisePalsCandidateCanonicalArgumentDigest -Arguments @()
+$launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+  -LaunchAttempted $false -ProcessCreated $false `
+  -LaunchDisposition "not-launched" -SanitizedLaunchFailureCode "none" `
+  -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+  -LauncherExecutableExists $launcherExecutableExists `
+  -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+  -ArgumentCount 0 -CanonicalArgumentDigest $emptyArgumentDigest
 $startedAt = [DateTimeOffset]::UtcNow
 $launchDisposition = "not-launched"
 $processLaunched = $false
@@ -168,6 +180,14 @@ try {
   }
   if (-not $checkpointPathFresh) {
     $launchDisposition = "launch-failure"
+    $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+      -LaunchAttempted $false -ProcessCreated $false `
+      -LaunchDisposition $launchDisposition `
+      -SanitizedLaunchFailureCode "malformed-launch-request" `
+      -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+      -LauncherExecutableExists $launcherExecutableExists `
+      -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+      -ArgumentCount 0 -CanonicalArgumentDigest $emptyArgumentDigest
     $evidenceInvalid = $true
   } else {
   if (-not [IO.Directory]::Exists($transientRoot)) {
@@ -203,71 +223,151 @@ try {
   }
 
   if ($shouldLaunch) {
-    $arguments = @(
-      "-NoLogo",
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $bootstrap),
-      "-Mode",
-      $Mode,
-      "-SimulationScenario",
-      $SimulationScenario,
-      "-RepositoryRoot",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $repository),
-      "-RepositoryHead",
-      $head,
-      "-AuthorizationId",
-      $authorizationId,
-      "-InvocationNonce",
-      $nonce,
-      "-ResultRoot",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $transientRoot),
-      "-InvocationDirectory",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $invocationDirectory),
-      "-LauncherScriptPath",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $launcher),
-      "-LauncherScriptSha256",
-      $launcherHash,
-      "-BootstrapScriptSha256",
-      $bootstrapHash,
-      "-TransportScriptPath",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $transport),
-      "-TransportScriptSha256",
-      $transportHash,
-      "-ChildScriptPath",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $child),
-      "-ChildScriptSha256",
-      $childHash,
-      "-FutureAuthorizationId",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $FutureAuthorizationId),
-      "-CandidateExecutableSource",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $CandidateExecutableSource),
-      "-NodeExecutableSource",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $NodeExecutableSource)
+    $quotedValues = @(
+      $bootstrap, $repository, $transientRoot, $invocationDirectory,
+      $launcher, $transport, $child, $FutureAuthorizationId,
+      $CandidateExecutableSource, $NodeExecutableSource
     )
-    $start = @{
-      FilePath = $powerShell
-      ArgumentList = $arguments
-      WindowStyle = "Hidden"
-      Wait = $true
-      PassThru = $true
-    }
-    if ($Mode -eq "Live") {
-      $start.Verb = "RunAs"
-    }
-    try {
-      $process = Start-Process @start
-      $processLaunched = $true
-      $launchDisposition = "launched"
-      $processExitCode = [int]$process.ExitCode
-    } catch {
-      $nativeCode = 0
-      if ($_.Exception.PSObject.Properties.Name -contains "NativeErrorCode") {
-        $nativeCode = [int]$_.Exception.NativeErrorCode
+    if (@($quotedValues | Where-Object { ([string]$_).Contains('"') }).Count -ne 0) {
+      $launchDisposition = "launch-failure"
+      $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+        -LaunchAttempted $false -ProcessCreated $false `
+        -LaunchDisposition $launchDisposition `
+        -SanitizedLaunchFailureCode "malformed-launch-request" `
+        -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+        -LauncherExecutableExists $launcherExecutableExists `
+        -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+        -ArgumentCount 0 -CanonicalArgumentDigest $emptyArgumentDigest
+    } else {
+      $arguments = @(
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $bootstrap),
+        "-Mode",
+        $Mode,
+        "-SimulationScenario",
+        $SimulationScenario,
+        "-RepositoryRoot",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $repository),
+        "-RepositoryHead",
+        $head,
+        "-AuthorizationId",
+        $authorizationId,
+        "-InvocationNonce",
+        $nonce,
+        "-ResultRoot",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $transientRoot),
+        "-InvocationDirectory",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $invocationDirectory),
+        "-LauncherScriptPath",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $launcher),
+        "-LauncherScriptSha256",
+        $launcherHash,
+        "-BootstrapScriptSha256",
+        $bootstrapHash,
+        "-TransportScriptPath",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $transport),
+        "-TransportScriptSha256",
+        $transportHash,
+        "-ChildScriptPath",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $child),
+        "-ChildScriptSha256",
+        $childHash,
+        "-FutureAuthorizationId",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $FutureAuthorizationId),
+        "-CandidateExecutableSource",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $CandidateExecutableSource),
+        "-NodeExecutableSource",
+        (ConvertTo-RisePalsCandidateProcessArgument -Value $NodeExecutableSource)
+      )
+      $argumentDigest = Get-RisePalsCandidateCanonicalArgumentDigest `
+        -Arguments $arguments
+      $start = @{
+        FilePath = $powerShell
+        ArgumentList = $arguments
+        WindowStyle = "Hidden"
+        Wait = $true
+        PassThru = $true
       }
-      $launchDisposition = if ($nativeCode -eq 1223) { "cancelled" } else { "launch-failure" }
+      if ($Mode -eq "Live") {
+        $start.Verb = "RunAs"
+      }
+      if (-not $launcherExecutableExists) {
+        $launchDisposition = "launch-failure"
+        $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+          -LaunchAttempted $false -ProcessCreated $false `
+          -LaunchDisposition $launchDisposition `
+          -SanitizedLaunchFailureCode "launcher-target-not-found" `
+          -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+          -LauncherExecutableExists $false `
+          -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+          -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
+      } elseif ($launcherSignatureStatus -ne "valid") {
+        $launchDisposition = "launch-failure"
+        $preflightFailureCode = if ($launcherSignatureStatus -eq "unavailable") {
+          "launcher-access-denied"
+        } else {
+          "shell-execute-failed"
+        }
+        $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+          -LaunchAttempted $false -ProcessCreated $false `
+          -LaunchDisposition $launchDisposition `
+          -SanitizedLaunchFailureCode $preflightFailureCode `
+          -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+          -LauncherExecutableExists $true `
+          -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+          -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
+      } else {
+        try {
+          $process = Start-Process @start
+          if ($null -eq $process -or $process -isnot [Diagnostics.Process]) {
+            $launchDisposition = "launch-failure"
+            $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+              -LaunchAttempted $true -ProcessCreated $false `
+              -LaunchDisposition $launchDisposition `
+              -SanitizedLaunchFailureCode "process-start-failed" `
+              -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+              -LauncherExecutableExists $true `
+              -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+              -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
+          } else {
+            $processLaunched = $true
+            $launchDisposition = "launched"
+            $processExitCode = [int]$process.ExitCode
+            $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+              -LaunchAttempted $true -ProcessCreated $true `
+              -LaunchDisposition $launchDisposition `
+              -SanitizedLaunchFailureCode "none" `
+              -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+              -LauncherExecutableExists $true `
+              -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+              -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
+          }
+        } catch {
+          $exceptionEvidence = Get-RisePalsCandidateLaunchExceptionEvidence `
+            -Exception $_.Exception
+          $failureCode = Get-RisePalsCandidateSanitizedLaunchFailureCode `
+            -NativeErrorCode $exceptionEvidence.nativeErrorCode
+          $launchDisposition = if ($exceptionEvidence.nativeErrorCode -eq 1223) {
+            "cancelled"
+          } else {
+            "launch-failure"
+          }
+          $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+            -LaunchAttempted $true -ProcessCreated $false `
+            -LaunchDisposition $launchDisposition `
+            -SanitizedLaunchFailureCode $failureCode `
+            -NativeErrorCode $exceptionEvidence.nativeErrorCode `
+            -HResult $exceptionEvidence.hResult `
+            -ExceptionDepth $exceptionEvidence.exceptionDepth `
+            -LauncherExecutableExists $true `
+            -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+            -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
+        }
+      }
     }
   }
 
@@ -375,6 +475,14 @@ try {
 } catch {
   if ($launchDisposition -eq "not-launched") {
     $launchDisposition = "launch-failure"
+    $launchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+      -LaunchAttempted $false -ProcessCreated $false `
+      -LaunchDisposition $launchDisposition `
+      -SanitizedLaunchFailureCode "malformed-launch-request" `
+      -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+      -LauncherExecutableExists $launcherExecutableExists `
+      -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
+      -ArgumentCount 0 -CanonicalArgumentDigest $emptyArgumentDigest
   }
   $evidenceInvalid = $true
 }
@@ -402,7 +510,7 @@ $parentCheckpoint = New-RisePalsCandidateParentCheckpoint -InvocationNonce $nonc
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
   -FinalValidated $finalValidated -FinalStatus $finalStatus `
-  -ChildDiagnostic $childDiagnostic
+  -ChildDiagnostic $childDiagnostic -LaunchDiagnostic $launchDiagnostic
 
 if ($checkpointPathFresh -and $resultPathFresh) {
   try {
@@ -412,6 +520,7 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedBootstrapScriptSha256 $bootstrapHash `
       -ExpectedTransportScriptSha256 $transportHash `
       -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
+      -ExpectedLaunchDiagnosticDigest ([string]$launchDiagnostic.diagnosticDigest) `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     if ($Mode -eq "Simulation" -and
@@ -433,6 +542,7 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedBootstrapScriptSha256 $bootstrapHash `
       -ExpectedTransportScriptSha256 $transportHash `
       -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
+      -ExpectedLaunchDiagnosticDigest ([string]$launchDiagnostic.diagnosticDigest) `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     $parentCheckpoint = $reopenedCheckpoint
@@ -545,6 +655,7 @@ if ($resultPathFresh) {
     -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
     -ExpectedCheckpointDigest $checkpointDigest `
     -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
+    -ExpectedLaunchDiagnosticDigest ([string]$parentCheckpoint.launchDiagnostic.diagnosticDigest) `
     -ExpectedExecutionMode $Mode `
     -InvocationStartedAtUtc $startedAt `
     -ConsumedNonces @{})
@@ -568,6 +679,7 @@ if ($resultPathFresh) {
       -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
       -ExpectedCheckpointDigest $checkpointDigest `
       -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
+      -ExpectedLaunchDiagnosticDigest ([string]$parentCheckpoint.launchDiagnostic.diagnosticDigest) `
       -ExpectedExecutionMode $Mode `
       -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})

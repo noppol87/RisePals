@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-28; R2 supervision decision required after Accepted recovery and residue cleanup
+**Last updated:** 2026-08-31; R4-DIAG3 repository-only launch diagnostic pending Project Codex review while RP-TURN-019 remains Partial
 
 ## Authorization boundary
 
@@ -219,6 +219,8 @@ R4-DIAG1-R2 replaces that unobservable boundary with an explicit parent-owned tr
 The R2 process-boundary suite launches the actual clean committed parent through hidden Windows PowerShell 5.1 and independently validates evidence after ten separate processes exit: complete success, child launch failure, exit before child marker, child before live, live without final, invalid final, transient-cleanup failure, interrupted checkpoint write, interrupted authoritative-result write and pre-existing durable path. It never parses stdout as authority. All R4-DIAG1 simulations are non-elevated, use only fresh temporary paths outside `C:\RisePals` and delete only their controlled resources after assertion. They do not authorize another UAC prompt or host rehearsal. Project Codex must review the exact new commit and issue a separate exact-head authorization before any future Live attempt.
 
 LIVE4B subsequently ran once and failed with parent exit 86 and elevated-child exit 1. Its durable records prove complete cleanup, absent invocation directory, zero residue and a safe final host, but their older schemas do not establish the exact internal failed stage or individual functional-gate outcomes. Do not infer either. DIAG2 is future-only: after validating the transient child result, the parent derives a strict digest-authenticated diagnostic containing only controlled stage/code/status values, a contiguous stage prefix, exactly 21 fixed gate dispositions and monotonic mutation/install/start/direct-Stop booleans. The reopened pre-cleanup checkpoint and post-cleanup result must retain an equivalent diagnostic digest. Missing, malformed, reordered, inconsistent, tampered or non-equivalent diagnostic evidence is terminal failure; stdout remains non-authoritative. DIAG2 does not authorize another Live run, UAC, service operation, reboot or deployment.
+
+LIVE5 subsequently stopped before elevated process creation at head `c73628aa5e9b6558ec9389a9a7b3429499b9ac07`. No bootstrap, child, Live gate or host mutation occurred, and DIAG2 evidence proves cleanup and a safe zero-residue host. Its exact launcher cause remains unknown. DIAG3 does not reinterpret that run. For future runs, the parent records one closed digest-authenticated launch diagnostic in checkpoint schema v3 and result schema v5. It binds only controlled launch state/failure vocabulary, optional integral native/HResult/depth evidence from at most four exception levels, fixed `powershell.exe` existence/signature/verb facts and argument count plus canonical digest. It never stores messages, stacks, type names, raw arguments, paths, streams or environment values. Cancellation code 1223 is recognized at any bounded exception level; unknown native codes remain numeric and receive only `launcher-exception-unknown`. Failed/cancelled launches cannot claim later stages, and functional success additionally requires an actually returned process object. DIAG3 is repository-only and does not authorize UAC, Live mode, service/process/`C:\RisePals` mutation, reboot or deployment.
 
 ## Health and failure evidence
 

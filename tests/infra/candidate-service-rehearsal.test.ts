@@ -357,8 +357,14 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(parent).not.toContain("RISE_PALS_CANDIDATE_PARENT_RESULT=");
     expect(result).toContain("rise-pals-candidate-rehearsal-result-v2");
     expect(result).toContain("rise-pals-candidate-child-diagnostic-v1");
-    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v2");
-    expect(transport).toContain("rise-pals-candidate-parent-result-v4");
+    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v3");
+    expect(transport).toContain("rise-pals-candidate-parent-result-v5");
+    expect(transport).toContain("rise-pals-candidate-launch-diagnostic-v1");
+    expect(transport).toContain("Get-RisePalsCandidateLaunchExceptionEvidence");
+    expect(transport).toContain("Get-RisePalsCandidateCanonicalArgumentDigest");
+    expect(transport).toContain("ExpectedLaunchDiagnosticDigest");
+    expect(parent).toContain("Get-RisePalsCandidateLauncherSignatureStatus");
+    expect(parent).toContain("New-RisePalsCandidateLaunchDiagnostic");
     expect(transport).toContain("childDiagnostic");
     expect(result).toContain("cleanupResponsibilityTransferredToParent");
     expect(result).toContain("candidateServiceInstallationBegan");

@@ -2,8 +2,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
-$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v2"
-$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v4"
+$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v3"
+$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v5"
+$script:RisePalsCandidateLaunchDiagnosticSchema = "rise-pals-candidate-launch-diagnostic-v1"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
   "child-launch-attempted",
@@ -25,6 +26,25 @@ $script:RisePalsCandidateMarkerProperties = @(
   "sanitizedFailureCode",
   "markerDigest"
 )
+$script:RisePalsCandidateLaunchDiagnosticProperties = @(
+  "schemaVersion",
+  "launchAttempted",
+  "processCreated",
+  "launchDisposition",
+  "sanitizedLaunchFailureCode",
+  "nativeErrorCode",
+  "hResult",
+  "exceptionDepth",
+  "launcherExecutableBasename",
+  "launcherExecutableExists",
+  "launcherSignatureStatus",
+  "launchVerb",
+  "argumentCount",
+  "canonicalArgumentDigest",
+  "waitRequested",
+  "hiddenWindowRequested",
+  "diagnosticDigest"
+)
 $script:RisePalsCandidateParentCheckpointProperties = @(
   "schemaVersion",
   "invocationNonce",
@@ -34,6 +54,7 @@ $script:RisePalsCandidateParentCheckpointProperties = @(
   "bootstrapScriptSha256",
   "transportScriptSha256",
   "childScriptSha256",
+  "launchDiagnostic",
   "launchDisposition",
   "classification",
   "status",
@@ -63,6 +84,7 @@ $script:RisePalsCandidateParentResultProperties = @(
   "childScriptSha256",
   "checkpointFileName",
   "checkpointDigest",
+  "launchDiagnostic",
   "launchDisposition",
   "processLaunched",
   "elevatedExitCode",
@@ -136,6 +158,312 @@ function Get-RisePalsCandidateObjectDigest {
   } finally {
     $algorithm.Dispose()
   }
+}
+
+function Test-RisePalsCandidateIntegralValue {
+  param([AllowNull()][object]$Value)
+
+  if ($null -eq $Value) {
+    return $false
+  }
+  return $Value.GetType() -in @(
+    [byte], [sbyte], [int16], [uint16], [int32], [uint32], [int64]
+  )
+}
+
+function Get-RisePalsCandidateCanonicalArgumentDigest {
+  param([AllowEmptyCollection()][string[]]$Arguments = @())
+
+  $values = @($Arguments | ForEach-Object { [string]$_ })
+  return Get-RisePalsCandidateObjectDigest -Canonical ([pscustomobject][ordered]@{
+    schemaVersion = "rise-pals-candidate-launch-arguments-v1"
+    argumentCount = $values.Count
+    arguments = $values
+  })
+}
+
+function ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  return [pscustomobject][ordered]@{
+    schemaVersion = [string]$Diagnostic.schemaVersion
+    launchAttempted = [bool]$Diagnostic.launchAttempted
+    processCreated = [bool]$Diagnostic.processCreated
+    launchDisposition = [string]$Diagnostic.launchDisposition
+    sanitizedLaunchFailureCode = [string]$Diagnostic.sanitizedLaunchFailureCode
+    nativeErrorCode = if ($null -eq $Diagnostic.nativeErrorCode) {
+      $null
+    } else {
+      [int]$Diagnostic.nativeErrorCode
+    }
+    hResult = if ($null -eq $Diagnostic.hResult) { $null } else { [int]$Diagnostic.hResult }
+    exceptionDepth = [int]$Diagnostic.exceptionDepth
+    launcherExecutableBasename = [string]$Diagnostic.launcherExecutableBasename
+    launcherExecutableExists = [bool]$Diagnostic.launcherExecutableExists
+    launcherSignatureStatus = [string]$Diagnostic.launcherSignatureStatus
+    launchVerb = [string]$Diagnostic.launchVerb
+    argumentCount = [int]$Diagnostic.argumentCount
+    canonicalArgumentDigest = [string]$Diagnostic.canonicalArgumentDigest
+    waitRequested = [bool]$Diagnostic.waitRequested
+    hiddenWindowRequested = [bool]$Diagnostic.hiddenWindowRequested
+  }
+}
+
+function Get-RisePalsCandidateLaunchDiagnosticDigest {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  return Get-RisePalsCandidateObjectDigest -Canonical (
+    ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic -Diagnostic $Diagnostic
+  )
+}
+
+function Get-RisePalsCandidateLauncherSignatureStatus {
+  param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+  if (-not [IO.File]::Exists([IO.Path]::GetFullPath($LiteralPath))) {
+    return "unavailable"
+  }
+  try {
+    $status = [string](Get-AuthenticodeSignature -LiteralPath $LiteralPath).Status
+    switch ($status) {
+      "Valid" { return "valid" }
+      "NotSigned" { return "not-signed" }
+      "HashMismatch" { return "invalid" }
+      "NotTrusted" { return "invalid" }
+      default { return "unavailable" }
+    }
+  } catch {
+    return "unavailable"
+  }
+}
+
+function Get-RisePalsCandidateLaunchExceptionEvidence {
+  param([AllowNull()][Exception]$Exception)
+
+  $nativeCodes = @()
+  $hResult = $null
+  $depth = 0
+  $cursor = $Exception
+  while ($null -ne $cursor -and $depth -lt 4) {
+    $depth++
+    $nativeProperty = $cursor.PSObject.Properties["NativeErrorCode"]
+    if ($null -ne $nativeProperty -and $null -ne $nativeProperty.Value) {
+      try {
+        $nativeCodes += [int]$nativeProperty.Value
+      } catch {
+        # Non-integral values are ignored and never persisted.
+      }
+    }
+    if ($null -eq $hResult) {
+      try {
+        $hResult = [int]$cursor.HResult
+      } catch {
+        $hResult = $null
+      }
+    }
+    $cursor = $cursor.InnerException
+  }
+  $nativeErrorCode = if ($nativeCodes -contains 1223) {
+    1223
+  } elseif ($nativeCodes.Count -gt 0) {
+    [int]$nativeCodes[0]
+  } else {
+    $null
+  }
+  return [pscustomobject][ordered]@{
+    nativeErrorCode = $nativeErrorCode
+    hResult = $hResult
+    exceptionDepth = $depth
+  }
+}
+
+function Get-RisePalsCandidateSanitizedLaunchFailureCode {
+  param([AllowNull()][object]$NativeErrorCode)
+
+  if ($null -eq $NativeErrorCode) {
+    return "launcher-exception-unknown"
+  }
+  switch ([int]$NativeErrorCode) {
+    1223 { return "uac-cancelled" }
+    2 { return "launcher-target-not-found" }
+    3 { return "launcher-target-not-found" }
+    5 { return "launcher-access-denied" }
+    31 { return "shell-execute-failed" }
+    1155 { return "shell-execute-failed" }
+    87 { return "malformed-launch-request" }
+    8 { return "process-start-failed" }
+    14 { return "process-start-failed" }
+    193 { return "process-start-failed" }
+    206 { return "process-start-failed" }
+    267 { return "process-start-failed" }
+    740 { return "process-start-failed" }
+    default { return "launcher-exception-unknown" }
+  }
+}
+
+function New-RisePalsCandidateLaunchDiagnostic {
+  param(
+    [Parameter(Mandatory = $true)][bool]$LaunchAttempted,
+    [Parameter(Mandatory = $true)][bool]$ProcessCreated,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "not-launched", "cancelled", "launch-failure", "launched"
+    )][string]$LaunchDisposition,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "none", "uac-cancelled", "launcher-target-not-found",
+      "launcher-access-denied", "shell-execute-failed",
+      "malformed-launch-request", "process-start-failed",
+      "launcher-exception-unknown"
+    )][string]$SanitizedLaunchFailureCode,
+    [AllowNull()][object]$NativeErrorCode,
+    [AllowNull()][object]$HResult,
+    [Parameter(Mandatory = $true)][int]$ExceptionDepth,
+    [Parameter(Mandatory = $true)][bool]$LauncherExecutableExists,
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "valid", "not-signed", "invalid", "unavailable"
+    )][string]$LauncherSignatureStatus,
+    [Parameter(Mandatory = $true)][ValidateSet("None", "RunAs")][string]$LaunchVerb,
+    [Parameter(Mandatory = $true)][int]$ArgumentCount,
+    [Parameter(Mandatory = $true)][string]$CanonicalArgumentDigest,
+    [bool]$WaitRequested = $true,
+    [bool]$HiddenWindowRequested = $true
+  )
+
+  $diagnostic = [ordered]@{
+    schemaVersion = $script:RisePalsCandidateLaunchDiagnosticSchema
+    launchAttempted = $LaunchAttempted
+    processCreated = $ProcessCreated
+    launchDisposition = $LaunchDisposition
+    sanitizedLaunchFailureCode = $SanitizedLaunchFailureCode
+    nativeErrorCode = if ($null -eq $NativeErrorCode) { $null } else { [int]$NativeErrorCode }
+    hResult = if ($null -eq $HResult) { $null } else { [int]$HResult }
+    exceptionDepth = $ExceptionDepth
+    launcherExecutableBasename = "powershell.exe"
+    launcherExecutableExists = $LauncherExecutableExists
+    launcherSignatureStatus = $LauncherSignatureStatus
+    launchVerb = $LaunchVerb
+    argumentCount = $ArgumentCount
+    canonicalArgumentDigest = $CanonicalArgumentDigest
+    waitRequested = $WaitRequested
+    hiddenWindowRequested = $HiddenWindowRequested
+    diagnosticDigest = ""
+  }
+  $diagnostic.diagnosticDigest = Get-RisePalsCandidateLaunchDiagnosticDigest `
+    -Diagnostic $diagnostic
+  return [pscustomobject]$diagnostic
+}
+
+function Assert-RisePalsCandidateLaunchDiagnostic {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+
+  Assert-RisePalsCandidateTransportExactPropertySet -Value $Diagnostic `
+    -Expected $script:RisePalsCandidateLaunchDiagnosticProperties `
+    -Label "Candidate launch diagnostic"
+  $failureCodes = @(
+    "none", "uac-cancelled", "launcher-target-not-found",
+    "launcher-access-denied", "shell-execute-failed", "malformed-launch-request",
+    "process-start-failed", "launcher-exception-unknown"
+  )
+  $nativeIsIntegral = $null -eq $Diagnostic.nativeErrorCode -or
+    (Test-RisePalsCandidateIntegralValue -Value $Diagnostic.nativeErrorCode)
+  $hResultIsIntegral = $null -eq $Diagnostic.hResult -or
+    (Test-RisePalsCandidateIntegralValue -Value $Diagnostic.hResult)
+  $nativeCode = if ($null -eq $Diagnostic.nativeErrorCode) {
+    $null
+  } else {
+    [int]$Diagnostic.nativeErrorCode
+  }
+  $mappedCode = if ($null -eq $nativeCode) {
+    $null
+  } else {
+    Get-RisePalsCandidateSanitizedLaunchFailureCode -NativeErrorCode $nativeCode
+  }
+  $basicInvalid = $Diagnostic.schemaVersion -ne $script:RisePalsCandidateLaunchDiagnosticSchema -or
+    $Diagnostic.launchAttempted -isnot [bool] -or
+    $Diagnostic.processCreated -isnot [bool] -or
+    $Diagnostic.launcherExecutableExists -isnot [bool] -or
+    $Diagnostic.waitRequested -isnot [bool] -or
+    $Diagnostic.hiddenWindowRequested -isnot [bool] -or
+    -not $nativeIsIntegral -or -not $hResultIsIntegral -or
+    -not (Test-RisePalsCandidateIntegralValue -Value $Diagnostic.exceptionDepth) -or
+    -not (Test-RisePalsCandidateIntegralValue -Value $Diagnostic.argumentCount) -or
+    $Diagnostic.launchDisposition -notin @(
+      "not-launched", "cancelled", "launch-failure", "launched"
+    ) -or $Diagnostic.sanitizedLaunchFailureCode -notin $failureCodes -or
+    $Diagnostic.launcherExecutableBasename -cne "powershell.exe" -or
+    $Diagnostic.launcherSignatureStatus -notin @(
+      "valid", "not-signed", "invalid", "unavailable"
+    ) -or $Diagnostic.launchVerb -notin @("None", "RunAs") -or
+    [int]$Diagnostic.exceptionDepth -lt 0 -or [int]$Diagnostic.exceptionDepth -gt 4 -or
+    [int]$Diagnostic.argumentCount -lt 0 -or [int]$Diagnostic.argumentCount -gt 64 -or
+    $Diagnostic.canonicalArgumentDigest -notmatch "^[a-f0-9]{64}$" -or
+    -not [bool]$Diagnostic.waitRequested -or
+    -not [bool]$Diagnostic.hiddenWindowRequested -or
+    ([bool]$Diagnostic.processCreated -and -not [bool]$Diagnostic.launchAttempted) -or
+    $Diagnostic.diagnosticDigest -ne (
+      Get-RisePalsCandidateLaunchDiagnosticDigest -Diagnostic $Diagnostic
+    )
+  if ($basicInvalid) {
+    throw "The candidate launch diagnostic schema or digest is invalid."
+  }
+  switch ([string]$Diagnostic.launchDisposition) {
+    "not-launched" {
+      if ([bool]$Diagnostic.launchAttempted -or [bool]$Diagnostic.processCreated -or
+        $Diagnostic.sanitizedLaunchFailureCode -ne "none" -or
+        $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult -or
+        [int]$Diagnostic.exceptionDepth -ne 0) {
+        throw "The not-launched diagnostic is inconsistent."
+      }
+    }
+    "cancelled" {
+      if (-not [bool]$Diagnostic.launchAttempted -or [bool]$Diagnostic.processCreated -or
+        $Diagnostic.sanitizedLaunchFailureCode -ne "uac-cancelled" -or
+        $nativeCode -ne 1223 -or [int]$Diagnostic.exceptionDepth -lt 1 -or
+        -not [bool]$Diagnostic.launcherExecutableExists -or
+        $Diagnostic.launcherSignatureStatus -ne "valid") {
+        throw "The cancelled launch diagnostic is inconsistent."
+      }
+    }
+    "launch-failure" {
+      if ([bool]$Diagnostic.processCreated -or
+        $Diagnostic.sanitizedLaunchFailureCode -in @("none", "uac-cancelled")) {
+        throw "The failed launch diagnostic is inconsistent."
+      }
+      if ($null -ne $nativeCode -and $Diagnostic.sanitizedLaunchFailureCode -ne $mappedCode) {
+        throw "The failed launch diagnostic native-code mapping is inconsistent."
+      }
+      if ([bool]$Diagnostic.launchAttempted -and $null -eq $nativeCode -and
+        [int]$Diagnostic.exceptionDepth -gt 0 -and
+        $Diagnostic.sanitizedLaunchFailureCode -ne "launcher-exception-unknown") {
+        throw "The failed launch diagnostic without a native code is inconsistent."
+      }
+      if ((-not [bool]$Diagnostic.launchAttempted -and (
+          [int]$Diagnostic.exceptionDepth -ne 0 -or
+          $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult
+        )) -or ([bool]$Diagnostic.launchAttempted -and (
+          -not [bool]$Diagnostic.launcherExecutableExists -or
+          $Diagnostic.launcherSignatureStatus -ne "valid"
+        )) -or
+        ([bool]$Diagnostic.launchAttempted -and [int]$Diagnostic.exceptionDepth -eq 0 -and (
+          $Diagnostic.sanitizedLaunchFailureCode -ne "process-start-failed" -or
+          $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult
+        ))) {
+        throw "The failed launch diagnostic preflight or exception boundary is inconsistent."
+      }
+    }
+    "launched" {
+      if (-not [bool]$Diagnostic.launchAttempted -or
+        -not [bool]$Diagnostic.processCreated -or
+        $Diagnostic.sanitizedLaunchFailureCode -ne "none" -or
+        $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult -or
+        [int]$Diagnostic.exceptionDepth -ne 0 -or
+        -not [bool]$Diagnostic.launcherExecutableExists -or
+        $Diagnostic.launcherSignatureStatus -ne "valid") {
+        throw "The successful launch diagnostic is inconsistent."
+      }
+    }
+  }
+  Assert-RisePalsCandidateParentRecordPrivacy -Record $Diagnostic
+  return $true
 }
 
 function ConvertTo-RisePalsCandidateCanonicalMarker {
@@ -758,6 +1086,8 @@ function ConvertTo-RisePalsCandidateCanonicalParentCheckpoint {
     bootstrapScriptSha256 = [string]$Checkpoint.bootstrapScriptSha256
     transportScriptSha256 = [string]$Checkpoint.transportScriptSha256
     childScriptSha256 = [string]$Checkpoint.childScriptSha256
+    launchDiagnostic = ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic `
+      -Diagnostic $Checkpoint.launchDiagnostic
     launchDisposition = [string]$Checkpoint.launchDisposition
     classification = [string]$Checkpoint.classification
     status = [string]$Checkpoint.status
@@ -795,6 +1125,7 @@ function New-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$BootstrapScriptSha256,
     [Parameter(Mandatory = $true)][string]$TransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ChildScriptSha256,
+    [Parameter(Mandatory = $true)][object]$LaunchDiagnostic,
     [Parameter(Mandatory = $true)][string]$LaunchDisposition,
     [Parameter(Mandatory = $true)][string]$Classification,
     [Parameter(Mandatory = $true)][bool]$ProcessLaunched,
@@ -812,6 +1143,8 @@ function New-RisePalsCandidateParentCheckpoint {
   )
 
   $status = if ($Classification -eq "final-present-validated" -and
+    $LaunchDisposition -eq "launched" -and
+    [bool]$LaunchDiagnostic.processCreated -and
     $FinalStatus -eq "success" -and
     (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $ChildDiagnostic)) {
     "success"
@@ -827,6 +1160,7 @@ function New-RisePalsCandidateParentCheckpoint {
     bootstrapScriptSha256 = $BootstrapScriptSha256
     transportScriptSha256 = $TransportScriptSha256
     childScriptSha256 = $ChildScriptSha256
+    launchDiagnostic = $LaunchDiagnostic
     launchDisposition = $LaunchDisposition
     classification = $Classification
     status = $status
@@ -860,6 +1194,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedLaunchDiagnosticDigest,
     [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
@@ -869,6 +1204,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Checkpoint `
     -Expected $script:RisePalsCandidateParentCheckpointProperties `
     -Label "Candidate parent checkpoint"
+  [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $Checkpoint.launchDiagnostic)
   [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Checkpoint.childDiagnostic)
   $diagnosticSuccess = Test-RisePalsCandidateDiagnosticFunctionalSuccess `
     -Diagnostic $Checkpoint.childDiagnostic
@@ -891,12 +1227,26 @@ function Assert-RisePalsCandidateParentCheckpoint {
     $Checkpoint.bootstrapScriptSha256 -ne $ExpectedBootstrapScriptSha256 -or
     $Checkpoint.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
     $Checkpoint.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
+    $Checkpoint.launchDiagnostic.diagnosticDigest -ne $ExpectedLaunchDiagnosticDigest -or
     $Checkpoint.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.childScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
     $Checkpoint.launchDisposition -notin @("not-launched", "cancelled", "launch-failure", "launched") -or
+    $Checkpoint.launchDisposition -ne $Checkpoint.launchDiagnostic.launchDisposition -or
     ([bool]$Checkpoint.processLaunched -ne ($Checkpoint.launchDisposition -eq "launched")) -or
+    ([bool]$Checkpoint.processLaunched -ne [bool]$Checkpoint.launchDiagnostic.processCreated) -or
+    ($Checkpoint.childDiagnostic.executionMode -eq "Live" -and
+      $Checkpoint.launchDiagnostic.launchVerb -ne "RunAs") -or
+    ($Checkpoint.childDiagnostic.executionMode -eq "Simulation" -and
+      $Checkpoint.launchDiagnostic.launchVerb -ne "None") -or
+    ($Checkpoint.launchDisposition -ne "launched" -and (
+      [bool]$Checkpoint.bootstrapEntered -or [bool]$Checkpoint.bootstrapStarted -or
+      [bool]$Checkpoint.bootstrapFailurePresent -or
+      [bool]$Checkpoint.childLaunchAttempted -or [bool]$Checkpoint.childStarted -or
+      [bool]$Checkpoint.liveStarted -or [bool]$Checkpoint.finalPresent -or
+      [bool]$Checkpoint.finalValidated
+    )) -or
     ((
       ([bool]$Checkpoint.bootstrapStarted -and -not [bool]$Checkpoint.bootstrapEntered) -or
       ([bool]$Checkpoint.childLaunchAttempted -and -not [bool]$Checkpoint.bootstrapStarted) -or
@@ -961,6 +1311,8 @@ function ConvertTo-RisePalsCandidateCanonicalParentResult {
     childScriptSha256 = [string]$Result.childScriptSha256
     checkpointFileName = [string]$Result.checkpointFileName
     checkpointDigest = if ($null -eq $Result.checkpointDigest) { $null } else { [string]$Result.checkpointDigest }
+    launchDiagnostic = ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic `
+      -Diagnostic $Result.launchDiagnostic
     launchDisposition = [string]$Result.launchDisposition
     processLaunched = [bool]$Result.processLaunched
     elevatedExitCode = [int]$Result.elevatedExitCode
@@ -1011,6 +1363,8 @@ function New-RisePalsCandidateParentResult {
   )
 
   $functionalSuccess = $Checkpoint.classification -eq "final-present-validated" -and
+    $Checkpoint.launchDisposition -eq "launched" -and
+    [bool]$Checkpoint.launchDiagnostic.processCreated -and
     [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success" -and
     (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
       -Diagnostic $Checkpoint.childDiagnostic)
@@ -1029,6 +1383,7 @@ function New-RisePalsCandidateParentResult {
     childScriptSha256 = [string]$Checkpoint.childScriptSha256
     checkpointFileName = $CheckpointFileName
     checkpointDigest = if ([string]::IsNullOrWhiteSpace($CheckpointDigest)) { $null } else { $CheckpointDigest }
+    launchDiagnostic = $Checkpoint.launchDiagnostic
     launchDisposition = [string]$Checkpoint.launchDisposition
     processLaunched = [bool]$Checkpoint.processLaunched
     elevatedExitCode = [int]$Checkpoint.elevatedExitCode
@@ -1070,6 +1425,7 @@ function Assert-RisePalsCandidateParentResult {
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedCheckpointFileName,
     [AllowNull()][object]$ExpectedCheckpointDigest,
+    [Parameter(Mandatory = $true)][string]$ExpectedLaunchDiagnosticDigest,
     [Parameter(Mandatory = $true)][string]$ExpectedChildDiagnosticDigest,
     [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
@@ -1079,12 +1435,15 @@ function Assert-RisePalsCandidateParentResult {
 
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Result `
     -Expected $script:RisePalsCandidateParentResultProperties -Label "Candidate parent result"
+  [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $Result.launchDiagnostic)
   [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Result.childDiagnostic)
   $paths = @($Result.remainingTransientRelativePaths)
   $invalidPaths = @($paths | Where-Object {
     $_ -notmatch "^[a-z0-9][a-z0-9.-]{0,127}$" -or $_.Contains("..")
   })
   $functionalSuccess = $Result.functionalClassification -eq "final-present-validated" -and
+    $Result.launchDisposition -eq "launched" -and
+    [bool]$Result.launchDiagnostic.processCreated -and
     [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success" -and
     (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
       -Diagnostic $Result.childDiagnostic)
@@ -1106,12 +1465,26 @@ function Assert-RisePalsCandidateParentResult {
     $Result.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
     $Result.checkpointFileName -ne $ExpectedCheckpointFileName -or
     $Result.checkpointDigest -ne $ExpectedCheckpointDigest -or
+    $Result.launchDiagnostic.diagnosticDigest -ne $ExpectedLaunchDiagnosticDigest -or
     $Result.childDiagnostic.diagnosticDigest -ne $ExpectedChildDiagnosticDigest -or
     ([bool]$Result.durableCheckpointValidated -and
       $Result.checkpointDigest -notmatch "^[a-f0-9]{64}$") -or
     (-not [bool]$Result.durableCheckpointValidated -and $null -ne $Result.checkpointDigest) -or
     $Result.launchDisposition -notin @("not-launched", "cancelled", "launch-failure", "launched") -or
+    $Result.launchDisposition -ne $Result.launchDiagnostic.launchDisposition -or
     ([bool]$Result.processLaunched -ne ($Result.launchDisposition -eq "launched")) -or
+    ([bool]$Result.processLaunched -ne [bool]$Result.launchDiagnostic.processCreated) -or
+    ($Result.childDiagnostic.executionMode -eq "Live" -and
+      $Result.launchDiagnostic.launchVerb -ne "RunAs") -or
+    ($Result.childDiagnostic.executionMode -eq "Simulation" -and
+      $Result.launchDiagnostic.launchVerb -ne "None") -or
+    ($Result.launchDisposition -ne "launched" -and (
+      [bool]$Result.bootstrapEntered -or [bool]$Result.bootstrapStarted -or
+      [bool]$Result.bootstrapFailurePresent -or
+      [bool]$Result.childLaunchAttempted -or [bool]$Result.childStarted -or
+      [bool]$Result.liveStarted -or [bool]$Result.finalPresent -or
+      [bool]$Result.finalValidated
+    )) -or
     $Result.functionalClassification -notin @(
       "uac-not-launched", "uac-cancelled", "elevated-process-launch-failure",
       "elevated-child-never-entered-bootstrap",

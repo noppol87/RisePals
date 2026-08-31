@@ -207,7 +207,9 @@ try {
         -ExpectedLauncherScriptSha256 $launcherHash `
         -ExpectedBootstrapScriptSha256 $bootstrapHash `
         -ExpectedTransportScriptSha256 $transportHash `
-        -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+        -ExpectedChildScriptSha256 $childHash `
+        -ExpectedLaunchDiagnosticDigest ([string]$checkpoint.launchDiagnostic.diagnosticDigest) `
+        -InvocationStartedAtUtc $startedAt `
         -ConsumedNonces @{})
     } elseif ($scenario.ContainsKey("Preexisting")) {
       if (-not [IO.File]::Exists($checkpointPath) -or
@@ -234,6 +236,11 @@ try {
       } else {
         [string]$result.childDiagnostic.diagnosticDigest
       }
+      $expectedLaunchDiagnosticDigest = if ($null -ne $checkpoint) {
+        [string]$checkpoint.launchDiagnostic.diagnosticDigest
+      } else {
+        [string]$result.launchDiagnostic.diagnosticDigest
+      }
       [void](Assert-RisePalsCandidateParentResult -Result $result `
         -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
         -ExpectedHead $ExpectedRepositoryHead `
@@ -243,12 +250,24 @@ try {
         -ExpectedChildScriptSha256 $childHash `
         -ExpectedCheckpointFileName ([IO.Path]::GetFileName($checkpointPath)) `
         -ExpectedCheckpointDigest $expectedDigest `
+        -ExpectedLaunchDiagnosticDigest $expectedLaunchDiagnosticDigest `
         -ExpectedChildDiagnosticDigest $expectedChildDiagnosticDigest `
         -InvocationStartedAtUtc $startedAt `
         -ConsumedNonces @{})
       if ($result.overallStatus -ne [string]$scenario.Overall -or
         [bool]$result.transientCleanupCompleted -ne [bool]$scenario.Cleanup) {
         throw "Scenario $($scenario.Name) has an incorrect authoritative disposition."
+      }
+      if ($null -ne $checkpoint -and
+        $result.launchDiagnostic.diagnosticDigest -ne
+          $checkpoint.launchDiagnostic.diagnosticDigest) {
+        throw "Scenario $($scenario.Name) changed launch evidence between records."
+      }
+      if ($scenario.Name -eq "success" -and (
+        $result.launchDiagnostic.launchDisposition -ne "launched" -or
+        -not [bool]$result.launchDiagnostic.processCreated
+      )) {
+        throw "The successful process-boundary scenario lacks created-process evidence."
       }
       if ($scenario.Name -eq "cleanup-failure" -and (
         [int]$result.remainingTransientObjectCount -eq 0 -or

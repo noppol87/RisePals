@@ -131,6 +131,23 @@ function New-RisePalsCandidateValidMarker {
     -SanitizedFailureCode $FailureCode -RecordedAtUtc $RecordedAtUtc
 }
 
+function New-RisePalsCandidateValidLaunchDiagnostic {
+  param(
+    [ValidateSet("Simulation", "Live")][string]$ExecutionMode = "Simulation",
+    [string[]]$Arguments = @("-NoLogo", "-NoProfile")
+  )
+
+  return New-RisePalsCandidateLaunchDiagnostic `
+    -LaunchAttempted $true -ProcessCreated $true `
+    -LaunchDisposition launched -SanitizedLaunchFailureCode none `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+    -LaunchVerb $(if ($ExecutionMode -eq "Live") { "RunAs" } else { "None" }) `
+    -ArgumentCount $Arguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $Arguments)
+}
+
 function New-RisePalsCandidateSyntheticLiveResult {
   param(
     [int]$CompletedFunctionalStageCount,
@@ -207,10 +224,12 @@ function New-RisePalsCandidateValidParentCheckpoint {
     -AuthorizationId $AuthorizationId -Head $Head
   $diagnostic = New-RisePalsCandidateChildDiagnostic -Result $childResult `
     -ExecutionMode Simulation -CleanupResponsibilityTransferredToParent $true
+  $launchDiagnostic = New-RisePalsCandidateValidLaunchDiagnostic
   return New-RisePalsCandidateParentCheckpoint -InvocationNonce $Nonce `
     -AuthorizationId $AuthorizationId -RepositoryHead $Head `
     -LauncherScriptSha256 ("a" * 64) -BootstrapScriptSha256 ("b" * 64) `
     -TransportScriptSha256 ("c" * 64) -ChildScriptSha256 ("d" * 64) `
+    -LaunchDiagnostic $launchDiagnostic `
     -LaunchDisposition "launched" -Classification "final-present-validated" `
     -ProcessLaunched $true -ElevatedExitCode 0 -BootstrapEntered $true `
     -BootstrapStarted $true -BootstrapFailurePresent $false `
@@ -218,6 +237,193 @@ function New-RisePalsCandidateValidParentCheckpoint {
     -FinalPresent $true -FinalValidated $true -FinalStatus "success" `
     -ChildDiagnostic $diagnostic
 }
+
+$launchArguments = @("-NoLogo", "-NoProfile", "-File", '"candidate.ps1"')
+$validLaunchDiagnostic = New-RisePalsCandidateValidLaunchDiagnostic `
+  -Arguments $launchArguments
+[void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $validLaunchDiagnostic)
+if ($validLaunchDiagnostic.argumentCount -ne $launchArguments.Count -or
+  $validLaunchDiagnostic.canonicalArgumentDigest -ne
+    (Get-RisePalsCandidateCanonicalArgumentDigest -Arguments $launchArguments)) {
+  throw "The successful launch diagnostic did not bind the canonical argument shape."
+}
+
+$outerCancellation = [ComponentModel.Win32Exception]::new(1223)
+$outerCancellationEvidence = Get-RisePalsCandidateLaunchExceptionEvidence `
+  -Exception $outerCancellation
+$innerCancellation = [Exception]::new(
+  "synthetic-wrapper",
+  [ComponentModel.Win32Exception]::new(1223)
+)
+$innerCancellationEvidence = Get-RisePalsCandidateLaunchExceptionEvidence `
+  -Exception $innerCancellation
+foreach ($evidence in @($outerCancellationEvidence, $innerCancellationEvidence)) {
+  if ($evidence.nativeErrorCode -ne 1223 -or
+    (Get-RisePalsCandidateSanitizedLaunchFailureCode `
+      -NativeErrorCode $evidence.nativeErrorCode) -ne "uac-cancelled") {
+    throw "UAC cancellation was not detected across the bounded exception chain."
+  }
+  $cancelledDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+    -LaunchAttempted $true -ProcessCreated $false -LaunchDisposition cancelled `
+    -SanitizedLaunchFailureCode uac-cancelled `
+    -NativeErrorCode $evidence.nativeErrorCode -HResult $evidence.hResult `
+    -ExceptionDepth $evidence.exceptionDepth -LauncherExecutableExists $true `
+    -LauncherSignatureStatus valid -LaunchVerb RunAs `
+    -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments)
+  [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $cancelledDiagnostic)
+  $serializedCancellation = $cancelledDiagnostic | ConvertTo-Json -Depth 5 -Compress
+  if ($serializedCancellation.Contains("synthetic-wrapper") -or
+    $serializedCancellation.Contains("Win32Exception") -or
+    $serializedCancellation.Contains("System.Exception")) {
+    throw "A launch diagnostic retained prohibited exception text or type evidence."
+  }
+}
+
+$nativeFailureCases = @(
+  @{ Native = 2; Code = "launcher-target-not-found" },
+  @{ Native = 5; Code = "launcher-access-denied" },
+  @{ Native = 31; Code = "shell-execute-failed" },
+  @{ Native = 8; Code = "process-start-failed" },
+  @{ Native = 87; Code = "malformed-launch-request" },
+  @{ Native = 9999; Code = "launcher-exception-unknown" }
+)
+foreach ($case in $nativeFailureCases) {
+  if ((Get-RisePalsCandidateSanitizedLaunchFailureCode `
+      -NativeErrorCode $case.Native) -ne $case.Code) {
+    throw "A native launch failure did not map to its fixed classification."
+  }
+  $mappedDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+    -LaunchAttempted $true -ProcessCreated $false `
+    -LaunchDisposition launch-failure -SanitizedLaunchFailureCode $case.Code `
+    -NativeErrorCode $case.Native -HResult -2147467259 -ExceptionDepth 1 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+    -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments)
+  [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $mappedDiagnostic)
+}
+if ((Get-RisePalsCandidateSanitizedLaunchFailureCode -NativeErrorCode $null) -ne
+  "launcher-exception-unknown") {
+  throw "A launch exception without a native code was not closed to unknown."
+}
+$noNativeEvidence = Get-RisePalsCandidateLaunchExceptionEvidence `
+  -Exception ([Exception]::new("synthetic-no-native"))
+$noNativeDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+  -LaunchAttempted $true -ProcessCreated $false -LaunchDisposition launch-failure `
+  -SanitizedLaunchFailureCode launcher-exception-unknown `
+  -NativeErrorCode $null -HResult $noNativeEvidence.hResult `
+  -ExceptionDepth $noNativeEvidence.exceptionDepth -LauncherExecutableExists $true `
+  -LauncherSignatureStatus valid -LaunchVerb RunAs `
+  -ArgumentCount $launchArguments.Count `
+  -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+    -Arguments $launchArguments)
+[void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $noNativeDiagnostic)
+
+$preflightDiagnostics = @(
+  (New-RisePalsCandidateLaunchDiagnostic -LaunchAttempted $false `
+    -ProcessCreated $false -LaunchDisposition launch-failure `
+    -SanitizedLaunchFailureCode launcher-target-not-found `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $false -LauncherSignatureStatus unavailable `
+    -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments)),
+  (New-RisePalsCandidateLaunchDiagnostic -LaunchAttempted $false `
+    -ProcessCreated $false -LaunchDisposition launch-failure `
+    -SanitizedLaunchFailureCode launcher-access-denied `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus unavailable `
+    -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments)),
+  (New-RisePalsCandidateLaunchDiagnostic -LaunchAttempted $false `
+    -ProcessCreated $false -LaunchDisposition launch-failure `
+    -SanitizedLaunchFailureCode shell-execute-failed `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus invalid `
+    -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments)),
+  (New-RisePalsCandidateLaunchDiagnostic -LaunchAttempted $false `
+    -ProcessCreated $false -LaunchDisposition launch-failure `
+    -SanitizedLaunchFailureCode malformed-launch-request `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+    -LaunchVerb RunAs -ArgumentCount 0 `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments @())),
+  (New-RisePalsCandidateLaunchDiagnostic -LaunchAttempted $true `
+    -ProcessCreated $false -LaunchDisposition launch-failure `
+    -SanitizedLaunchFailureCode process-start-failed `
+    -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+    -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+    -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+    -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+      -Arguments $launchArguments))
+)
+foreach ($diagnostic in $preflightDiagnostics) {
+  [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $diagnostic)
+}
+
+foreach ($tamper in @("missing-property", "extra-property", "argument-digest", "diagnostic-digest", "process-created", "string-boolean")) {
+  $invalidLaunchDiagnostic = Copy-RisePalsCandidateContract `
+    -Contract $validLaunchDiagnostic
+  switch ($tamper) {
+    "missing-property" {
+      $invalidLaunchDiagnostic.PSObject.Properties.Remove("argumentCount")
+    }
+    "extra-property" {
+      $invalidLaunchDiagnostic | Add-Member -NotePropertyName rawArguments `
+        -NotePropertyValue @("prohibited")
+    }
+    "argument-digest" { $invalidLaunchDiagnostic.canonicalArgumentDigest = "f" * 64 }
+    "diagnostic-digest" { $invalidLaunchDiagnostic.diagnosticDigest = "f" * 64 }
+    "process-created" { $invalidLaunchDiagnostic.processCreated = $false }
+    "string-boolean" { $invalidLaunchDiagnostic.launchAttempted = "true" }
+  }
+  Assert-RisePalsCandidateThrows -Label ("Launch diagnostic " + $tamper) -Action {
+    Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $invalidLaunchDiagnostic
+  }
+}
+
+$failureLaunchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
+  -LaunchAttempted $true -ProcessCreated $false -LaunchDisposition launch-failure `
+  -SanitizedLaunchFailureCode launcher-access-denied `
+  -NativeErrorCode 5 -HResult -2147467259 -ExceptionDepth 1 `
+  -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+  -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+  -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+    -Arguments $launchArguments)
+[void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $failureLaunchDiagnostic)
+$emptyLiveChildDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $null `
+  -ExecutionMode Live -CleanupResponsibilityTransferredToParent $true
+$failureClaimingStages = New-RisePalsCandidateParentCheckpoint `
+  -InvocationNonce "abcdefabcdefabcdefabcdefabcdefab" `
+  -AuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
+  -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
+  -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
+  -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failureLaunchDiagnostic `
+  -LaunchDisposition launch-failure -Classification elevated-process-launch-failure `
+  -ProcessLaunched $false -ElevatedExitCode -1 -BootstrapEntered $true `
+  -BootstrapStarted $true -BootstrapFailurePresent $false `
+  -ChildLaunchAttempted $true -ChildStarted $false -LiveStarted $false `
+  -FinalPresent $false -FinalValidated $false -FinalStatus $null `
+  -ChildDiagnostic $emptyLiveChildDiagnostic
+Assert-RisePalsCandidateThrows -Label "Launch failure claiming a later stage" -Action {
+  Assert-RisePalsCandidateParentCheckpoint -Checkpoint $failureClaimingStages `
+    -ExpectedNonce "abcdefabcdefabcdefabcdefabcdefab" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedLaunchDiagnosticDigest $failureLaunchDiagnostic.diagnosticDigest `
+    -ExpectedExecutionMode Live -InvocationStartedAtUtc ([DateTimeOffset]::UtcNow.AddMinutes(-1)) `
+    -ConsumedNonces @{}
+}
+Write-Output "Authenticated closed elevated-launch diagnostic unit simulations PASS"
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
 Write-Output "Candidate contract and accepted artifact pins PASS"
@@ -918,6 +1124,7 @@ $durableNonce = "0123456789abcdef0123456789abcdef"
 $interruptedNonce = "fedcba9876543210fedcba9876543210"
 $interruptedResultNonce = "00112233445566778899aabbccddeeff"
 $failedDiagnosticNonce = "ffeeddccbbaa99887766554433221100"
+$launchFailureNonce = "aabbccddeeff00112233445566778899"
 try {
   $durableDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
     -Path $durableRoot -Mode Simulation
@@ -935,6 +1142,7 @@ try {
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
   $consumedCheckpoints = @{}
   [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
@@ -944,6 +1152,7 @@ try {
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted `
     -ConsumedNonces $consumedCheckpoints)
   Assert-RisePalsCandidateThrows -Label "Durable parent-checkpoint replay" -Action {
@@ -954,6 +1163,7 @@ try {
       -ExpectedBootstrapScriptSha256 ("b" * 64) `
       -ExpectedTransportScriptSha256 ("c" * 64) `
       -ExpectedChildScriptSha256 ("d" * 64) `
+      -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
       -InvocationStartedAtUtc $parentValidationStarted `
       -ConsumedNonces $consumedCheckpoints
   }
@@ -982,6 +1192,7 @@ try {
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName $checkpointFileName `
     -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
     -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
   $consumedResults = @{}
@@ -994,6 +1205,7 @@ try {
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName $checkpointFileName `
     -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
     -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults)
   Assert-RisePalsCandidateThrows -Label "Durable parent-result replay" -Action {
@@ -1006,12 +1218,94 @@ try {
       -ExpectedChildScriptSha256 ("d" * 64) `
       -ExpectedCheckpointFileName $checkpointFileName `
       -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+      -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
       -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
       -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults
   }
   Assert-RisePalsCandidateThrows -Label "Existing durable parent-result path" -Action {
     Write-RisePalsCandidateDurableParentResultAtomic -Result $parentResult `
       -EvidenceDirectory $durableDirectory -Mode Simulation
+  }
+
+  $mismatchedParentResult = Copy-RisePalsCandidateContract -Contract $parentResult
+  $mismatchedParentResult.launchDiagnostic = New-RisePalsCandidateValidLaunchDiagnostic `
+    -Arguments @("-NoLogo", "-NoProfile", "-Different")
+  $mismatchedParentResult.resultDigest = Get-RisePalsCandidateParentResultDigest `
+    -Result $mismatchedParentResult
+  Assert-RisePalsCandidateThrows -Label "Checkpoint/result launch-diagnostic mismatch" -Action {
+    Assert-RisePalsCandidateParentResult -Result $mismatchedParentResult `
+      -ExpectedNonce $durableNonce `
+      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
+      -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+      -ExpectedBootstrapScriptSha256 ("b" * 64) `
+      -ExpectedTransportScriptSha256 ("c" * 64) `
+      -ExpectedChildScriptSha256 ("d" * 64) `
+      -ExpectedCheckpointFileName $checkpointFileName `
+      -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+      -ExpectedLaunchDiagnosticDigest ([string]$reopenedCheckpoint.launchDiagnostic.diagnosticDigest) `
+      -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
+      -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{}
+  }
+
+  $launchFailureCheckpoint = New-RisePalsCandidateParentCheckpoint `
+    -InvocationNonce $launchFailureNonce `
+    -AuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
+    -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
+    -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
+    -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failureLaunchDiagnostic `
+    -LaunchDisposition launch-failure `
+    -Classification elevated-process-launch-failure -ProcessLaunched $false `
+    -ElevatedExitCode -1 -BootstrapEntered $false -BootstrapStarted $false `
+    -BootstrapFailurePresent $false -ChildLaunchAttempted $false `
+    -ChildStarted $false -LiveStarted $false -FinalPresent $false `
+    -FinalValidated $false -FinalStatus $null `
+    -ChildDiagnostic $emptyLiveChildDiagnostic
+  $launchFailureCheckpointPath = Write-RisePalsCandidateDurableParentCheckpointAtomic `
+    -Checkpoint $launchFailureCheckpoint -EvidenceDirectory $durableDirectory `
+    -Mode Simulation
+  $launchFailureResult = New-RisePalsCandidateParentResult `
+    -Checkpoint $launchFailureCheckpoint `
+    -CheckpointFileName ([IO.Path]::GetFileName($launchFailureCheckpointPath)) `
+    -CheckpointDigest ([string]$launchFailureCheckpoint.checkpointDigest) `
+    -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+    -TransientCleanupCompleted $true -InvocationDirectoryAbsent $true `
+    -RemainingTransientObjectCount 0 -RemainingTemporaryObjectCount 0
+  $launchFailureResultPath = Write-RisePalsCandidateDurableParentResultAtomic `
+    -Result $launchFailureResult -EvidenceDirectory $durableDirectory -Mode Simulation
+  $launchFailureCheckpointReopened = Read-RisePalsCandidateDurableParentCheckpoint `
+    -Path $launchFailureCheckpointPath -EvidenceDirectory $durableDirectory `
+    -InvocationNonce $launchFailureNonce -Mode Simulation
+  $launchFailureResultReopened = Read-RisePalsCandidateDurableParentResult `
+    -Path $launchFailureResultPath -EvidenceDirectory $durableDirectory `
+    -InvocationNonce $launchFailureNonce -Mode Simulation
+  [void](Assert-RisePalsCandidateParentCheckpoint `
+    -Checkpoint $launchFailureCheckpointReopened -ExpectedNonce $launchFailureNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedLaunchDiagnosticDigest $failureLaunchDiagnostic.diagnosticDigest `
+    -ExpectedExecutionMode Live -InvocationStartedAtUtc $parentValidationStarted `
+    -ConsumedNonces @{})
+  [void](Assert-RisePalsCandidateParentResult `
+    -Result $launchFailureResultReopened -ExpectedNonce $launchFailureNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG3-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName ([IO.Path]::GetFileName($launchFailureCheckpointPath)) `
+    -ExpectedCheckpointDigest ([string]$launchFailureCheckpointReopened.checkpointDigest) `
+    -ExpectedLaunchDiagnosticDigest $failureLaunchDiagnostic.diagnosticDigest `
+    -ExpectedChildDiagnosticDigest $emptyLiveChildDiagnostic.diagnosticDigest `
+    -ExpectedExecutionMode Live -InvocationStartedAtUtc $parentValidationStarted `
+    -ConsumedNonces @{})
+  if ($launchFailureCheckpointReopened.launchDiagnostic.diagnosticDigest -ne
+      $launchFailureResultReopened.launchDiagnostic.diagnosticDigest -or
+    -not [bool]$launchFailureResultReopened.transientCleanupCompleted -or
+    -not [bool]$launchFailureResultReopened.invocationDirectoryAbsent) {
+    throw "Durable launch-failure evidence did not survive transient cleanup."
   }
 
   $transientSimulation = Join-Path ([IO.Path]::GetTempPath()) (
@@ -1029,12 +1323,15 @@ try {
   $failedChild.resultDigest = Get-RisePalsCandidateResultDigest -Result $failedChild
   $failedDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $failedChild `
     -ExecutionMode Live -CleanupResponsibilityTransferredToParent $true
+  $failedLaunchDiagnostic = New-RisePalsCandidateValidLaunchDiagnostic `
+    -ExecutionMode Live
   $failedCheckpoint = New-RisePalsCandidateParentCheckpoint `
     -InvocationNonce $failedDiagnosticNonce `
     -AuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
     -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
-    -ChildScriptSha256 ("d" * 64) -LaunchDisposition launched `
+    -ChildScriptSha256 ("d" * 64) -LaunchDiagnostic $failedLaunchDiagnostic `
+    -LaunchDisposition launched `
     -Classification final-present-validated -ProcessLaunched $true `
     -ElevatedExitCode 23 -BootstrapEntered $true -BootstrapStarted $true `
     -BootstrapFailurePresent $false -ChildLaunchAttempted $true `
@@ -1065,6 +1362,7 @@ try {
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedLaunchDiagnosticDigest ([string]$failedCheckpointReopened.launchDiagnostic.diagnosticDigest) `
     -ExpectedExecutionMode Live `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
   [void](Assert-RisePalsCandidateParentResult -Result $failedParentReopened `
@@ -1076,6 +1374,7 @@ try {
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName ([IO.Path]::GetFileName($failedCheckpointPath)) `
     -ExpectedCheckpointDigest ([string]$failedCheckpointReopened.checkpointDigest) `
+    -ExpectedLaunchDiagnosticDigest ([string]$failedCheckpointReopened.launchDiagnostic.diagnosticDigest) `
     -ExpectedChildDiagnosticDigest ([string]$failedCheckpointReopened.childDiagnostic.diagnosticDigest) `
     -ExpectedExecutionMode Live `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
@@ -1120,6 +1419,7 @@ try {
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName ([IO.Path]::GetFileName($interruptedCheckpointPath)) `
     -ExpectedCheckpointDigest $null `
+    -ExpectedLaunchDiagnosticDigest ([string]$interruptedCheckpoint.launchDiagnostic.diagnosticDigest) `
     -ExpectedChildDiagnosticDigest ([string]$interruptedCheckpoint.childDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted `
     -ConsumedNonces @{})
@@ -1231,7 +1531,9 @@ if ($parentSource.Contains("RedirectStandardOutput") -or
   -not $parentSource.Contains("Write-RisePalsCandidateDurableParentCheckpointAtomic") -or
   -not $parentSource.Contains("Read-RisePalsCandidateDurableParentCheckpoint") -or
   -not $parentSource.Contains("Write-RisePalsCandidateDurableParentResultAtomic") -or
-  -not $parentSource.Contains("Read-RisePalsCandidateDurableParentResult")) {
+  -not $parentSource.Contains("Read-RisePalsCandidateDurableParentResult") -or
+  -not $parentSource.Contains('$quotedValues') -or
+  -not $parentSource.Contains('SanitizedLaunchFailureCode "malformed-launch-request"')) {
   throw "The parent/bootstrap boundary depends on raw streams or unsupported hashing."
 }
 Write-Output "Durable parent transport, truthful child ownership and no raw-output dependency PASS"
