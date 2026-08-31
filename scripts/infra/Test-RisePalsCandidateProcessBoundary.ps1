@@ -17,6 +17,7 @@ if (-not $repository.TrimEnd([IO.Path]::DirectorySeparatorChar).Equals(
 }
 
 $scripts = Join-Path $repository "scripts\infra"
+. (Join-Path $scripts "candidate-rehearsal-result.ps1")
 . (Join-Path $scripts "candidate-rehearsal-transport.ps1")
 $parent = Join-Path $scripts "Invoke-RisePalsCandidateRehearsal.ps1"
 $bootstrap = Join-Path $scripts "Invoke-RisePalsCandidateElevatedBootstrap.ps1"
