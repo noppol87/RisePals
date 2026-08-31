@@ -26,7 +26,7 @@ $child = Join-Path $scripts "Invoke-RisePalsCandidateRehearsalChild.ps1"
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $git = "C:\Users\Administrator\AppData\Local\Programs\PortableGit-2.55.0.3\cmd\git.exe"
 $safe = "safe.directory=C:/Codex PC SG2/Jeff/risepals"
-$authorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION"
+$authorizationId = "RP-TURN-019-R4-DIAG2-SIMULATION"
 $transientRoot = [IO.Path]::GetFullPath(
   (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
 )
@@ -229,6 +229,11 @@ try {
       } else {
         $null
       }
+      $expectedChildDiagnosticDigest = if ($null -ne $checkpoint) {
+        [string]$checkpoint.childDiagnostic.diagnosticDigest
+      } else {
+        [string]$result.childDiagnostic.diagnosticDigest
+      }
       [void](Assert-RisePalsCandidateParentResult -Result $result `
         -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
         -ExpectedHead $ExpectedRepositoryHead `
@@ -237,7 +242,9 @@ try {
         -ExpectedTransportScriptSha256 $transportHash `
         -ExpectedChildScriptSha256 $childHash `
         -ExpectedCheckpointFileName ([IO.Path]::GetFileName($checkpointPath)) `
-        -ExpectedCheckpointDigest $expectedDigest -InvocationStartedAtUtc $startedAt `
+        -ExpectedCheckpointDigest $expectedDigest `
+        -ExpectedChildDiagnosticDigest $expectedChildDiagnosticDigest `
+        -InvocationStartedAtUtc $startedAt `
         -ConsumedNonces @{})
       if ($result.overallStatus -ne [string]$scenario.Overall -or
         [bool]$result.transientCleanupCompleted -ne [bool]$scenario.Cleanup) {

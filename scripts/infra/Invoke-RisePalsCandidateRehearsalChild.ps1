@@ -118,6 +118,7 @@ $failedStage = if ($status -eq "failure") { "native-child" } else { $null }
 $failureCode = if ($status -eq "failure") { "native-child-exit-nonzero" } else { $null }
 $completedStages = @("child-started", "child-exit-observed", "streams-separated")
 $finalState = New-RisePalsCandidateFinalState
+$lifecycleEvidence = New-RisePalsCandidateLifecycleEvidence
 $cleanupCompleted = $true
 
 if ($Mode -eq "Live") {
@@ -128,13 +129,25 @@ if ($Mode -eq "Live") {
     $failureCode = "missing-live-state"
     $cleanupCompleted = $false
   } else {
-    $liveState = [Text.UTF8Encoding]::new($false, $true).GetString(
-      [IO.File]::ReadAllBytes($liveStatePath)
-    ) | ConvertFrom-Json
-    $finalState = $liveState.finalState
-    $cleanupCompleted = [bool]$liveState.cleanupCompleted
-    $completedStages += @($liveState.completedStages)
-    if ($liveState.status -ne "success") {
+    $liveState = $null
+    try {
+      $liveState = [Text.UTF8Encoding]::new($false, $true).GetString(
+        [IO.File]::ReadAllBytes($liveStatePath)
+      ) | ConvertFrom-Json
+      [void](Assert-RisePalsCandidateLiveState -State $liveState)
+      $finalState = $liveState.finalState
+      $lifecycleEvidence = $liveState.lifecycleEvidence
+      $cleanupCompleted = [bool]$liveState.cleanupCompleted
+      $completedStages += @($liveState.completedStages)
+    } catch {
+      $status = "failure"
+      $exitCode = if ($exitCode -eq 0) { 22 } else { $exitCode }
+      $failedStage = "child-finalization"
+      $failureCode = "child-finalization-failed"
+      $cleanupCompleted = $false
+    }
+    if ($null -ne $liveState -and $failedStage -ne "child-finalization" -and
+      $liveState.status -ne "success") {
       $status = "failure"
       $exitCode = if ($exitCode -eq 0) { 22 } else { $exitCode }
       $failedStage = [string]$liveState.failedStage
@@ -183,9 +196,11 @@ $result = New-RisePalsCandidateResult -InvocationNonce $InvocationNonce `
   -ChildScriptSha256 $ChildScriptSha256 `
   -StartedAtUtc $started.ToString("o") `
   -CompletedAtUtc ([DateTimeOffset]::UtcNow.ToString("o")) -Status $status `
+  -ExecutionMode $Mode `
   -ChildExitCode $exitCode -CompletedStages $completedStages -FailedStage $failedStage `
   -SanitizedFailureCode $failureCode -CleanupCompleted $cleanupCompleted `
-  -FinalState $finalState -StreamEvidence $streamEvidence
+  -LifecycleEvidence $lifecycleEvidence -FinalState $finalState `
+  -StreamEvidence $streamEvidence
 if ($Mode -eq "Simulation" -and $SimulationScenario -eq "DigestMismatch") {
   $result.resultDigest = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 }

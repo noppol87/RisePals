@@ -215,7 +215,7 @@ try {
     (($Mode -eq "Live") -and
       $AuthorizationId -notmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") -or
     (($Mode -eq "Simulation") -and
-      $AuthorizationId -ne "RP-TURN-019-R4-DIAG1-SIMULATION")) {
+      $AuthorizationId -ne "RP-TURN-019-R4-DIAG2-SIMULATION")) {
     throw "The primitive bootstrap arguments are invalid."
   }
   $approvedRepository = "C:\Codex PC SG2\Jeff\risepals"

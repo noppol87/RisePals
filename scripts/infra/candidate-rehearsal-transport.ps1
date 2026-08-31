@@ -2,8 +2,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
-$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v1"
-$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v3"
+$script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v2"
+$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v4"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
   "child-launch-attempted",
@@ -48,6 +48,7 @@ $script:RisePalsCandidateParentCheckpointProperties = @(
   "finalPresent",
   "finalValidated",
   "finalStatus",
+  "childDiagnostic",
   "generatedAtUtc",
   "checkpointDigest"
 )
@@ -75,6 +76,7 @@ $script:RisePalsCandidateParentResultProperties = @(
   "finalValidated",
   "functionalClassification",
   "finalChildStatus",
+  "childDiagnostic",
   "durableCheckpointValidated",
   "transientCleanupAttempted",
   "transientCleanupCompleted",
@@ -770,6 +772,8 @@ function ConvertTo-RisePalsCandidateCanonicalParentCheckpoint {
     finalPresent = [bool]$Checkpoint.finalPresent
     finalValidated = [bool]$Checkpoint.finalValidated
     finalStatus = if ($null -eq $Checkpoint.finalStatus) { $null } else { [string]$Checkpoint.finalStatus }
+    childDiagnostic = ConvertTo-RisePalsCandidateCanonicalChildDiagnostic `
+      -Diagnostic $Checkpoint.childDiagnostic
     generatedAtUtc = [string]$Checkpoint.generatedAtUtc
   }
 }
@@ -803,11 +807,17 @@ function New-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][bool]$LiveStarted,
     [Parameter(Mandatory = $true)][bool]$FinalPresent,
     [Parameter(Mandatory = $true)][bool]$FinalValidated,
-    [AllowNull()][string]$FinalStatus
+    [AllowNull()][string]$FinalStatus,
+    [Parameter(Mandatory = $true)][object]$ChildDiagnostic
   )
 
   $status = if ($Classification -eq "final-present-validated" -and
-    $FinalStatus -eq "success") { "success" } else { "failure" }
+    $FinalStatus -eq "success" -and
+    (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $ChildDiagnostic)) {
+    "success"
+  } else {
+    "failure"
+  }
   $checkpoint = [ordered]@{
     schemaVersion = $script:RisePalsCandidateParentCheckpointSchema
     invocationNonce = $InvocationNonce
@@ -831,6 +841,7 @@ function New-RisePalsCandidateParentCheckpoint {
     finalPresent = $FinalPresent
     finalValidated = $FinalValidated
     finalStatus = if ([string]::IsNullOrWhiteSpace($FinalStatus)) { $null } else { $FinalStatus }
+    childDiagnostic = $ChildDiagnostic
     generatedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     checkpointDigest = ""
   }
@@ -849,6 +860,7 @@ function Assert-RisePalsCandidateParentCheckpoint {
     [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
+    [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
@@ -857,7 +869,11 @@ function Assert-RisePalsCandidateParentCheckpoint {
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Checkpoint `
     -Expected $script:RisePalsCandidateParentCheckpointProperties `
     -Label "Candidate parent checkpoint"
+  [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Checkpoint.childDiagnostic)
+  $diagnosticSuccess = Test-RisePalsCandidateDiagnosticFunctionalSuccess `
+    -Diagnostic $Checkpoint.childDiagnostic
   if ($Checkpoint.schemaVersion -ne $script:RisePalsCandidateParentCheckpointSchema -or
+    $Checkpoint.childDiagnostic.executionMode -ne $ExpectedExecutionMode -or
     $Checkpoint.classification -notin @(
       "uac-not-launched", "uac-cancelled", "elevated-process-launch-failure",
       "elevated-child-never-entered-bootstrap",
@@ -891,10 +907,17 @@ function Assert-RisePalsCandidateParentCheckpoint {
     ) -and $Checkpoint.classification -ne "final-invalid-or-inconsistent") -or
     ($Checkpoint.status -eq "success" -and (
       $Checkpoint.classification -ne "final-present-validated" -or
-      -not [bool]$Checkpoint.finalValidated -or $Checkpoint.finalStatus -ne "success"
+      -not [bool]$Checkpoint.finalValidated -or $Checkpoint.finalStatus -ne "success" -or
+      -not $diagnosticSuccess
     )) -or
     ($Checkpoint.status -eq "failure" -and $Checkpoint.finalStatus -eq "success" -and
       $Checkpoint.classification -eq "final-present-validated") -or
+    ([bool]$Checkpoint.finalValidated -and (
+      $null -eq $Checkpoint.childDiagnostic.childResultDigest -or
+      $Checkpoint.childDiagnostic.childStatus -ne $Checkpoint.finalStatus
+    )) -or
+    (-not [bool]$Checkpoint.finalValidated -and
+      $null -ne $Checkpoint.childDiagnostic.childResultDigest) -or
     $Checkpoint.checkpointDigest -ne (
       Get-RisePalsCandidateParentCheckpointDigest -Checkpoint $Checkpoint
     )) {
@@ -951,6 +974,8 @@ function ConvertTo-RisePalsCandidateCanonicalParentResult {
     finalValidated = [bool]$Result.finalValidated
     functionalClassification = [string]$Result.functionalClassification
     finalChildStatus = if ($null -eq $Result.finalChildStatus) { $null } else { [string]$Result.finalChildStatus }
+    childDiagnostic = ConvertTo-RisePalsCandidateCanonicalChildDiagnostic `
+      -Diagnostic $Result.childDiagnostic
     durableCheckpointValidated = [bool]$Result.durableCheckpointValidated
     transientCleanupAttempted = [bool]$Result.transientCleanupAttempted
     transientCleanupCompleted = [bool]$Result.transientCleanupCompleted
@@ -986,7 +1011,9 @@ function New-RisePalsCandidateParentResult {
   )
 
   $functionalSuccess = $Checkpoint.classification -eq "final-present-validated" -and
-    [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success"
+    [bool]$Checkpoint.finalValidated -and $Checkpoint.finalStatus -eq "success" -and
+    (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
+      -Diagnostic $Checkpoint.childDiagnostic)
   $overallStatus = if ($functionalSuccess -and $DurableCheckpointValidated -and
     $TransientCleanupAttempted -and $TransientCleanupCompleted -and
     $InvocationDirectoryAbsent -and $RemainingTransientObjectCount -eq 0 -and
@@ -1015,6 +1042,7 @@ function New-RisePalsCandidateParentResult {
     finalValidated = [bool]$Checkpoint.finalValidated
     functionalClassification = [string]$Checkpoint.classification
     finalChildStatus = if ($null -eq $Checkpoint.finalStatus) { $null } else { [string]$Checkpoint.finalStatus }
+    childDiagnostic = $Checkpoint.childDiagnostic
     durableCheckpointValidated = $DurableCheckpointValidated
     transientCleanupAttempted = $TransientCleanupAttempted
     transientCleanupCompleted = $TransientCleanupCompleted
@@ -1042,6 +1070,8 @@ function Assert-RisePalsCandidateParentResult {
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedCheckpointFileName,
     [AllowNull()][object]$ExpectedCheckpointDigest,
+    [Parameter(Mandatory = $true)][string]$ExpectedChildDiagnosticDigest,
+    [ValidateSet("Simulation", "Live")][string]$ExpectedExecutionMode = "Simulation",
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
@@ -1049,18 +1079,22 @@ function Assert-RisePalsCandidateParentResult {
 
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Result `
     -Expected $script:RisePalsCandidateParentResultProperties -Label "Candidate parent result"
+  [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $Result.childDiagnostic)
   $paths = @($Result.remainingTransientRelativePaths)
   $invalidPaths = @($paths | Where-Object {
     $_ -notmatch "^[a-z0-9][a-z0-9.-]{0,127}$" -or $_.Contains("..")
   })
   $functionalSuccess = $Result.functionalClassification -eq "final-present-validated" -and
-    [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success"
+    [bool]$Result.finalValidated -and $Result.finalChildStatus -eq "success" -and
+    (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
+      -Diagnostic $Result.childDiagnostic)
   $overallSuccess = $functionalSuccess -and [bool]$Result.durableCheckpointValidated -and
     [bool]$Result.transientCleanupAttempted -and [bool]$Result.transientCleanupCompleted -and
     [bool]$Result.invocationDirectoryAbsent -and
     [int]$Result.remainingTransientObjectCount -eq 0 -and
     [int]$Result.remainingTemporaryObjectCount -eq 0 -and $paths.Count -eq 0
   if ($Result.schemaVersion -ne $script:RisePalsCandidateParentResultSchema -or
+    $Result.childDiagnostic.executionMode -ne $ExpectedExecutionMode -or
     $Result.invocationNonce -ne $ExpectedNonce -or
     $Result.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
     $ConsumedNonces.ContainsKey([string]$Result.invocationNonce) -or
@@ -1072,6 +1106,7 @@ function Assert-RisePalsCandidateParentResult {
     $Result.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
     $Result.checkpointFileName -ne $ExpectedCheckpointFileName -or
     $Result.checkpointDigest -ne $ExpectedCheckpointDigest -or
+    $Result.childDiagnostic.diagnosticDigest -ne $ExpectedChildDiagnosticDigest -or
     ([bool]$Result.durableCheckpointValidated -and
       $Result.checkpointDigest -notmatch "^[a-f0-9]{64}$") -or
     (-not [bool]$Result.durableCheckpointValidated -and $null -ne $Result.checkpointDigest) -or
@@ -1085,6 +1120,12 @@ function Assert-RisePalsCandidateParentResult {
       "child-started-failed-before-live", "live-started-failed",
       "final-present-validated", "final-invalid-or-inconsistent"
     ) -or $Result.finalChildStatus -notin @($null, "success", "failure") -or
+    ([bool]$Result.finalValidated -and (
+      $null -eq $Result.childDiagnostic.childResultDigest -or
+      $Result.childDiagnostic.childStatus -ne $Result.finalChildStatus
+    )) -or
+    (-not [bool]$Result.finalValidated -and
+      $null -ne $Result.childDiagnostic.childResultDigest) -or
     [int]$Result.remainingTransientObjectCount -lt 0 -or
     [int]$Result.remainingTransientObjectCount -gt 64 -or
     [int]$Result.remainingTemporaryObjectCount -lt 0 -or

@@ -81,7 +81,7 @@ function New-RisePalsCandidateValidHostSnapshot {
 function New-RisePalsCandidateValidResult {
   param(
     [string]$Nonce = "0123456789abcdef0123456789abcdef",
-    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION",
+    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG2-SIMULATION",
     [string]$Head = "1111111111111111111111111111111111111111",
     [string]$ScriptHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     [string]$BootstrapHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -100,7 +100,9 @@ function New-RisePalsCandidateValidResult {
     -TransportScriptSha256 $TransportHash `
     -ChildScriptSha256 $ChildHash -StartedAtUtc $now.ToString("o") `
     -CompletedAtUtc $now.AddMilliseconds(10).ToString("o") -Status $Status `
-    -ChildExitCode $ExitCode -CompletedStages @("child-started", "streams-separated") `
+    -ChildExitCode $ExitCode -CompletedStages @(
+      "child-started", "child-exit-observed", "streams-separated", "raw-output-removed"
+    ) `
     -FailedStage $(if ($Status -eq "failure") { "native-child" } else { $null }) `
     -SanitizedFailureCode $(if ($Status -eq "failure") { "native-child-exit-nonzero" } else { $null }) `
     -CleanupCompleted $CleanupCompleted -FinalState $FinalState -StreamEvidence ([ordered]@{
@@ -120,7 +122,7 @@ function New-RisePalsCandidateValidMarker {
 
   return New-RisePalsCandidateMarker -MarkerType $MarkerType `
     -InvocationNonce "0123456789abcdef0123456789abcdef" `
-    -AuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -AuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -RepositoryHead "1111111111111111111111111111111111111111" `
     -LauncherScriptSha256 "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" `
     -BootstrapScriptSha256 "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" `
@@ -129,13 +131,82 @@ function New-RisePalsCandidateValidMarker {
     -SanitizedFailureCode $FailureCode -RecordedAtUtc $RecordedAtUtc
 }
 
+function New-RisePalsCandidateSyntheticLiveResult {
+  param(
+    [int]$CompletedFunctionalStageCount,
+    [AllowNull()][string]$FailedStage,
+    [bool]$CleanupCompleted = $true,
+    [ValidateSet("success", "failure")][string]$Status = "failure"
+  )
+
+  $completed = @($script:RisePalsCandidateFunctionalStageOrder |
+    Select-Object -First $CompletedFunctionalStageCount)
+  $resultStages = @("child-started", "child-exit-observed", "streams-separated") +
+    $completed
+  if ($CleanupCompleted) {
+    $resultStages += @("cleanup", "final-read-only-proof")
+  }
+  $resultStages += "raw-output-removed"
+  $failureMap = Get-RisePalsCandidateFailureCodeMap
+  $failureCode = if ($Status -eq "failure") {
+    [string]$failureMap[$FailedStage]
+  } else {
+    $null
+  }
+  $mutation = $CompletedFunctionalStageCount -ge 2 -or (
+    $CompletedFunctionalStageCount -eq 1 -and $FailedStage -eq "stage-immutable-inputs"
+  )
+  $install = $CompletedFunctionalStageCount -ge 5 -or (
+    $CompletedFunctionalStageCount -eq 4 -and $FailedStage -eq "create-own-process-service"
+  )
+  $start = $CompletedFunctionalStageCount -ge 8 -or (
+    $CompletedFunctionalStageCount -eq 7 -and $FailedStage -eq "start-and-ready"
+  )
+  $stop = $CompletedFunctionalStageCount -ge 10 -or (
+    $CompletedFunctionalStageCount -eq 9 -and $FailedStage -eq "direct-stop"
+  )
+  $lifecycle = New-RisePalsCandidateLifecycleEvidence `
+    -LiveHostMutationBegan $mutation `
+    -CandidateServiceInstallationBegan $install `
+    -CandidateServiceStartReached $start `
+    -DirectStopServiceReached $stop
+  $now = [DateTimeOffset]::UtcNow
+  return New-RisePalsCandidateResult `
+    -InvocationNonce "0123456789abcdef0123456789abcdef" `
+    -AuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
+    -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
+    -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
+    -ChildScriptSha256 ("d" * 64) -StartedAtUtc $now.ToString("o") `
+    -CompletedAtUtc $now.AddMilliseconds(10).ToString("o") `
+    -ExecutionMode Live -Status $Status `
+    -ChildExitCode $(if ($Status -eq "success") { 0 } else { 23 }) `
+    -CompletedStages $resultStages -FailedStage $FailedStage `
+    -SanitizedFailureCode $failureCode -CleanupCompleted $CleanupCompleted `
+    -LifecycleEvidence $lifecycle `
+    -FinalState $(if ($CleanupCompleted) {
+      New-RisePalsCandidateFinalState
+    } else {
+      New-RisePalsCandidateFinalState -TemporaryChildren 1
+    }) `
+    -StreamEvidence ([ordered]@{
+      stdoutObserved = $true
+      stderrObserved = $false
+      streamsSeparated = $true
+      rawOutputPersisted = $false
+    })
+}
+
 function New-RisePalsCandidateValidParentCheckpoint {
   param(
     [string]$Nonce = "0123456789abcdef0123456789abcdef",
-    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION",
+    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG2-SIMULATION",
     [string]$Head = "1111111111111111111111111111111111111111"
   )
 
+  $childResult = New-RisePalsCandidateValidResult -Nonce $Nonce `
+    -AuthorizationId $AuthorizationId -Head $Head
+  $diagnostic = New-RisePalsCandidateChildDiagnostic -Result $childResult `
+    -ExecutionMode Simulation -CleanupResponsibilityTransferredToParent $true
   return New-RisePalsCandidateParentCheckpoint -InvocationNonce $Nonce `
     -AuthorizationId $AuthorizationId -RepositoryHead $Head `
     -LauncherScriptSha256 ("a" * 64) -BootstrapScriptSha256 ("b" * 64) `
@@ -144,7 +215,8 @@ function New-RisePalsCandidateValidParentCheckpoint {
     -ProcessLaunched $true -ElevatedExitCode 0 -BootstrapEntered $true `
     -BootstrapStarted $true -BootstrapFailurePresent $false `
     -ChildLaunchAttempted $true -ChildStarted $true -LiveStarted $true `
-    -FinalPresent $true -FinalValidated $true -FinalStatus "success"
+    -FinalPresent $true -FinalValidated $true -FinalStatus "success" `
+    -ChildDiagnostic $diagnostic
 }
 
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
@@ -428,7 +500,7 @@ try {
 Write-Output "Recursive cleanup inventory rejection PASS"
 
 $expectedNonce = "0123456789abcdef0123456789abcdef"
-$expectedAuthorization = "RP-TURN-019-R4-DIAG1-SIMULATION"
+$expectedAuthorization = "RP-TURN-019-R4-DIAG2-SIMULATION"
 $expectedHead = "1111111111111111111111111111111111111111"
 $expectedHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 $expectedBootstrapHash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -503,6 +575,115 @@ $failureResult = New-RisePalsCandidateValidResult -Status "failure" -ExitCode 7 
   -ExpectedChildScriptSha256 $expectedChildHash `
   -ObservedExitCode 7 -InvocationStartedAtUtc $started -ConsumedNonces @{})
 Write-Output "Explicit native nonzero result classification PASS"
+
+$allFunctionalStages = $script:RisePalsCandidateFunctionalStageOrder.Count
+$liveSuccess = New-RisePalsCandidateSyntheticLiveResult `
+  -CompletedFunctionalStageCount $allFunctionalStages -FailedStage $null `
+  -Status success
+[void](Assert-RisePalsCandidateResult -Result $liveSuccess `
+  -ExpectedNonce $expectedNonce -ExpectedAuthorizationId $expectedAuthorization `
+  -ExpectedHead $expectedHead -ExpectedLauncherScriptSha256 $expectedHash `
+  -ExpectedBootstrapScriptSha256 $expectedBootstrapHash `
+  -ExpectedTransportScriptSha256 $expectedTransportHash `
+  -ExpectedChildScriptSha256 $expectedChildHash -ObservedExitCode 0 `
+  -InvocationStartedAtUtc $started -ConsumedNonces @{})
+$liveSuccessDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $liveSuccess `
+  -ExecutionMode Live -CleanupResponsibilityTransferredToParent $true
+[void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $liveSuccessDiagnostic)
+if (-not (Test-RisePalsCandidateDiagnosticFunctionalSuccess `
+  -Diagnostic $liveSuccessDiagnostic) -or
+  @($liveSuccessDiagnostic.functionalGates.PSObject.Properties | Where-Object {
+    $_.Value -ne "passed"
+  }).Count -ne 0) {
+  throw "Successful live diagnostics do not preserve every mandatory gate."
+}
+
+$diagnosticFailureCases = @(
+  @{ Label = "before any Live mutation"; Count = 0; Stage = "preflight"; Mutation = $false; Install = $false; Start = $false; Stop = $false },
+  @{ Label = "protected preflight"; Count = 0; Stage = "preflight"; Mutation = $false; Install = $false; Start = $false; Stop = $false },
+  @{ Label = "during immutable staging"; Count = 1; Stage = "stage-immutable-inputs"; Mutation = $true; Install = $false; Start = $false; Stop = $false },
+  @{ Label = "before install"; Count = 3; Stage = "validate-candidate-config"; Mutation = $true; Install = $false; Start = $false; Stop = $false },
+  @{ Label = "install attempt"; Count = 4; Stage = "create-own-process-service"; Mutation = $true; Install = $true; Start = $false; Stop = $false },
+  @{ Label = "after install before start"; Count = 6; Stage = "configure-preshutdown-timeout"; Mutation = $true; Install = $true; Start = $false; Stop = $false },
+  @{ Label = "after start before Stop"; Count = 8; Stage = "stream-first-byte"; Mutation = $true; Install = $true; Start = $true; Stop = $false },
+  @{ Label = "direct Stop failure"; Count = 9; Stage = "direct-stop"; Mutation = $true; Install = $true; Start = $true; Stop = $true },
+  @{ Label = "direct Stop drain"; Count = 10; Stage = "reject-new-work-during-drain"; Mutation = $true; Install = $true; Start = $true; Stop = $true }
+)
+foreach ($case in $diagnosticFailureCases) {
+  $failure = New-RisePalsCandidateSyntheticLiveResult `
+    -CompletedFunctionalStageCount ([int]$case.Count) -FailedStage ([string]$case.Stage)
+  $diagnostic = New-RisePalsCandidateChildDiagnostic -Result $failure `
+    -ExecutionMode Live -CleanupResponsibilityTransferredToParent $true
+  [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $diagnostic)
+  $failedGate = @($diagnostic.functionalGates.PSObject.Properties | Where-Object {
+    $_.Value -eq "failed"
+  })
+  if ($failedGate.Count -ne 1 -or
+    [bool]$diagnostic.liveHostMutationBegan -ne [bool]$case.Mutation -or
+    [bool]$diagnostic.candidateServiceInstallationBegan -ne [bool]$case.Install -or
+    [bool]$diagnostic.candidateServiceStartReached -ne [bool]$case.Start -or
+    [bool]$diagnostic.directStopServiceReached -ne [bool]$case.Stop -or
+    (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $diagnostic)) {
+    throw "Diagnostic failure boundary $($case.Label) is not exact."
+  }
+}
+
+$finalizationFailure = New-RisePalsCandidateSyntheticLiveResult `
+  -CompletedFunctionalStageCount $allFunctionalStages `
+  -FailedStage "child-finalization" -Status failure
+$finalizationDiagnostic = New-RisePalsCandidateChildDiagnostic `
+  -Result $finalizationFailure -ExecutionMode Live `
+  -CleanupResponsibilityTransferredToParent $true
+[void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $finalizationDiagnostic)
+if (@($finalizationDiagnostic.functionalGates.PSObject.Properties | Where-Object {
+  $_.Value -ne "passed"
+}).Count -ne 0 -or
+  (Test-RisePalsCandidateDiagnosticFunctionalSuccess -Diagnostic $finalizationDiagnostic)) {
+  throw "A child-finalization failure was mistaken for functional success."
+}
+
+$invalidDiagnostics = @()
+$duplicate = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$duplicate.completedStages = @($duplicate.completedStages) + $duplicate.completedStages[-1]
+$duplicate.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest -Diagnostic $duplicate
+$invalidDiagnostics += @{ Label = "duplicate stage"; Value = $duplicate }
+$reordered = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$swap = $reordered.completedStages[0]
+$reordered.completedStages[0] = $reordered.completedStages[1]
+$reordered.completedStages[1] = $swap
+$reordered.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest -Diagnostic $reordered
+$invalidDiagnostics += @{ Label = "reordered stage"; Value = $reordered }
+$malformedStage = Copy-RisePalsCandidateContract -Contract $finalizationDiagnostic
+$malformedStage.failedStage = "unknown-live-stage"
+$malformedStage.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest `
+  -Diagnostic $malformedStage
+$invalidDiagnostics += @{ Label = "malformed failed stage"; Value = $malformedStage }
+$missingGate = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$missingGate.functionalGates.PSObject.Properties.Remove("directStop")
+$invalidDiagnostics += @{ Label = "missing gate"; Value = $missingGate }
+$extraGate = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$extraGate.functionalGates | Add-Member -NotePropertyName "unexpectedGate" `
+  -NotePropertyValue "passed"
+$invalidDiagnostics += @{ Label = "extra gate"; Value = $extraGate }
+$inconsistentGate = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$inconsistentGate.functionalGates.directStop = "not_reached"
+$inconsistentGate.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest `
+  -Diagnostic $inconsistentGate
+$invalidDiagnostics += @{ Label = "inconsistent gate"; Value = $inconsistentGate }
+$impossibleLifecycle = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$impossibleLifecycle.candidateServiceInstallationBegan = $false
+$impossibleLifecycle.diagnosticDigest = Get-RisePalsCandidateChildDiagnosticDigest `
+  -Diagnostic $impossibleLifecycle
+$invalidDiagnostics += @{ Label = "impossible lifecycle"; Value = $impossibleLifecycle }
+$tamperedChildDigest = Copy-RisePalsCandidateContract -Contract $liveSuccessDiagnostic
+$tamperedChildDigest.childResultDigest = "f" * 64
+$invalidDiagnostics += @{ Label = "tampered child digest"; Value = $tamperedChildDigest }
+foreach ($invalidDiagnostic in $invalidDiagnostics) {
+  Assert-RisePalsCandidateThrows -Label ([string]$invalidDiagnostic.Label) -Action {
+    Assert-RisePalsCandidateChildDiagnostic -Diagnostic $invalidDiagnostic.Value
+  }
+}
+Write-Output "Durable child diagnostic stage/gate/lifecycle/digest rejections PASS"
 
 $invalidCases = @("malformed", "stale", "wrong-head", "wrong-script", "partial", "digest")
 foreach ($case in $invalidCases) {
@@ -736,6 +917,7 @@ $durableJunction = Join-Path ([IO.Path]::GetTempPath()) (
 $durableNonce = "0123456789abcdef0123456789abcdef"
 $interruptedNonce = "fedcba9876543210fedcba9876543210"
 $interruptedResultNonce = "00112233445566778899aabbccddeeff"
+$failedDiagnosticNonce = "ffeeddccbbaa99887766554433221100"
 try {
   $durableDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
     -Path $durableRoot -Mode Simulation
@@ -748,7 +930,7 @@ try {
   $parentValidationStarted = [DateTimeOffset]::UtcNow.AddMinutes(-1)
   [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
     -ExpectedNonce $durableNonce `
-    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
@@ -757,7 +939,7 @@ try {
   $consumedCheckpoints = @{}
   [void](Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
     -ExpectedNonce $durableNonce `
-    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
@@ -767,7 +949,7 @@ try {
   Assert-RisePalsCandidateThrows -Label "Durable parent-checkpoint replay" -Action {
     Assert-RisePalsCandidateParentCheckpoint -Checkpoint $reopenedCheckpoint `
       -ExpectedNonce $durableNonce `
-      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
       -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
       -ExpectedBootstrapScriptSha256 ("b" * 64) `
       -ExpectedTransportScriptSha256 ("c" * 64) `
@@ -793,35 +975,38 @@ try {
     -EvidenceDirectory $durableDirectory -InvocationNonce $durableNonce -Mode Simulation
   [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
     -ExpectedNonce $durableNonce `
-    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName $checkpointFileName `
     -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
   $consumedResults = @{}
   [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
     -ExpectedNonce $durableNonce `
-    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName $checkpointFileName `
     -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+    -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
     -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults)
   Assert-RisePalsCandidateThrows -Label "Durable parent-result replay" -Action {
     Assert-RisePalsCandidateParentResult -Result $reopenedParent `
       -ExpectedNonce $durableNonce `
-      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
       -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
       -ExpectedBootstrapScriptSha256 ("b" * 64) `
       -ExpectedTransportScriptSha256 ("c" * 64) `
       -ExpectedChildScriptSha256 ("d" * 64) `
       -ExpectedCheckpointFileName $checkpointFileName `
       -ExpectedCheckpointDigest ([string]$reopenedCheckpoint.checkpointDigest) `
+      -ExpectedChildDiagnosticDigest ([string]$reopenedCheckpoint.childDiagnostic.diagnosticDigest) `
       -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces $consumedResults
   }
   Assert-RisePalsCandidateThrows -Label "Existing durable parent-result path" -Action {
@@ -836,6 +1021,69 @@ try {
   [IO.Directory]::Delete($transientSimulation, $false)
   if (-not [IO.File]::Exists($checkpointPath) -or -not [IO.File]::Exists($durablePath)) {
     throw "Transient cleanup deleted durable parent evidence."
+  }
+
+  $failedChild = New-RisePalsCandidateSyntheticLiveResult `
+    -CompletedFunctionalStageCount 9 -FailedStage "direct-stop"
+  $failedChild.invocationNonce = $failedDiagnosticNonce
+  $failedChild.resultDigest = Get-RisePalsCandidateResultDigest -Result $failedChild
+  $failedDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $failedChild `
+    -ExecutionMode Live -CleanupResponsibilityTransferredToParent $true
+  $failedCheckpoint = New-RisePalsCandidateParentCheckpoint `
+    -InvocationNonce $failedDiagnosticNonce `
+    -AuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
+    -RepositoryHead ("1" * 40) -LauncherScriptSha256 ("a" * 64) `
+    -BootstrapScriptSha256 ("b" * 64) -TransportScriptSha256 ("c" * 64) `
+    -ChildScriptSha256 ("d" * 64) -LaunchDisposition launched `
+    -Classification final-present-validated -ProcessLaunched $true `
+    -ElevatedExitCode 23 -BootstrapEntered $true -BootstrapStarted $true `
+    -BootstrapFailurePresent $false -ChildLaunchAttempted $true `
+    -ChildStarted $true -LiveStarted $true -FinalPresent $true `
+    -FinalValidated $true -FinalStatus failure -ChildDiagnostic $failedDiagnostic
+  $failedCheckpointPath = Write-RisePalsCandidateDurableParentCheckpointAtomic `
+    -Checkpoint $failedCheckpoint -EvidenceDirectory $durableDirectory `
+    -Mode Simulation
+  $failedParentResult = New-RisePalsCandidateParentResult `
+    -Checkpoint $failedCheckpoint `
+    -CheckpointFileName ([IO.Path]::GetFileName($failedCheckpointPath)) `
+    -CheckpointDigest ([string]$failedCheckpoint.checkpointDigest) `
+    -DurableCheckpointValidated $true -TransientCleanupAttempted $true `
+    -TransientCleanupCompleted $true -InvocationDirectoryAbsent $true `
+    -RemainingTransientObjectCount 0 -RemainingTemporaryObjectCount 0
+  $failedParentPath = Write-RisePalsCandidateDurableParentResultAtomic `
+    -Result $failedParentResult -EvidenceDirectory $durableDirectory -Mode Simulation
+  $failedCheckpointReopened = Read-RisePalsCandidateDurableParentCheckpoint `
+    -Path $failedCheckpointPath -EvidenceDirectory $durableDirectory `
+    -InvocationNonce $failedDiagnosticNonce -Mode Simulation
+  $failedParentReopened = Read-RisePalsCandidateDurableParentResult `
+    -Path $failedParentPath -EvidenceDirectory $durableDirectory `
+    -InvocationNonce $failedDiagnosticNonce -Mode Simulation
+  [void](Assert-RisePalsCandidateParentCheckpoint `
+    -Checkpoint $failedCheckpointReopened -ExpectedNonce $failedDiagnosticNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedExecutionMode Live `
+    -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
+  [void](Assert-RisePalsCandidateParentResult -Result $failedParentReopened `
+    -ExpectedNonce $failedDiagnosticNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName ([IO.Path]::GetFileName($failedCheckpointPath)) `
+    -ExpectedCheckpointDigest ([string]$failedCheckpointReopened.checkpointDigest) `
+    -ExpectedChildDiagnosticDigest ([string]$failedCheckpointReopened.childDiagnostic.diagnosticDigest) `
+    -ExpectedExecutionMode Live `
+    -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
+  if ($failedCheckpointReopened.childDiagnostic.failedStage -ne "direct-stop" -or
+    $failedCheckpointReopened.childDiagnostic.functionalGates.directStop -ne "failed" -or
+    $failedParentReopened.childDiagnostic.diagnosticDigest -ne
+      $failedCheckpointReopened.childDiagnostic.diagnosticDigest) {
+    throw "Durable failed-stage evidence did not survive transient cleanup."
   }
 
   $interruptedCheckpoint = New-RisePalsCandidateValidParentCheckpoint `
@@ -865,13 +1113,15 @@ try {
     -RemainingTransientRelativePaths @("result.json")
   [void](Assert-RisePalsCandidateParentResult -Result $checkpointFailureResult `
     -ExpectedNonce $interruptedNonce `
-    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG2-SIMULATION" `
     -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
     -ExpectedBootstrapScriptSha256 ("b" * 64) `
     -ExpectedTransportScriptSha256 ("c" * 64) `
     -ExpectedChildScriptSha256 ("d" * 64) `
     -ExpectedCheckpointFileName ([IO.Path]::GetFileName($interruptedCheckpointPath)) `
-    -ExpectedCheckpointDigest $null -InvocationStartedAtUtc $parentValidationStarted `
+    -ExpectedCheckpointDigest $null `
+    -ExpectedChildDiagnosticDigest ([string]$interruptedCheckpoint.childDiagnostic.diagnosticDigest) `
+    -InvocationStartedAtUtc $parentValidationStarted `
     -ConsumedNonces @{})
 
   $interruptedResultCheckpoint = New-RisePalsCandidateValidParentCheckpoint `

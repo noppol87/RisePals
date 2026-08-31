@@ -355,8 +355,16 @@ describe("repository-only candidate service rehearsal harness", () => {
     );
     expect(parent).toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
     expect(parent).not.toContain("RISE_PALS_CANDIDATE_PARENT_RESULT=");
-    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v1");
-    expect(transport).toContain("rise-pals-candidate-parent-result-v3");
+    expect(result).toContain("rise-pals-candidate-rehearsal-result-v2");
+    expect(result).toContain("rise-pals-candidate-child-diagnostic-v1");
+    expect(transport).toContain("rise-pals-candidate-parent-checkpoint-v2");
+    expect(transport).toContain("rise-pals-candidate-parent-result-v4");
+    expect(transport).toContain("childDiagnostic");
+    expect(result).toContain("cleanupResponsibilityTransferredToParent");
+    expect(result).toContain("candidateServiceInstallationBegan");
+    expect(result).toContain("directStopServiceReached");
+    expect(result).toContain("not_reached");
+    expect(result).toContain("not_applicable");
     expect(transport).toContain("durableCheckpointValidated");
     expect(transport).toContain("transientCleanupCompleted");
     expect(transport).toContain("remainingTransientRelativePaths");

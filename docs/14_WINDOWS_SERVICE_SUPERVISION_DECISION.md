@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
 **Turn:** RP-TURN-019-R4  
-**Status:** Option B repository-only prototype retained; R4-DIAG1-R2 authoritative post-cleanup receipt and process-exit verification complete pending Project Codex review after LIVE3's functional rehearsal remained unaccepted  
+**Status:** Option B repository-only prototype retained; R4-DIAG2 durable sanitized child-diagnostic protocol complete pending Project Codex review while LIVE4B remains Partial after one failed attempt with valid zero-residue cleanup evidence  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -165,6 +165,8 @@ The separately authorized LIVE1 attempt stopped before UAC in its fresh Phase A 
 LIVE2 stopped before UAC and its authorization is invalid. R4-R3 pins explicit executable-only Version/AssemblyVersion/FileVersion/InformationalVersion and disables source-revision suffixing without changing service behavior. Artifact provenance records post-policy service-host production source tree `125eb5a7765c58cbc7cee094fbe82207642fd2a5` and excludes volatile outer-repository commit metadata. Git-aware MSBuild discovery still observed the outer commit while file-only contexts did not, but all three outputs and assembly metadata were identical and neither outer commit identifier was embedded. No live/elevated execution or host mutation occurred.
 
 LIVE3 later returned exit code 1 with no valid result. Recovery2 is Accepted and the host is again zero-residue; LIVE3 is not functional evidence. The old child had no marker ahead of typed binding, elevated `%TEMP%`-relative path resolution, helper loading and ACL/result initialization, so the exact historical failure is unknowable. R4-DIAG1-R2 preserves R1's truthful marker ownership and makes cleanup outcome authoritative: transient invocation data remains separate from a caller-supplied protected evidence directory; the parent atomically writes, reopens and validates a digest-bound pre-cleanup checkpoint, then attempts exact cleanup and writes a distinct schema-v3 result containing the checkpoint relationship and sanitized final residue state. A final success exists only after successful child evidence, both reopened durable records and zero transient residue. Ten clean-commit hidden PowerShell 5.1 process simulations prove exit/evidence behavior without stdout authority, including cleanup and both durable-write interruptions. This changes result transport only, not the candidate service contract or behavior. No UAC or Live attempt occurred and another one requires separate exact-head authorization.
+
+LIVE4B later ran exactly once and failed. The two retained records prove cleanup attempted/completed, absent invocation directory, zero residue and a safe final host, but the exact internal failed stage and individual functional-gate outcomes remain unknown. R4-DIAG2 does not reconstruct that run. For future runs only, it reduces a validated child result to a closed, digest-authenticated stage/gate/lifecycle summary, stores it in the reopened pre-cleanup checkpoint and carries the identical diagnostic digest into the post-cleanup result. Every mandatory gate must pass before Live functional success is possible; malformed, missing, reordered, inconsistent, tampered or non-equivalent diagnosis exits nonzero. No UAC, Live attempt, service or `C:\RisePals` mutation, reboot or deployment is authorized by DIAG2.
 
 ### Separately authorized host rehearsal — not authorized
 

@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R4-DIAG1-R2 authoritative post-cleanup receipt and process-exit verification complete pending Project Codex review; LIVE3 functional rehearsal remains unaccepted after Accepted Recovery2, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
+**Status:** RP-TURN-019-R4-DIAG2 durable sanitized child-diagnostic protocol complete pending Project Codex review; LIVE4B remains Partial after one failed attempt with valid zero-residue cleanup evidence, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
 **Checked:** 2026-08-28
 
 ## Confirmed host role and separation rule
@@ -1031,7 +1031,15 @@ Before the first durable bootstrap marker, only PowerShell parsing, primitive st
 | truthful child-start boundary | PASS — bootstrap owns only attempted state; the child owns its start marker; launch failure, pre-marker child exit, child-without-live and live-without-final remain distinct failures |
 | host mutation | PASS — no UAC, Live mode, service install/control, process termination, `C:\RisePals` write, listener/firewall/DNS/certificate/reboot/deployment mutation or `.env.local` access |
 
-Complete aggregate, service-host, digest and security results are recorded in the DIAG1 handoff after the exact clean commit. Chromium/alpha E2E are not required unless the repository gates show an affected browser surface; this change is confined to Windows-only launcher scripts and infrastructure contract tests.
+### RP-TURN-019-R4-DIAG2 durable child diagnosis
+
+LIVE4B ran exactly once at head `2beed00217eaed25f1157aa7499f9196e5e52e66`. The parent exited 86, the elevated child exited 1 and its validated status was failure. Checkpoint digest `8be6008c7c82113a8728f14e30af3085d9378c70ddb1919a2532ab54d0f392b1` and authoritative-result digest `cc15d958d953cc67957b3a498bd26c3d26d6899e875dfd328e8874d92a286157` prove cleanup attempted/completed, absent invocation directory, zero residue and a safe final host. They do not prove an exact internal failed stage or individual functional-gate outcomes; those facts remain unknown.
+
+DIAG2 changes future transport only. Child schema v2 adds a closed execution-mode and lifecycle shape. After validating the digest-bound child result, the parent derives `rise-pals-candidate-child-diagnostic-v1`: child-result digest/status, controlled failed stage/code, a contiguous ordered functional-stage prefix, exactly 21 fixed functional gates using only `passed`, `failed`, `not_reached` or `not_applicable`, child cleanup truth, parent cleanup-transfer truth and four monotonic mutation/install/start/direct-Stop booleans. Unknown/duplicate/reordered stages, missing/extra/inconsistent gates, impossible lifecycle transitions, unknown failure provenance and digest changes fail closed.
+
+The schema-v2 checkpoint authenticates that summary and is atomically written, reopened and validated before transient deletion. The schema-v4 authoritative result carries the identical summary and its diagnostic digest; parent validation compares that digest with the reopened checkpoint. Live success requires all 21 functional gates to pass in addition to the existing validated-child, durable-checkpoint and zero-residue post-cleanup requirements. If checkpoint or final-result persistence/reopening/equivalence fails, exit remains nonzero and any earlier valid durable record remains. Raw streams, exceptions, environment values, command lines, paths, request data, secrets and personal data are excluded. These rules do not reconstruct LIVE4B and authorize no further Live/UAC attempt.
+
+Complete aggregate, service-host, digest and security results are recorded in the DIAG2 handoff after the exact clean commit. Chromium/alpha E2E are not required unless the repository gates show an affected browser surface; this change is confined to Windows-only launcher scripts and infrastructure contract tests.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

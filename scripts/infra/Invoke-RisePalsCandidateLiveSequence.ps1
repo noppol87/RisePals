@@ -139,11 +139,12 @@ function Write-RisePalsCandidateLiveState {
     [AllowNull()][string]$FailedStage,
     [AllowNull()][string]$FailureCode,
     [Parameter(Mandatory = $true)][bool]$CleanupCompleted,
+    [Parameter(Mandatory = $true)][object]$LifecycleEvidence,
     [Parameter(Mandatory = $true)][object]$FinalState
   )
 
   $state = [ordered]@{
-    schemaVersion = "rise-pals-candidate-live-state-v1"
+    schemaVersion = $script:RisePalsCandidateLiveStateSchema
     status = $Status
     completedStages = @($CompletedStages)
     failedStage = if ([string]::IsNullOrWhiteSpace($FailedStage)) { $null } else { $FailedStage }
@@ -153,6 +154,7 @@ function Write-RisePalsCandidateLiveState {
       $FailureCode
     }
     cleanupCompleted = $CleanupCompleted
+    lifecycleEvidence = $LifecycleEvidence
     finalState = $FinalState
   }
   $bytes = [Text.UTF8Encoding]::new($false).GetBytes(
@@ -452,6 +454,10 @@ $failureCode = $null
 $cleanupCompleted = $false
 $sequenceSucceeded = $false
 $createdService = $false
+$liveHostMutationBegan = $false
+$candidateServiceInstallationBegan = $false
+$candidateServiceStartReached = $false
+$directStopServiceReached = $false
 $stagingTaskRoot = [IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($paths.stagedHost))
 $rehearsalTaskRoot = [IO.Path]::GetDirectoryName($paths.configDirectory)
 $logTaskRoot = $paths.logDirectory
@@ -538,6 +544,7 @@ try {
   $completed += "preflight"
 
   $failedStage = "stage-immutable-inputs"
+  $liveHostMutationBegan = $true
   foreach ($directory in @(
     [IO.Path]::GetDirectoryName($paths.stagedHost),
     $paths.stagedRuntime,
@@ -618,6 +625,7 @@ try {
 
   $failedStage = "create-own-process-service"
   $binaryPath = '"' + $paths.stagedHost + '" --config "' + $paths.configPath + '"'
+  $candidateServiceInstallationBegan = $true
   Invoke-RisePalsCandidateSc -Arguments @(
     "create",
     $script:RisePalsCandidateServiceName,
@@ -659,6 +667,7 @@ try {
   $controlScript = Join-Path $PSScriptRoot "Invoke-RisePalsCandidateServiceControl.ps1"
 
   $failedStage = "start-and-ready"
+  $candidateServiceStartReached = $true
   Start-Service -Name $script:RisePalsCandidateServiceName
   [void](Wait-RisePalsCandidateServiceState -ExpectedState "Running" -TimeoutSeconds 20)
   $ready = Complete-RisePalsCandidateProbe -Probe (
@@ -678,6 +687,7 @@ try {
   $completed += "stream-first-byte"
 
   $failedStage = "direct-stop"
+  $directStopServiceReached = $true
   $stopProcess = Start-Process -FilePath $powerShell -ArgumentList @(
     "-NoLogo",
     "-NoProfile",
@@ -946,13 +956,20 @@ try {
     $cleanupCompleted = $false
     $finalState = New-RisePalsCandidateFinalState -CandidateState "Unknown" `
       -CandidateStartMode "Unknown" -TemporaryChildren 1
+    $failedStage = "cleanup"
     $failureCode = "cleanup-failed"
   }
 
   $liveStatus = if ($sequenceSucceeded -and $cleanupCompleted) { "success" } else { "failure" }
+  $lifecycleEvidence = New-RisePalsCandidateLifecycleEvidence `
+    -LiveHostMutationBegan $liveHostMutationBegan `
+    -CandidateServiceInstallationBegan $candidateServiceInstallationBegan `
+    -CandidateServiceStartReached $candidateServiceStartReached `
+    -DirectStopServiceReached $directStopServiceReached
   Write-RisePalsCandidateLiveState -Path $structuredState -Status $liveStatus `
     -CompletedStages $completed -FailedStage $failedStage -FailureCode $failureCode `
-    -CleanupCompleted $cleanupCompleted -FinalState $finalState
+    -CleanupCompleted $cleanupCompleted -LifecycleEvidence $lifecycleEvidence `
+    -FinalState $finalState
 }
 
 if ($sequenceSucceeded -and $cleanupCompleted) {

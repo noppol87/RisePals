@@ -112,7 +112,7 @@ if ($Mode -eq "Plan") {
 }
 
 $authorizationId = if ($Mode -eq "Simulation") {
-  "RP-TURN-019-R4-DIAG1-SIMULATION"
+  "RP-TURN-019-R4-DIAG2-SIMULATION"
 } else {
   $FutureAuthorizationId
 }
@@ -160,6 +160,7 @@ $remainingTransientRelativePaths = @()
 $remainingTransientObjectCount = 0
 $remainingTemporaryObjectCount = 0
 $parentCheckpoint = $null
+$childDiagnostic = $null
 
 try {
   if (-not $resultPathFresh) {
@@ -350,6 +351,9 @@ try {
         -InvocationStartedAtUtc $startedAt -ConsumedNonces @{})
       $finalValidated = $true
       $finalStatus = [string]$validated.status
+      $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $validated `
+        -ExecutionMode $Mode -CleanupResponsibilityTransferredToParent $true
+      [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $childDiagnostic)
     } catch {
       $evidenceInvalid = $true
     }
@@ -375,6 +379,13 @@ try {
   $evidenceInvalid = $true
 }
 
+if ($null -eq $childDiagnostic) {
+  $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $null `
+    -ExecutionMode $Mode `
+    -CleanupResponsibilityTransferredToParent $directoryInitialized
+  [void](Assert-RisePalsCandidateChildDiagnostic -Diagnostic $childDiagnostic)
+}
+
 $classification = Resolve-RisePalsCandidateParentClassification `
   -LaunchDisposition $launchDisposition -BootstrapEntered $bootstrapEntered `
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
@@ -390,7 +401,8 @@ $parentCheckpoint = New-RisePalsCandidateParentCheckpoint -InvocationNonce $nonc
   -BootstrapFailurePresent $bootstrapFailurePresent `
   -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
   -LiveStarted $liveStarted -FinalPresent $finalPresent `
-  -FinalValidated $finalValidated -FinalStatus $finalStatus
+  -FinalValidated $finalValidated -FinalStatus $finalStatus `
+  -ChildDiagnostic $childDiagnostic
 
 if ($checkpointPathFresh -and $resultPathFresh) {
   try {
@@ -399,7 +411,8 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
       -ExpectedBootstrapScriptSha256 $bootstrapHash `
       -ExpectedTransportScriptSha256 $transportHash `
-      -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+      -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
+      -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     if ($Mode -eq "Simulation" -and
       $SimulationScenario -eq "CheckpointWriteInterruption") {
@@ -419,7 +432,8 @@ if ($checkpointPathFresh -and $resultPathFresh) {
       -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
       -ExpectedBootstrapScriptSha256 $bootstrapHash `
       -ExpectedTransportScriptSha256 $transportHash `
-      -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+      -ExpectedChildScriptSha256 $childHash -ExpectedExecutionMode $Mode `
+      -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     $parentCheckpoint = $reopenedCheckpoint
     $durableCheckpointValidated = $true
@@ -529,7 +543,10 @@ if ($resultPathFresh) {
     -ExpectedBootstrapScriptSha256 $bootstrapHash `
     -ExpectedTransportScriptSha256 $transportHash `
     -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
-    -ExpectedCheckpointDigest $checkpointDigest -InvocationStartedAtUtc $startedAt `
+    -ExpectedCheckpointDigest $checkpointDigest `
+    -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
+    -ExpectedExecutionMode $Mode `
+    -InvocationStartedAtUtc $startedAt `
     -ConsumedNonces @{})
     if ($Mode -eq "Simulation" -and
       $SimulationScenario -eq "FinalResultWriteInterruption") {
@@ -549,7 +566,10 @@ if ($resultPathFresh) {
       -ExpectedBootstrapScriptSha256 $bootstrapHash `
       -ExpectedTransportScriptSha256 $transportHash `
       -ExpectedChildScriptSha256 $childHash -ExpectedCheckpointFileName $checkpointFileName `
-      -ExpectedCheckpointDigest $checkpointDigest -InvocationStartedAtUtc $startedAt `
+      -ExpectedCheckpointDigest $checkpointDigest `
+      -ExpectedChildDiagnosticDigest ([string]$parentCheckpoint.childDiagnostic.diagnosticDigest) `
+      -ExpectedExecutionMode $Mode `
+      -InvocationStartedAtUtc $startedAt `
       -ConsumedNonces @{})
     $parentResult = $reopenedResult
     $authoritativeResultValidated = $true
@@ -570,6 +590,7 @@ $summary = [ordered]@{
   durableCheckpointValidated = $durableCheckpointValidated
   authoritativeResultValidated = $authoritativeResultValidated
   transientCleanupCompleted = $transientCleanupCompleted
+  childDiagnosticDigest = [string]$parentResult.childDiagnostic.diagnosticDigest
 }
 Write-Output ("RISE_PALS_CANDIDATE_PARENT_SUMMARY=" +
   ($summary | ConvertTo-Json -Depth 4 -Compress))
