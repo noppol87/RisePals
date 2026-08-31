@@ -314,7 +314,9 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(bootstrap).not.toContain("RedirectStandardOutput");
     expect(bootstrap).not.toContain("RedirectStandardError");
     expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "bootstrap-started"');
-    expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "child-started"');
+    expect(bootstrap).toContain('New-RisePalsBootstrapMarker -MarkerType "child-launch-attempted"');
+    expect(bootstrap).not.toContain('New-RisePalsBootstrapMarker -MarkerType "child-started"');
+    expect(child).toContain('New-RisePalsCandidateMarker -MarkerType "child-started"');
     expect(bootstrap).toContain("[Security.Cryptography.SHA256]::Create()");
     expect(bootstrap).toContain("ComputeHash");
     expect(bootstrap).not.toContain("Get-FileHash");
@@ -334,11 +336,17 @@ describe("repository-only candidate service rehearsal harness", () => {
     expect(result).toContain("rawOutputPersisted");
     expect(transport).toContain("uac-not-launched");
     expect(transport).toContain("elevated-child-never-entered-bootstrap");
-    expect(transport).toContain("bootstrap-entered-child-not-started");
+    expect(transport).toContain("bootstrap-entered-child-launch-not-attempted");
+    expect(transport).toContain("child-launch-attempted-child-not-started");
     expect(transport).toContain("child-started-failed-before-live");
     expect(transport).toContain("live-started-failed");
     expect(transport).toContain("final-present-validated");
     expect(transport).toContain("final-invalid-or-inconsistent");
+    expect(parent).toContain("Write-RisePalsCandidateDurableParentResultAtomic");
+    expect(parent).toContain("Read-RisePalsCandidateDurableParentResult");
+    expect(parent).toContain("RISE_PALS_CANDIDATE_PARENT_SUMMARY=");
+    expect(parent).not.toContain("RISE_PALS_CANDIDATE_PARENT_RESULT=");
+    expect(transport).toContain("rise-pals-candidate-parent-result-v2");
   });
 
   it("wires exact stage failures and recursive cleanup refusal into the gated live source", async () => {

@@ -129,6 +129,24 @@ function New-RisePalsCandidateValidMarker {
     -SanitizedFailureCode $FailureCode -RecordedAtUtc $RecordedAtUtc
 }
 
+function New-RisePalsCandidateValidParentResult {
+  param(
+    [string]$Nonce = "0123456789abcdef0123456789abcdef",
+    [string]$AuthorizationId = "RP-TURN-019-R4-DIAG1-SIMULATION",
+    [string]$Head = "1111111111111111111111111111111111111111"
+  )
+
+  return New-RisePalsCandidateParentResult -InvocationNonce $Nonce `
+    -AuthorizationId $AuthorizationId -RepositoryHead $Head `
+    -LauncherScriptSha256 ("a" * 64) -BootstrapScriptSha256 ("b" * 64) `
+    -TransportScriptSha256 ("c" * 64) -ChildScriptSha256 ("d" * 64) `
+    -LaunchDisposition "launched" -Classification "final-present-validated" `
+    -ProcessLaunched $true -ElevatedExitCode 0 -BootstrapEntered $true `
+    -BootstrapStarted $true -BootstrapFailurePresent $false `
+    -ChildLaunchAttempted $true -ChildStarted $true -LiveStarted $true `
+    -FinalPresent $true -FinalValidated $true -FinalStatus "success"
+}
+
 $contract = Get-RisePalsCandidateContract -RepositoryRoot $repository
 Write-Output "Candidate contract and accepted artifact pins PASS"
 
@@ -520,40 +538,43 @@ foreach ($case in $invalidCases) {
 Write-Output "Malformed/stale/provenance/partial/digest result rejections PASS"
 
 $transportScenarios = @(
-  @{ Name = "successful-bootstrap-start-stage-final"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
-  @{ Name = "failure-before-bootstrap-invocation"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
-  @{ Name = "bootstrap-argument-rejection"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
-  @{ Name = "bootstrap-result-directory-rejection"; Launch = "launch-failure"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
-  @{ Name = "failure-immediately-after-bootstrap"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "bootstrap-entered-child-not-started" },
-  @{ Name = "full-child-load-failure"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "bootstrap-entered-child-not-started" },
-  @{ Name = "child-exit-before-stage"; Launch = "launched"; B = $true; C = $true; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "child-started-failed-before-live" },
-  @{ Name = "child-exit-after-stage-before-final"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
-  @{ Name = "uac-cancellation"; Launch = "cancelled"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-cancelled" },
-  @{ Name = "elevated-process-creation-failure"; Launch = "launch-failure"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
-  @{ Name = "uac-not-launched"; Launch = "not-launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-not-launched" },
-  @{ Name = "exit-code-final-status-mismatch"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "missing-final-marker"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
-  @{ Name = "partial-json"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "invalid-schema"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-nonce"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-authorization-id"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-head"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-launcher-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-bootstrap-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-transport-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "incorrect-child-script-hash"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "stale-marker"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "replayed-marker"; Launch = "launched"; B = $true; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "reparse-result-root-or-marker"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "marker-outside-exact-result-root"; Launch = "launched"; B = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "atomic-write-interruption"; Launch = "launched"; B = $true; C = $true; L = $true; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
-  @{ Name = "no-raw-output-dependency"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
-  @{ Name = "temporary-resource-cleanup"; Launch = "launched"; B = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "failure"; Expected = "final-present-validated" }
+  @{ Name = "successful-bootstrap-start-stage-final"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
+  @{ Name = "failure-before-bootstrap-invocation"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
+  @{ Name = "bootstrap-argument-rejection"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-child-never-entered-bootstrap" },
+  @{ Name = "bootstrap-result-directory-rejection"; Launch = "launch-failure"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
+  @{ Name = "failure-immediately-after-bootstrap"; Launch = "launched"; B = $true; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "bootstrap-entered-child-launch-not-attempted" },
+  @{ Name = "child-process-launch-failure"; Launch = "launched"; B = $true; A = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "child-launch-attempted-child-not-started" },
+  @{ Name = "full-child-load-failure"; Launch = "launched"; B = $true; A = $true; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "child-launch-attempted-child-not-started" },
+  @{ Name = "child-marker-without-live"; Launch = "launched"; B = $true; A = $true; C = $true; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "child-started-failed-before-live" },
+  @{ Name = "live-marker-without-final"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
+  @{ Name = "uac-cancellation"; Launch = "cancelled"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-cancelled" },
+  @{ Name = "elevated-process-creation-failure"; Launch = "launch-failure"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "elevated-process-launch-failure" },
+  @{ Name = "uac-not-launched"; Launch = "not-launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $false; S = $null; Expected = "uac-not-launched" },
+  @{ Name = "exit-code-final-status-mismatch"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "missing-final-marker"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $false; V = $false; I = $false; S = $null; Expected = "live-started-failed" },
+  @{ Name = "partial-json"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $true; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "invalid-schema"; Launch = "launched"; B = $true; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-nonce"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-authorization-id"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-head"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-launcher-script-hash"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-bootstrap-script-hash"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-transport-script-hash"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "incorrect-child-script-hash"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "stale-marker"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "replayed-marker"; Launch = "launched"; B = $true; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "reparse-result-root-or-marker"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "marker-outside-exact-result-root"; Launch = "launched"; B = $false; A = $false; C = $false; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "atomic-write-interruption"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "marker-ordering-violation"; Launch = "launched"; B = $true; A = $true; C = $true; L = $false; P = $false; V = $false; I = $true; S = $null; Expected = "final-invalid-or-inconsistent" },
+  @{ Name = "no-raw-output-dependency"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "success"; Expected = "final-present-validated" },
+  @{ Name = "temporary-resource-cleanup"; Launch = "launched"; B = $true; A = $true; C = $true; L = $true; P = $true; V = $true; I = $false; S = "failure"; Expected = "final-present-validated" }
 )
 foreach ($scenario in $transportScenarios) {
   $actual = Resolve-RisePalsCandidateParentClassification `
     -LaunchDisposition $scenario.Launch -BootstrapEntered $scenario.B `
-    -ChildStarted $scenario.C -LiveStarted $scenario.L -FinalPresent $scenario.P `
+    -ChildLaunchAttempted $scenario.A -ChildStarted $scenario.C `
+    -LiveStarted $scenario.L -FinalPresent $scenario.P `
     -FinalValidated $scenario.V -EvidenceInvalid $scenario.I -FinalStatus $scenario.S
   if ($actual -ne $scenario.Expected) {
     throw ("Candidate transport simulation {0} returned {1}." -f $scenario.Name, $actual)
@@ -700,11 +721,154 @@ if ([IO.Directory]::Exists($transportRoot) -or [IO.File]::Exists($outside)) {
 }
 Write-Output "Explicit result-root ACL/path/atomic-write/cleanup simulations PASS"
 
+$durableRoot = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-durable-" + [guid]::NewGuid().ToString("N")
+)
+$unauthorizedRoot = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-durable-unauthorized-" + [guid]::NewGuid().ToString("N")
+)
+$durableJunctionTarget = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-durable-target-" + [guid]::NewGuid().ToString("N")
+)
+$durableJunction = Join-Path ([IO.Path]::GetTempPath()) (
+  "risepals-candidate-durable-junction-" + [guid]::NewGuid().ToString("N")
+)
+$durableNonce = "0123456789abcdef0123456789abcdef"
+$interruptedNonce = "fedcba9876543210fedcba9876543210"
+try {
+  $durableDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
+    -Path $durableRoot -Mode Simulation
+  $parentResult = New-RisePalsCandidateValidParentResult -Nonce $durableNonce
+  $durablePath = Write-RisePalsCandidateDurableParentResultAtomic `
+    -Result $parentResult -EvidenceDirectory $durableDirectory -Mode Simulation
+  $reopenedParent = Read-RisePalsCandidateDurableParentResult -Path $durablePath `
+    -EvidenceDirectory $durableDirectory -InvocationNonce $durableNonce `
+    -Mode Simulation
+  $parentValidationStarted = [DateTimeOffset]::UtcNow.AddMinutes(-1)
+  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+    -ExpectedNonce $durableNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -InvocationStartedAtUtc $parentValidationStarted -ConsumedNonces @{})
+  $consumedParents = @{}
+  [void](Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+    -ExpectedNonce $durableNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -InvocationStartedAtUtc $parentValidationStarted `
+    -ConsumedNonces $consumedParents)
+  Assert-RisePalsCandidateThrows -Label "Durable parent-result replay" -Action {
+    Assert-RisePalsCandidateParentResult -Result $reopenedParent `
+      -ExpectedNonce $durableNonce `
+      -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+      -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+      -ExpectedBootstrapScriptSha256 ("b" * 64) `
+      -ExpectedTransportScriptSha256 ("c" * 64) `
+      -ExpectedChildScriptSha256 ("d" * 64) `
+      -InvocationStartedAtUtc $parentValidationStarted `
+      -ConsumedNonces $consumedParents
+  }
+  Assert-RisePalsCandidateThrows -Label "Existing durable parent-result path" -Action {
+    Write-RisePalsCandidateDurableParentResultAtomic -Result $parentResult `
+      -EvidenceDirectory $durableDirectory -Mode Simulation
+  }
+
+  $transientSimulation = Join-Path ([IO.Path]::GetTempPath()) (
+    "risepals-candidate-transient-" + [guid]::NewGuid().ToString("N")
+  )
+  [IO.Directory]::CreateDirectory($transientSimulation) | Out-Null
+  [IO.Directory]::Delete($transientSimulation, $false)
+  if (-not [IO.File]::Exists($durablePath)) {
+    throw "Transient cleanup deleted the durable parent result."
+  }
+
+  $interruptedResult = New-RisePalsCandidateValidParentResult `
+    -Nonce $interruptedNonce
+  $interruptedPath = Get-RisePalsCandidateDurableParentResultPath `
+    -EvidenceDirectory $durableDirectory -InvocationNonce $interruptedNonce
+  [IO.File]::WriteAllText(
+    $interruptedPath + ".tmp",
+    "partial",
+    [Text.UTF8Encoding]::new($false)
+  )
+  Assert-RisePalsCandidateThrows -Label "Interrupted durable parent-result write" -Action {
+    Write-RisePalsCandidateDurableParentResultAtomic -Result $interruptedResult `
+      -EvidenceDirectory $durableDirectory -Mode Simulation
+  }
+  if ([IO.File]::Exists($interruptedPath)) {
+    throw "An interrupted durable write created a final success artifact."
+  }
+
+  [IO.Directory]::CreateDirectory($unauthorizedRoot) | Out-Null
+  Assert-RisePalsCandidateThrows -Label "Unauthorized durable evidence ACL" -Action {
+    Assert-RisePalsCandidateEvidenceDirectory -Path $unauthorizedRoot -Mode Simulation
+  }
+  Assert-RisePalsCandidateThrows -Label "Escaped durable evidence root" -Action {
+    Assert-RisePalsCandidateEvidenceDirectory -Path $repository -Mode Simulation
+  }
+  [IO.Directory]::CreateDirectory($durableJunctionTarget) | Out-Null
+  [void](New-Item -ItemType Junction -Path $durableJunction `
+    -Target $durableJunctionTarget)
+  Assert-RisePalsCandidateThrows -Label "Linked durable evidence root" -Action {
+    Assert-RisePalsCandidateEvidenceDirectory -Path $durableJunction -Mode Simulation
+  }
+
+  $orderedStart = [DateTimeOffset]::UtcNow
+  [void](Assert-RisePalsCandidateMarkerOrdering -MarkerTimes @{
+    "bootstrap-started" = $orderedStart
+    "child-launch-attempted" = $orderedStart.AddMilliseconds(1)
+    "child-started" = $orderedStart.AddMilliseconds(2)
+    "live-started" = $orderedStart.AddMilliseconds(3)
+  })
+  Assert-RisePalsCandidateThrows -Label "Marker ordering violation" -Action {
+    Assert-RisePalsCandidateMarkerOrdering -MarkerTimes @{
+      "bootstrap-started" = $orderedStart
+      "child-launch-attempted" = $orderedStart.AddMilliseconds(3)
+      "child-started" = $orderedStart.AddMilliseconds(2)
+    }
+  }
+  Assert-RisePalsCandidateThrows -Label "Marker predecessor violation" -Action {
+    Assert-RisePalsCandidateMarkerOrdering -MarkerTimes @{
+      "bootstrap-started" = $orderedStart
+      "child-started" = $orderedStart.AddMilliseconds(1)
+    }
+  }
+} finally {
+  if ([IO.Directory]::Exists($durableJunction)) {
+    [IO.Directory]::Delete($durableJunction, $false)
+  }
+  if ([IO.Directory]::Exists($durableJunctionTarget)) {
+    [IO.Directory]::Delete($durableJunctionTarget, $false)
+  }
+  if ([IO.Directory]::Exists($unauthorizedRoot)) {
+    [IO.Directory]::Delete($unauthorizedRoot, $false)
+  }
+  if ([IO.Directory]::Exists($durableRoot)) {
+    [IO.Directory]::Delete($durableRoot, $true)
+  }
+}
+if ([IO.Directory]::Exists($durableRoot) -or
+  [IO.Directory]::Exists($unauthorizedRoot) -or
+  [IO.Directory]::Exists($durableJunction) -or
+  [IO.Directory]::Exists($durableJunctionTarget)) {
+  throw "Durable parent-evidence simulations left a temporary resource."
+}
+Write-Output "Durable parent evidence/replay/ACL/ordering/cleanup simulations PASS"
+
 $parentSource = [IO.File]::ReadAllText(
   (Join-Path $scripts "Invoke-RisePalsCandidateRehearsal.ps1")
 )
 $bootstrapSource = [IO.File]::ReadAllText(
   (Join-Path $scripts "Invoke-RisePalsCandidateElevatedBootstrap.ps1")
+)
+$childSource = [IO.File]::ReadAllText(
+  (Join-Path $scripts "Invoke-RisePalsCandidateRehearsalChild.ps1")
 )
 if ($parentSource.Contains("RedirectStandardOutput") -or
   $parentSource.Contains("RedirectStandardError") -or
@@ -712,10 +876,15 @@ if ($parentSource.Contains("RedirectStandardOutput") -or
   $bootstrapSource.Contains("RedirectStandardError") -or
   $bootstrapSource.Contains("Get-FileHash") -or
   -not $bootstrapSource.Contains("SHA256]::Create()") -or
-  -not $bootstrapSource.Contains("ComputeHash")) {
+  -not $bootstrapSource.Contains("ComputeHash") -or
+  -not $bootstrapSource.Contains('MarkerType "child-launch-attempted"') -or
+  $bootstrapSource.Contains('MarkerType "child-started"') -or
+  -not $childSource.Contains('MarkerType "child-started"') -or
+  -not $parentSource.Contains("Write-RisePalsCandidateDurableParentResultAtomic") -or
+  -not $parentSource.Contains("Read-RisePalsCandidateDurableParentResult")) {
   throw "The parent/bootstrap boundary depends on raw streams or unsupported hashing."
 }
-Write-Output "No raw-output dependency and supported bootstrap hashing PASS"
+Write-Output "Durable parent transport, truthful child ownership and no raw-output dependency PASS"
 
 $stages = @($contract.rehearsalStages)
 $codes = @($contract.sanitizedFailureCodes)

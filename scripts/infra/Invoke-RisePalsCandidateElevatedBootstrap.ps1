@@ -201,7 +201,7 @@ function ConvertTo-RisePalsBootstrapProcessArgument {
 $safeDirectory = $null
 $failureCode = "bootstrap-validation-failed"
 $bootstrapMarkerWritten = $false
-$childMarkerWritten = $false
+$childLaunchAttemptedMarkerWritten = $false
 $childExitCode = 92
 
 try {
@@ -253,13 +253,19 @@ try {
   ) -Directory $safeDirectory
   $bootstrapMarkerWritten = $true
 
-  $failureCode = "committed-child-load-failed"
-  Write-RisePalsBootstrapMarkerAtomic -Marker (
-    New-RisePalsBootstrapMarker -MarkerType "child-started" -FailureCode $null
-  ) -Directory $safeDirectory
-  $childMarkerWritten = $true
-
-  $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+  $failureCode = "committed-child-launch-not-attempted"
+  $powerShell = if ($Mode -eq "Simulation" -and
+    $SimulationScenario -eq "ChildProcessLaunchFailure") {
+    Join-Path $safeDirectory "absent-powershell.exe"
+  } else {
+    Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+  }
+  $childRepositoryHead = if ($Mode -eq "Simulation" -and
+    $SimulationScenario -eq "ChildExitsBeforeStartMarker") {
+    "invalid"
+  } else {
+    $RepositoryHead
+  }
   $arguments = @(
     "-NoLogo",
     "-NoProfile",
@@ -272,7 +278,7 @@ try {
     "-SimulationScenario",
     $SimulationScenario,
     "-RepositoryHead",
-    $RepositoryHead,
+    $childRepositoryHead,
     "-AuthorizationId",
     $AuthorizationId,
     "-LauncherScriptSha256",
@@ -296,6 +302,10 @@ try {
     "-NodeExecutableSource",
     (ConvertTo-RisePalsBootstrapProcessArgument -Value $NodeExecutableSource)
   )
+  Write-RisePalsBootstrapMarkerAtomic -Marker (
+    New-RisePalsBootstrapMarker -MarkerType "child-launch-attempted" -FailureCode $null
+  ) -Directory $safeDirectory
+  $childLaunchAttemptedMarkerWritten = $true
   $failureCode = "committed-child-invocation-failed"
   $process = Start-Process -FilePath $powerShell -ArgumentList $arguments `
     -WindowStyle Hidden -Wait -PassThru
@@ -322,7 +332,7 @@ try {
   }
   $childExitCode = 92
 } finally {
-  if ($bootstrapMarkerWritten -and -not $childMarkerWritten -and
+  if ($bootstrapMarkerWritten -and -not $childLaunchAttemptedMarkerWritten -and
     $null -ne $safeDirectory -and
     -not [IO.File]::Exists((Join-Path $safeDirectory "bootstrap-failure.json"))) {
     try {

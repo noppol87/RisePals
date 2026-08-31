@@ -206,12 +206,13 @@ RP-TURN-019-R3 selects Option B only for a repository-owned prototype pending Pr
 
 LIVE3 exited with code 1 before producing parent-validatable structured evidence. Recovery2 restored and proved the accepted zero-residue host state, but the functional rehearsal is not accepted. Because the former elevated child could fail during typed parameter binding, elevated `%TEMP%`-relative directory resolution, helper loading or ACL/result initialization before any marker, the exact historic cause is unknowable. Do not infer service-host or cleanup behavior from that exit.
 
-R4-DIAG1 replaces that unobservable boundary with an explicit parent-owned transport:
+R4-DIAG1-R1 replaces that unobservable boundary with an explicit parent-owned transport and durable review artifact:
 
-- the non-elevated parent creates one nonce directory under its own absolute result root, rejects linked paths, applies and verifies the exact current-user/SYSTEM/Administrators ACL and passes the absolute root rather than relying on the elevated environment;
+- the non-elevated parent keeps its transient nonce directory separate from an explicit caller-supplied durable evidence directory. Future Live evidence is restricted beneath `C:\Users\Administrator\Documents\Codex`; simulations use an isolated task-scoped temporary root. Linked/escaped paths and any ACL principal beyond the current user, SYSTEM and Administrators are rejected;
 - the PowerShell 5.1 bootstrap accepts primitive strings only, self-validates the authorization ID, nonce, expected HEAD and launcher/bootstrap/transport/child hashes and atomically writes `bootstrap-started` before the full child is dispatched;
-- `child-started` and `live-started` distinguish dispatch/pre-live and live-started failures, while a top-level fixed bootstrap-failure marker records any reached bootstrap failure without exception text;
-- the parent validates exact path, reparse state, schema/property set, provenance, timestamps, digest, sequence, replay and exit/final consistency before producing a deterministic classification;
+- the bootstrap writes `child-launch-attempted` immediately before process creation but never claims that the child started. The child owns `child-started` and writes it before `live-started`; a top-level fixed bootstrap-failure marker records any reached bootstrap failure without exception text;
+- the parent validates exact path, reparse state, schema/property set, provenance, timestamps, digest, sequence, replay and exit/final consistency before producing a deterministic classification. It then atomically persists, reopens and independently validates the authenticated schema-v2 parent result before any transient cleanup;
+- the durable result survives launcher exit and contains authorization, nonce, HEAD, four script hashes, launch disposition/exit, validated marker states, final classification, exact UTC and canonical digest. Stdout is only a concise path/hash summary;
 - missing evidence is always failure and parent-generated diagnostics contain no service, drain, stream, restart or cleanup success claim.
 
 All R4-DIAG1 simulations are non-elevated, use only fresh temporary paths outside `C:\RisePals` and delete their controlled resources. They do not authorize another UAC prompt or host rehearsal. Project Codex must review the exact new commit and issue a separate exact-head authorization before any future Live attempt.

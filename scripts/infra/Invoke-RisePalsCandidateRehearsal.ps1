@@ -13,9 +13,13 @@ param(
     "WrongScriptHash",
     "DigestMismatch",
     "PartialResult",
-    "CleanupFailure"
+    "CleanupFailure",
+    "ChildProcessLaunchFailure",
+    "ChildExitsBeforeStartMarker",
+    "MissingFinalAfterLive"
   )][string]$SimulationScenario = "SuccessWithInformationalStderr",
   [string]$RepositoryRoot = "",
+  [string]$EvidenceDirectory = "",
   [string]$FutureAuthorizationId = "",
   [string]$CandidateExecutableSource = "",
   [string]$NodeExecutableSource = ""
@@ -99,13 +103,22 @@ $authorizationId = if ($Mode -eq "Simulation") {
 } else {
   $FutureAuthorizationId
 }
-$evidenceRoot = [IO.Path]::GetFullPath(
+if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
+  throw "Simulation and Live modes require an explicit durable evidence directory."
+}
+$durableEvidenceDirectory = Initialize-RisePalsCandidateEvidenceDirectory `
+  -Path $EvidenceDirectory -Mode $Mode
+$durableParentResultPath = Get-RisePalsCandidateDurableParentResultPath `
+  -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce
+if ([IO.File]::Exists($durableParentResultPath) -or
+  [IO.File]::Exists($durableParentResultPath + ".tmp")) {
+  throw "The durable parent-result path is not fresh."
+}
+$transientRoot = [IO.Path]::GetFullPath(
   (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher")
 )
-$invocationDirectory = Join-Path $evidenceRoot ("invocation-" + $nonce)
+$invocationDirectory = Join-Path $transientRoot ("invocation-" + $nonce)
 $resultPath = Join-Path $invocationDirectory "result.json"
-$parentResultPath = Join-Path $invocationDirectory "parent-result.json"
-$parentTemporaryPath = Join-Path $invocationDirectory "parent-result.json.tmp"
 $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
 $startedAt = [DateTimeOffset]::UtcNow
 $launchDisposition = "not-launched"
@@ -116,18 +129,21 @@ $evidenceInvalid = $false
 $bootstrapStarted = $false
 $bootstrapEntered = $false
 $bootstrapFailurePresent = $false
+$childLaunchAttempted = $false
 $childStarted = $false
 $liveStarted = $false
 $finalPresent = $false
 $finalValidated = $false
 $finalStatus = $null
 $returnCode = 86
+$durableResultValidated = $false
+$transientCleanupCompleted = $false
 
 try {
-  if (-not [IO.Directory]::Exists($evidenceRoot)) {
-    [IO.Directory]::CreateDirectory($evidenceRoot) | Out-Null
+  if (-not [IO.Directory]::Exists($transientRoot)) {
+    [IO.Directory]::CreateDirectory($transientRoot) | Out-Null
   }
-  $rootItem = Get-Item -LiteralPath $evidenceRoot -Force
+  $rootItem = Get-Item -LiteralPath $transientRoot -Force
   if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
     -not [string]::IsNullOrWhiteSpace([string]$rootItem.LinkType) -or
     [IO.Directory]::Exists($invocationDirectory) -or [IO.File]::Exists($invocationDirectory)) {
@@ -136,7 +152,7 @@ try {
   [IO.Directory]::CreateDirectory($invocationDirectory) | Out-Null
   Protect-RisePalsCandidateInvocationDirectory -Path $invocationDirectory
   [void](Assert-RisePalsCandidateInvocationDirectory -Path $invocationDirectory `
-    -ExpectedRoot $evidenceRoot -InvocationNonce $nonce)
+    -ExpectedRoot $transientRoot -InvocationNonce $nonce)
   $directoryInitialized = $true
 
   $shouldLaunch = $true
@@ -177,7 +193,7 @@ try {
       "-InvocationNonce",
       $nonce,
       "-ResultRoot",
-      (ConvertTo-RisePalsCandidateProcessArgument -Value $evidenceRoot),
+      (ConvertTo-RisePalsCandidateProcessArgument -Value $transientRoot),
       "-InvocationDirectory",
       (ConvertTo-RisePalsCandidateProcessArgument -Value $invocationDirectory),
       "-LauncherScriptPath",
@@ -226,8 +242,13 @@ try {
   }
 
   $consumedMarkers = @{}
-  $markerTimes = @()
-  foreach ($markerType in @("bootstrap-started", "child-started", "live-started")) {
+  $markerTimes = @{}
+  foreach ($markerType in @(
+    "bootstrap-started",
+    "child-launch-attempted",
+    "child-started",
+    "live-started"
+  )) {
     $markerPath = Join-Path $invocationDirectory ($markerType + ".json")
     if ([IO.File]::Exists($markerPath)) {
       try {
@@ -240,9 +261,11 @@ try {
           -ExpectedTransportScriptSha256 $transportHash `
           -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
           -ConsumedMarkers $consumedMarkers)
-        $markerTimes += ConvertFrom-RisePalsCandidateUtc -Value ([string]$marker.recordedAtUtc)
+        $markerTimes[$markerType] = ConvertFrom-RisePalsCandidateUtc `
+          -Value ([string]$marker.recordedAtUtc)
         switch ($markerType) {
           "bootstrap-started" { $bootstrapStarted = $true }
+          "child-launch-attempted" { $childLaunchAttempted = $true }
           "child-started" { $childStarted = $true }
           "live-started" { $liveStarted = $true }
         }
@@ -266,6 +289,8 @@ try {
         -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
         -ConsumedMarkers $consumedMarkers)
       $bootstrapEntered = $true
+      $markerTimes["bootstrap-failure"] = ConvertFrom-RisePalsCandidateUtc `
+        -Value ([string]$failureMarker.recordedAtUtc)
     } catch {
       $evidenceInvalid = $true
     }
@@ -273,10 +298,10 @@ try {
   if ($bootstrapStarted) {
     $bootstrapEntered = $true
   }
-  for ($index = 1; $index -lt $markerTimes.Count; $index++) {
-    if ($markerTimes[$index] -lt $markerTimes[$index - 1]) {
-      $evidenceInvalid = $true
-    }
+  try {
+    [void](Assert-RisePalsCandidateMarkerOrdering -MarkerTimes $markerTimes)
+  } catch {
+    $evidenceInvalid = $true
   }
 
   $finalPresent = [IO.File]::Exists($resultPath)
@@ -302,6 +327,7 @@ try {
   }
   $preParentAllowed = @(
     "bootstrap-started.json",
+    "child-launch-attempted.json",
     "child-started.json",
     "live-started.json",
     "bootstrap-failure.json",
@@ -321,36 +347,52 @@ try {
 
 $classification = Resolve-RisePalsCandidateParentClassification `
   -LaunchDisposition $launchDisposition -BootstrapEntered $bootstrapEntered `
-  -ChildStarted $childStarted -LiveStarted $liveStarted -FinalPresent $finalPresent `
+  -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
+  -LiveStarted $liveStarted -FinalPresent $finalPresent `
   -FinalValidated $finalValidated -EvidenceInvalid $evidenceInvalid -FinalStatus $finalStatus
 $parentResult = New-RisePalsCandidateParentResult -InvocationNonce $nonce `
   -AuthorizationId $authorizationId -RepositoryHead $head `
-  -LauncherScriptSha256 $launcherHash -Classification $classification `
+  -LauncherScriptSha256 $launcherHash -BootstrapScriptSha256 $bootstrapHash `
+  -TransportScriptSha256 $transportHash -ChildScriptSha256 $childHash `
+  -LaunchDisposition $launchDisposition -Classification $classification `
   -ProcessLaunched $processLaunched -ElevatedExitCode $processExitCode `
-  -BootstrapStarted $bootstrapStarted -ChildStarted $childStarted `
-  -LiveStarted $liveStarted -FinalValidated $finalValidated -FinalStatus $finalStatus
-[void](Assert-RisePalsCandidateParentResult -Result $parentResult)
-if ($directoryInitialized) {
-  try {
-    Write-RisePalsCandidateJsonAtomic -Value $parentResult -ResultPath $parentResultPath `
-      -TemporaryPath $parentTemporaryPath
-  } catch {
-    $returnCode = 86
-  }
-}
-if ($parentResult.status -eq "success") {
-  $returnCode = 0
+  -BootstrapEntered $bootstrapEntered -BootstrapStarted $bootstrapStarted `
+  -BootstrapFailurePresent $bootstrapFailurePresent `
+  -ChildLaunchAttempted $childLaunchAttempted -ChildStarted $childStarted `
+  -LiveStarted $liveStarted -FinalPresent $finalPresent `
+  -FinalValidated $finalValidated -FinalStatus $finalStatus
+
+try {
+  [void](Assert-RisePalsCandidateParentResult -Result $parentResult `
+    -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+    -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+    -ExpectedBootstrapScriptSha256 $bootstrapHash `
+    -ExpectedTransportScriptSha256 $transportHash `
+    -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+    -ConsumedNonces @{})
+  $writtenPath = Write-RisePalsCandidateDurableParentResultAtomic `
+    -Result $parentResult -EvidenceDirectory $durableEvidenceDirectory -Mode $Mode
+  $reopened = Read-RisePalsCandidateDurableParentResult -Path $writtenPath `
+    -EvidenceDirectory $durableEvidenceDirectory -InvocationNonce $nonce -Mode $Mode
+  [void](Assert-RisePalsCandidateParentResult -Result $reopened `
+    -ExpectedNonce $nonce -ExpectedAuthorizationId $authorizationId `
+    -ExpectedHead $head -ExpectedLauncherScriptSha256 $launcherHash `
+    -ExpectedBootstrapScriptSha256 $bootstrapHash `
+    -ExpectedTransportScriptSha256 $transportHash `
+    -ExpectedChildScriptSha256 $childHash -InvocationStartedAtUtc $startedAt `
+    -ConsumedNonces @{})
+  $durableResultValidated = $true
+} catch {
+  $durableResultValidated = $false
+  $returnCode = 86
 }
 
-Write-Output (
-  "RISE_PALS_CANDIDATE_PARENT_RESULT=" +
-    ($parentResult | ConvertTo-Json -Depth 7 -Compress)
-)
-
-if ($directoryInitialized) {
+if ($durableResultValidated -and $directoryInitialized) {
   $allowedNames = @(
     "bootstrap-started.json",
     "bootstrap-started.json.tmp",
+    "child-launch-attempted.json",
+    "child-launch-attempted.json.tmp",
     "child-started.json",
     "child-started.json.tmp",
     "live-started.json",
@@ -361,28 +403,53 @@ if ($directoryInitialized) {
     "result.tmp",
     "live-state.json",
     "stdout.log",
-    "stderr.log",
-    "parent-result.json",
-    "parent-result.json.tmp"
+    "stderr.log"
   )
-  $children = @(Get-ChildItem -LiteralPath $invocationDirectory -Force)
-  if (@($children | Where-Object { $_.Name -notin $allowedNames }).Count -ne 0) {
-    $returnCode = 86
-  } else {
+  try {
+    $children = @(Get-ChildItem -LiteralPath $invocationDirectory -Force)
+    if (@($children | Where-Object {
+      $_.PSIsContainer -or $_.Name -notin $allowedNames -or
+      ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    }).Count -ne 0) {
+      throw "The transient invocation contains an unexpected cleanup object."
+    }
     foreach ($item in $children) {
-      if (-not $item.PSIsContainer -and
-        ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0) {
+      if (-not $item.PSIsContainer) {
         [IO.File]::Delete($item.FullName)
       }
     }
     if (@(Get-ChildItem -LiteralPath $invocationDirectory -Force).Count -eq 0) {
       [IO.Directory]::Delete($invocationDirectory, $false)
     }
-    if ([IO.Directory]::Exists($evidenceRoot) -and
-      @(Get-ChildItem -LiteralPath $evidenceRoot -Force).Count -eq 0) {
-      [IO.Directory]::Delete($evidenceRoot, $false)
+    if ([IO.Directory]::Exists($transientRoot) -and
+      @(Get-ChildItem -LiteralPath $transientRoot -Force).Count -eq 0) {
+      [IO.Directory]::Delete($transientRoot, $false)
     }
+    $transientCleanupCompleted = -not [IO.Directory]::Exists($invocationDirectory)
+  } catch {
+    $transientCleanupCompleted = $false
+    $returnCode = 86
   }
 }
+
+if ($durableResultValidated -and $transientCleanupCompleted -and
+  $parentResult.status -eq "success") {
+  $returnCode = 0
+}
+
+$summary = [ordered]@{
+  durableResultPath = if ($durableResultValidated) { $durableParentResultPath } else { $null }
+  durableResultDigest = if ($durableResultValidated) { $parentResult.resultDigest } else { $null }
+  classification = $parentResult.classification
+  status = if ($durableResultValidated -and $transientCleanupCompleted) {
+    $parentResult.status
+  } else {
+    "failure"
+  }
+  durableResultValidated = $durableResultValidated
+  transientCleanupCompleted = $transientCleanupCompleted
+}
+Write-Output ("RISE_PALS_CANDIDATE_PARENT_SUMMARY=" +
+  ($summary | ConvertTo-Json -Depth 4 -Compress))
 
 exit $returnCode

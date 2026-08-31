@@ -24,6 +24,14 @@ $ErrorActionPreference = "Stop"
 
 $directory = Assert-RisePalsCandidateInvocationDirectory -Path $InvocationDirectory `
   -ExpectedRoot $ResultRoot -InvocationNonce $InvocationNonce
+$childStartedMarker = New-RisePalsCandidateMarker -MarkerType "child-started" `
+  -InvocationNonce $InvocationNonce -AuthorizationId $AuthorizationId `
+  -RepositoryHead $RepositoryHead -LauncherScriptSha256 $LauncherScriptSha256 `
+  -BootstrapScriptSha256 $BootstrapScriptSha256 `
+  -TransportScriptSha256 $TransportScriptSha256 `
+  -ChildScriptSha256 $ChildScriptSha256 -SanitizedFailureCode $null
+Write-RisePalsCandidateMarkerAtomic -Marker $childStartedMarker `
+  -InvocationDirectory $directory
 if (-not $PSCmdlet.ShouldProcess(
   $directory,
   ("Run the candidate {0} child" -f $Mode.ToLowerInvariant())
@@ -95,6 +103,9 @@ $liveMarker = New-RisePalsCandidateMarker -MarkerType "live-started" `
   -TransportScriptSha256 $TransportScriptSha256 `
   -ChildScriptSha256 $ChildScriptSha256 -SanitizedFailureCode $null
 Write-RisePalsCandidateMarkerAtomic -Marker $liveMarker -InvocationDirectory $directory
+if ($Mode -eq "Simulation" -and $SimulationScenario -eq "MissingFinalAfterLive") {
+  exit 12
+}
 
 $process = Start-Process -FilePath $powerShell -ArgumentList $processArguments `
   -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `

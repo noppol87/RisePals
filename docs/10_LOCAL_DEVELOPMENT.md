@@ -1,7 +1,7 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R4-DIAG1 repository-only elevated-bootstrap/result-transport hardening complete pending Project Codex review; LIVE3 functional rehearsal remains unaccepted after Accepted Recovery2, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
+**Status:** RP-TURN-019-R4-DIAG1-R1 durable-parent-evidence and truthful child-start correction complete pending Project Codex review; LIVE3 functional rehearsal remains unaccepted after Accepted Recovery2, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
 **Checked:** 2026-08-28
 
 ## Confirmed host role and separation rule
@@ -1004,27 +1004,29 @@ R4-R2 verification used a fresh pinned SDK and task-scoped caches. Locked restor
 
 R4-R3 pins `Version` and `InformationalVersion` to `0.1.0-rp19-prototype`, `AssemblyVersion` and `FileVersion` to `0.1.0.0`, and sets `IncludeSourceRevisionInInformationalVersion=false` only in the executable project. The Git-aware context discovered outer commit `152eb5ac18933f8e42f70b75531c3f9a770fc054`; file-only contexts had no discovered source revision; all resolved the same explicit InformationalVersion. The executable contains neither that commit nor prior R3-R1 commit `5d73a55b09fc503e150e70bd9ab151f02895a6ae`. Artifact identity records post-policy production source tree `125eb5a7765c58cbc7cee094fbe82207642fd2a5`. LIVE2 stopped before UAC and its authorization is invalid; no Live mode, service control or host mutation occurred.
 
-### RP-TURN-019-R4-DIAG1 elevated bootstrap and result transport
+### RP-TURN-019-R4-DIAG1-R1 durable parent evidence and truthful child start
 
 LIVE3's elevated process returned exit code 1 without a parent-validatable result. The exact historic cause cannot be proven because no durable sanitized marker existed at the failure boundary. The old path performed complex PowerShell parameter binding, resolved the invocation root from the elevated process's `%TEMP%`, loaded two committed helpers, validated and changed the directory ACL, initialized result paths and exception preferences, serialized JSON and could invoke a native process before any result was guaranteed. In particular, a session-specific parent/elevated `%TEMP%` difference and any binding/loading/ACL exception were concrete unobservable failure paths, but none is labeled as the historic root cause without evidence.
 
-The corrected state sequence is:
+The corrected R1 state sequence is:
 
-1. the non-elevated parent completes exact repository preflight, hashes the launcher/bootstrap/transport/child and creates one nonce directory under its explicit result root;
-2. the parent rejects a linked root, protects the nonce directory to the current account, SYSTEM and Administrators, validates the exact resolved path/reparse/ACL contract and constructs primitive arguments;
+1. the non-elevated parent completes exact repository preflight, hashes the launcher/bootstrap/transport/child and validates one explicit caller-supplied durable evidence directory separately from the transient nonce directory;
+2. Live evidence must be a strict descendant of `C:\Users\Administrator\Documents\Codex`; simulations use a fresh task-scoped `%TEMP%` directory. The parent rejects path escape and linked segments, protects new evidence/invocation directories to only the current account, SYSTEM and Administrators and validates exact ACLs;
 3. only a separately authorized Live call may request UAC and create the elevated bootstrap process; cancellation and process-creation failure are parent classifications;
 4. the self-contained bootstrap binds strings only, initializes strict failure handling, validates authorization ID, nonce, HEAD, explicit root/ACL and every committed script hash with `SHA256.Create().ComputeHash(...)`, then atomically records `bootstrap-started` before loading or starting the full child;
-5. the bootstrap atomically records `child-started`, starts the committed child without stdout/stderr redirection and writes a fixed sanitized bootstrap-failure marker from its top-level boundary when child dispatch/final production fails;
-6. the child revalidates the explicit parent root, atomically records `live-started`, then runs the unchanged fixture/live sequence; raw native streams remain separate, are never parsed, and are deleted before the digest-bound final result is written;
-7. after elevated exit, the parent accepts only exact non-linked marker names inside the nonce directory, validates schema/property set, nonce, authorization ID, HEAD, four script hashes, UTC order/freshness, digest and replay, validates final/exit agreement and emits one parent result;
-8. the parent removes only the fixed temporary inventory and reports one of `uac-not-launched`, `uac-cancelled`, `elevated-process-launch-failure`, `elevated-child-never-entered-bootstrap`, `bootstrap-entered-child-not-started`, `child-started-failed-before-live`, `live-started-failed`, `final-present-validated` or `final-invalid-or-inconsistent`.
+5. immediately before `Start-Process`, the bootstrap atomically records `child-launch-attempted`; it never writes `child-started`. Its top-level boundary writes only a fixed sanitized bootstrap-failure marker when child launch/final production fails;
+6. the child revalidates the explicit transient root and writes its own authenticated `child-started` marker as early as safely possible, then writes `live-started` immediately before unchanged fixture/live work. Raw native streams remain separate, are never parsed, and are deleted before the digest-bound final result is written;
+7. after elevated exit, the parent accepts only exact non-linked marker names inside the nonce directory, validates schema/property set, nonce, authorization ID, HEAD, four script hashes, UTC order/freshness, digest, replay and final/exit agreement, then creates a schema-v2 parent result carrying all provenance, launch disposition/exit and validated marker states;
+8. the parent atomically writes that parent result to the durable evidence directory, reopens it through the independent path/ACL/UTF-8/schema/provenance/digest validator and only then may delete the transient fixed inventory. The durable result remains after launcher exit; stdout contains only a concise path/hash/status summary;
+9. classification distinguishes `uac-not-launched`, `uac-cancelled`, `elevated-process-launch-failure`, `elevated-child-never-entered-bootstrap`, `bootstrap-entered-child-launch-not-attempted`, `child-launch-attempted-child-not-started`, `child-started-failed-before-live`, `live-started-failed`, `final-present-validated` and `final-invalid-or-inconsistent`.
 
 Before the first durable bootstrap marker, only PowerShell parsing, primitive string binding, strict/error-preference initialization, self-contained function declaration, primitive/provenance validation, exact path/ACL inspection, SHA-256 initialization/computation and the marker's own bounded JSON serialization/atomic write remain. Result-directory creation and ACL protection occur in the observable non-elevated parent. No helper/module load, repository write, native child invocation, stream redirection or host mutation occurs before `bootstrap-started`. A failure too early to write that marker is still deterministically `elevated-child-never-entered-bootstrap`; a valid bootstrap-failure marker proves bootstrap entry even when the started marker could not be completed.
 
-| DIAG1 repository-only verification | Result |
+| DIAG1-R1 repository-only verification | Result |
 | --- | --- |
-| focused PowerShell transport suite | PASS — 29 scenarios plus schema/provenance/time/digest/replay, explicit root/ACL, linked-path, atomic interruption, no-raw-output and temporary cleanup checks |
-| direct non-elevated bootstrap boundary | PASS — bootstrap, child, live and final markers produced; exit 0; exact temporary result root removed |
+| focused PowerShell transport suite | PASS — 31 classifications plus schema/provenance/time/digest/replay, durable reopen, explicit root/ACL, linked/escaped path, ordering, atomic interruption, no-raw-output and exact cleanup checks |
+| durable-result boundary | PASS — an authenticated parent result survives transient cleanup, independently reopens with the same canonical digest and rejects replay, existing/partial paths and unauthorized evidence roots |
+| truthful child-start boundary | PASS — bootstrap owns only attempted state; the child owns its start marker; launch failure, pre-marker child exit, child-without-live and live-without-final remain distinct failures |
 | host mutation | PASS — no UAC, Live mode, service install/control, process termination, `C:\RisePals` write, listener/firewall/DNS/certificate/reboot/deployment mutation or `.env.local` access |
 
 Complete aggregate, service-host, digest and security results are recorded in the DIAG1 handoff after the exact clean commit. Chromium/alpha E2E are not required unless the repository gates show an affected browser surface; this change is confined to Windows-only launcher scripts and infrastructure contract tests.

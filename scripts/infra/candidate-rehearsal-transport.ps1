@@ -2,9 +2,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
-$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v1"
+$script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v2"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
+  "child-launch-attempted",
   "child-started",
   "live-started",
   "bootstrap-failure"
@@ -29,13 +30,21 @@ $script:RisePalsCandidateParentResultProperties = @(
   "authorizationId",
   "repositoryHead",
   "launcherScriptSha256",
+  "bootstrapScriptSha256",
+  "transportScriptSha256",
+  "childScriptSha256",
+  "launchDisposition",
   "classification",
   "status",
   "processLaunched",
   "elevatedExitCode",
+  "bootstrapEntered",
   "bootstrapStarted",
+  "bootstrapFailurePresent",
+  "childLaunchAttempted",
   "childStarted",
   "liveStarted",
+  "finalPresent",
   "finalValidated",
   "finalStatus",
   "generatedAtUtc",
@@ -231,6 +240,120 @@ function Protect-RisePalsCandidateInvocationDirectory {
   [IO.Directory]::SetAccessControl([IO.Path]::GetFullPath($Path), $security)
 }
 
+function Protect-RisePalsCandidateEvidenceDirectory {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  Protect-RisePalsCandidateInvocationDirectory -Path $Path
+}
+
+function Assert-RisePalsCandidateProtectedAcl {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$Label
+  )
+
+  $acl = Get-Acl -LiteralPath $Path
+  $rules = @($acl.GetAccessRules(
+    $true,
+    $false,
+    [Security.Principal.SecurityIdentifier]
+  ))
+  $expectedSids = @(
+    [string][Security.Principal.WindowsIdentity]::GetCurrent().User.Value,
+    "S-1-5-18",
+    "S-1-5-32-544"
+  ) | Sort-Object -Unique
+  $actualSids = @($rules | ForEach-Object { [string]$_.IdentityReference.Value } |
+    Sort-Object -Unique)
+  if (-not $acl.AreAccessRulesProtected -or
+    @(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0 -or
+    @($rules | Where-Object {
+      $_.IsInherited -or
+      $_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+      ([int]$_.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne
+        [int][Security.AccessControl.FileSystemRights]::FullControl
+    }).Count -ne 0) {
+    throw "$Label ACL contract is invalid."
+  }
+}
+
+function Assert-RisePalsCandidateEvidenceDirectory {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
+  $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
+  $authorizedRoot = if ($Mode -eq "Live") {
+    "C:\Users\Administrator\Documents\Codex"
+  } else {
+    [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
+      [IO.Path]::DirectorySeparatorChar
+    )
+  }
+  $prefix = $authorizedRoot + [IO.Path]::DirectorySeparatorChar
+  if (-not $exact.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.Directory]::Exists($authorizedRoot) -or
+    -not [IO.Directory]::Exists($exact)) {
+    throw "The durable evidence directory is outside the authorized root or absent."
+  }
+  $authorizedRootItem = Get-Item -LiteralPath $authorizedRoot -Force
+  if (($authorizedRootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+    -not [string]::IsNullOrWhiteSpace([string]$authorizedRootItem.LinkType)) {
+    throw "The authorized durable evidence root is linked."
+  }
+  $cursor = $exact
+  while ($cursor.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+    $item = Get-Item -LiteralPath $cursor -Force
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+      throw "The durable evidence directory contains a linked path segment."
+    }
+    $cursor = [IO.Path]::GetDirectoryName($cursor)
+  }
+  Assert-RisePalsCandidateProtectedAcl -Path $exact -Label "Durable evidence directory"
+  return $exact
+}
+
+function Initialize-RisePalsCandidateEvidenceDirectory {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
+  $exact = [IO.Path]::GetFullPath($Path).TrimEnd([IO.Path]::DirectorySeparatorChar)
+  $authorizedRoot = if ($Mode -eq "Live") {
+    "C:\Users\Administrator\Documents\Codex"
+  } else {
+    [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd(
+      [IO.Path]::DirectorySeparatorChar
+    )
+  }
+  if (-not $exact.StartsWith(
+    $authorizedRoot + [IO.Path]::DirectorySeparatorChar,
+    [StringComparison]::OrdinalIgnoreCase
+  )) {
+    throw "The durable evidence directory escapes the authorized root."
+  }
+  if ([IO.File]::Exists($exact)) {
+    throw "The durable evidence directory path is occupied by a file."
+  }
+  if (-not [IO.Directory]::Exists($exact)) {
+    $parent = [IO.Path]::GetDirectoryName($exact)
+    if (-not [IO.Directory]::Exists($parent)) {
+      throw "The durable evidence directory parent must already exist."
+    }
+    $parentItem = Get-Item -LiteralPath $parent -Force
+    if (($parentItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      -not [string]::IsNullOrWhiteSpace([string]$parentItem.LinkType)) {
+      throw "The durable evidence directory parent is linked."
+    }
+    [IO.Directory]::CreateDirectory($exact) | Out-Null
+    Protect-RisePalsCandidateEvidenceDirectory -Path $exact
+  }
+  return Assert-RisePalsCandidateEvidenceDirectory -Path $exact -Mode $Mode
+}
+
 function Assert-RisePalsCandidateInvocationDirectory {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
@@ -254,29 +377,8 @@ function Assert-RisePalsCandidateInvocationDirectory {
       throw "The candidate result root or invocation directory is unexpectedly linked."
     }
   }
-  $acl = Get-Acl -LiteralPath $exact
-  $rules = @($acl.GetAccessRules(
-    $true,
-    $false,
-    [Security.Principal.SecurityIdentifier]
-  ))
-  $expectedSids = @(
-    [string][Security.Principal.WindowsIdentity]::GetCurrent().User.Value,
-    "S-1-5-18",
-    "S-1-5-32-544"
-  ) | Sort-Object -Unique
-  $actualSids = @($rules | ForEach-Object { [string]$_.IdentityReference.Value } |
-    Sort-Object -Unique)
-  if (-not $acl.AreAccessRulesProtected -or
-    @(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0 -or
-    @($rules | Where-Object {
-      $_.IsInherited -or
-      $_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
-      ([int]$_.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne
-        [int][Security.AccessControl.FileSystemRights]::FullControl
-    }).Count -ne 0) {
-    throw "The candidate invocation directory ACL contract is invalid."
-  }
+  Assert-RisePalsCandidateProtectedAcl -Path $exact `
+    -Label "Candidate invocation directory"
   return $exact
 }
 
@@ -306,6 +408,89 @@ function Read-RisePalsCandidateTransportJson {
     throw "A candidate transport marker has an invalid byte length."
   }
   return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
+}
+
+function Get-RisePalsCandidateDurableParentResultPath {
+  param(
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce
+  )
+
+  return [IO.Path]::GetFullPath((Join-Path $EvidenceDirectory (
+    "candidate-parent-result-" + $InvocationNonce + ".json"
+  )))
+}
+
+function Assert-RisePalsCandidateEvidenceFileAcl {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $rules = @((Get-Acl -LiteralPath $Path).GetAccessRules(
+    $true,
+    $true,
+    [Security.Principal.SecurityIdentifier]
+  ))
+  $expectedSids = @(
+    [string][Security.Principal.WindowsIdentity]::GetCurrent().User.Value,
+    "S-1-5-18",
+    "S-1-5-32-544"
+  ) | Sort-Object -Unique
+  $actualSids = @($rules | ForEach-Object { [string]$_.IdentityReference.Value } |
+    Sort-Object -Unique)
+  if (@(Compare-Object -ReferenceObject $expectedSids -DifferenceObject $actualSids).Count -ne 0 -or
+    @($rules | Where-Object {
+      $_.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow -or
+      ([int]$_.FileSystemRights -band [int][Security.AccessControl.FileSystemRights]::FullControl) -ne
+        [int][Security.AccessControl.FileSystemRights]::FullControl
+    }).Count -ne 0) {
+    throw "The durable parent-result file ACL contract is invalid."
+  }
+}
+
+function Read-RisePalsCandidateDurableParentResult {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
+  $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
+    -Mode $Mode
+  $exact = [IO.Path]::GetFullPath($Path)
+  $expected = Get-RisePalsCandidateDurableParentResultPath `
+    -EvidenceDirectory $directory -InvocationNonce $InvocationNonce
+  if (-not $exact.Equals($expected, [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.File]::Exists($exact)) {
+    throw "The durable parent result is absent or outside the exact evidence directory."
+  }
+  $item = Get-Item -LiteralPath $exact -Force
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+    -not [string]::IsNullOrWhiteSpace([string]$item.LinkType)) {
+    throw "The durable parent result is unexpectedly linked."
+  }
+  Assert-RisePalsCandidateEvidenceFileAcl -Path $exact
+  $bytes = [IO.File]::ReadAllBytes($exact)
+  if ($bytes.Length -eq 0 -or $bytes.Length -gt 32768) {
+    throw "The durable parent result has an invalid byte length."
+  }
+  return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
+}
+
+function Write-RisePalsCandidateDurableParentResultAtomic {
+  param(
+    [Parameter(Mandatory = $true)][object]$Result,
+    [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+    [Parameter(Mandatory = $true)][ValidateSet("Simulation", "Live")][string]$Mode
+  )
+
+  $directory = Assert-RisePalsCandidateEvidenceDirectory -Path $EvidenceDirectory `
+    -Mode $Mode
+  $path = Get-RisePalsCandidateDurableParentResultPath `
+    -EvidenceDirectory $directory -InvocationNonce ([string]$Result.invocationNonce)
+  $temporary = $path + ".tmp"
+  Write-RisePalsCandidateJsonAtomic -Value $Result -ResultPath $path `
+    -TemporaryPath $temporary
+  return $path
 }
 
 function Assert-RisePalsCandidateMarker {
@@ -379,6 +564,7 @@ function Resolve-RisePalsCandidateParentClassification {
       "launched"
     )][string]$LaunchDisposition,
     [Parameter(Mandatory = $true)][bool]$BootstrapEntered,
+    [Parameter(Mandatory = $true)][bool]$ChildLaunchAttempted,
     [Parameter(Mandatory = $true)][bool]$ChildStarted,
     [Parameter(Mandatory = $true)][bool]$LiveStarted,
     [Parameter(Mandatory = $true)][bool]$FinalPresent,
@@ -393,17 +579,22 @@ function Resolve-RisePalsCandidateParentClassification {
     "launch-failure" { return "elevated-process-launch-failure" }
   }
   if ($EvidenceInvalid -or ($FinalPresent -and -not $FinalValidated) -or
-    ($ChildStarted -and -not $BootstrapEntered) -or
+    ($ChildLaunchAttempted -and -not $BootstrapEntered) -or
+    ($ChildStarted -and -not $ChildLaunchAttempted) -or
     ($LiveStarted -and -not $ChildStarted) -or
-    ($FinalValidated -and (-not $BootstrapEntered -or -not $ChildStarted -or
-        -not $LiveStarted -or $FinalStatus -notin @("success", "failure")))) {
+    ($FinalValidated -and (-not $BootstrapEntered -or -not $ChildLaunchAttempted -or
+        -not $ChildStarted -or -not $LiveStarted -or
+        $FinalStatus -notin @("success", "failure")))) {
     return "final-invalid-or-inconsistent"
   }
   if (-not $BootstrapEntered) {
     return "elevated-child-never-entered-bootstrap"
   }
+  if (-not $ChildLaunchAttempted) {
+    return "bootstrap-entered-child-launch-not-attempted"
+  }
   if (-not $ChildStarted) {
-    return "bootstrap-entered-child-not-started"
+    return "child-launch-attempted-child-not-started"
   }
   if (-not $LiveStarted) {
     return "child-started-failed-before-live"
@@ -417,6 +608,38 @@ function Resolve-RisePalsCandidateParentClassification {
   return "final-invalid-or-inconsistent"
 }
 
+function Assert-RisePalsCandidateMarkerOrdering {
+  param([Parameter(Mandatory = $true)][hashtable]$MarkerTimes)
+
+  $sequence = @(
+    "bootstrap-started",
+    "child-launch-attempted",
+    "child-started",
+    "live-started"
+  )
+  $lastTime = $null
+  $missingPredecessor = $false
+  foreach ($markerType in $sequence) {
+    if (-not $MarkerTimes.ContainsKey($markerType)) {
+      $missingPredecessor = $true
+      continue
+    }
+    if ($missingPredecessor) {
+      throw "A candidate marker exists without its required predecessor."
+    }
+    $recorded = [DateTimeOffset]$MarkerTimes[$markerType]
+    if ($null -ne $lastTime -and $recorded -lt $lastTime) {
+      throw "Candidate marker timestamps violate the required order."
+    }
+    $lastTime = $recorded
+  }
+  if ($MarkerTimes.ContainsKey("bootstrap-failure") -and $null -ne $lastTime -and
+    [DateTimeOffset]$MarkerTimes["bootstrap-failure"] -lt $lastTime) {
+    throw "The bootstrap failure marker predates an observed stage marker."
+  }
+  return $true
+}
+
 function ConvertTo-RisePalsCandidateCanonicalParentResult {
   param([Parameter(Mandatory = $true)][object]$Result)
 
@@ -426,13 +649,21 @@ function ConvertTo-RisePalsCandidateCanonicalParentResult {
     authorizationId = [string]$Result.authorizationId
     repositoryHead = [string]$Result.repositoryHead
     launcherScriptSha256 = [string]$Result.launcherScriptSha256
+    bootstrapScriptSha256 = [string]$Result.bootstrapScriptSha256
+    transportScriptSha256 = [string]$Result.transportScriptSha256
+    childScriptSha256 = [string]$Result.childScriptSha256
+    launchDisposition = [string]$Result.launchDisposition
     classification = [string]$Result.classification
     status = [string]$Result.status
     processLaunched = [bool]$Result.processLaunched
     elevatedExitCode = [int]$Result.elevatedExitCode
+    bootstrapEntered = [bool]$Result.bootstrapEntered
     bootstrapStarted = [bool]$Result.bootstrapStarted
+    bootstrapFailurePresent = [bool]$Result.bootstrapFailurePresent
+    childLaunchAttempted = [bool]$Result.childLaunchAttempted
     childStarted = [bool]$Result.childStarted
     liveStarted = [bool]$Result.liveStarted
+    finalPresent = [bool]$Result.finalPresent
     finalValidated = [bool]$Result.finalValidated
     finalStatus = if ($null -eq $Result.finalStatus) { $null } else { [string]$Result.finalStatus }
     generatedAtUtc = [string]$Result.generatedAtUtc
@@ -453,12 +684,20 @@ function New-RisePalsCandidateParentResult {
     [Parameter(Mandatory = $true)][string]$AuthorizationId,
     [Parameter(Mandatory = $true)][string]$RepositoryHead,
     [Parameter(Mandatory = $true)][string]$LauncherScriptSha256,
+    [Parameter(Mandatory = $true)][string]$BootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][string]$TransportScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ChildScriptSha256,
+    [Parameter(Mandatory = $true)][string]$LaunchDisposition,
     [Parameter(Mandatory = $true)][string]$Classification,
     [Parameter(Mandatory = $true)][bool]$ProcessLaunched,
     [Parameter(Mandatory = $true)][int]$ElevatedExitCode,
+    [Parameter(Mandatory = $true)][bool]$BootstrapEntered,
     [Parameter(Mandatory = $true)][bool]$BootstrapStarted,
+    [Parameter(Mandatory = $true)][bool]$BootstrapFailurePresent,
+    [Parameter(Mandatory = $true)][bool]$ChildLaunchAttempted,
     [Parameter(Mandatory = $true)][bool]$ChildStarted,
     [Parameter(Mandatory = $true)][bool]$LiveStarted,
+    [Parameter(Mandatory = $true)][bool]$FinalPresent,
     [Parameter(Mandatory = $true)][bool]$FinalValidated,
     [AllowNull()][string]$FinalStatus
   )
@@ -471,13 +710,21 @@ function New-RisePalsCandidateParentResult {
     authorizationId = $AuthorizationId
     repositoryHead = $RepositoryHead
     launcherScriptSha256 = $LauncherScriptSha256
+    bootstrapScriptSha256 = $BootstrapScriptSha256
+    transportScriptSha256 = $TransportScriptSha256
+    childScriptSha256 = $ChildScriptSha256
+    launchDisposition = $LaunchDisposition
     classification = $Classification
     status = $status
     processLaunched = $ProcessLaunched
     elevatedExitCode = $ElevatedExitCode
+    bootstrapEntered = $BootstrapEntered
     bootstrapStarted = $BootstrapStarted
+    bootstrapFailurePresent = $BootstrapFailurePresent
+    childLaunchAttempted = $ChildLaunchAttempted
     childStarted = $ChildStarted
     liveStarted = $LiveStarted
+    finalPresent = $FinalPresent
     finalValidated = $FinalValidated
     finalStatus = if ([string]::IsNullOrWhiteSpace($FinalStatus)) { $null } else { $FinalStatus }
     generatedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
@@ -488,7 +735,19 @@ function New-RisePalsCandidateParentResult {
 }
 
 function Assert-RisePalsCandidateParentResult {
-  param([Parameter(Mandatory = $true)][object]$Result)
+  param(
+    [Parameter(Mandatory = $true)][object]$Result,
+    [Parameter(Mandatory = $true)][string]$ExpectedNonce,
+    [Parameter(Mandatory = $true)][string]$ExpectedAuthorizationId,
+    [Parameter(Mandatory = $true)][string]$ExpectedHead,
+    [Parameter(Mandatory = $true)][string]$ExpectedLauncherScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedBootstrapScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
+    [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
+    [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
+    [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
+    [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow
+  )
 
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Result `
     -Expected $script:RisePalsCandidateParentResultProperties -Label "Candidate parent result"
@@ -498,12 +757,36 @@ function Assert-RisePalsCandidateParentResult {
       "uac-cancelled",
       "elevated-process-launch-failure",
       "elevated-child-never-entered-bootstrap",
-      "bootstrap-entered-child-not-started",
+      "bootstrap-entered-child-launch-not-attempted",
+      "child-launch-attempted-child-not-started",
       "child-started-failed-before-live",
       "live-started-failed",
       "final-present-validated",
       "final-invalid-or-inconsistent"
     ) -or $Result.status -notin @("success", "failure") -or
+    $Result.invocationNonce -ne $ExpectedNonce -or
+    $Result.invocationNonce -notmatch "^[a-f0-9]{32}$" -or
+    $ConsumedNonces.ContainsKey([string]$Result.invocationNonce) -or
+    $Result.authorizationId -ne $ExpectedAuthorizationId -or
+    $Result.repositoryHead -ne $ExpectedHead -or
+    $Result.launcherScriptSha256 -ne $ExpectedLauncherScriptSha256 -or
+    $Result.bootstrapScriptSha256 -ne $ExpectedBootstrapScriptSha256 -or
+    $Result.transportScriptSha256 -ne $ExpectedTransportScriptSha256 -or
+    $Result.childScriptSha256 -ne $ExpectedChildScriptSha256 -or
+    $Result.launcherScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.bootstrapScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.transportScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.childScriptSha256 -notmatch "^[a-f0-9]{64}$" -or
+    $Result.launchDisposition -notin @("not-launched", "cancelled", "launch-failure", "launched") -or
+    ([bool]$Result.processLaunched -ne ($Result.launchDisposition -eq "launched")) -or
+    ((
+      ([bool]$Result.bootstrapStarted -and -not [bool]$Result.bootstrapEntered) -or
+      ([bool]$Result.childLaunchAttempted -and -not [bool]$Result.bootstrapStarted) -or
+      ([bool]$Result.childStarted -and -not [bool]$Result.childLaunchAttempted) -or
+      ([bool]$Result.liveStarted -and -not [bool]$Result.childStarted) -or
+      ([bool]$Result.finalValidated -and (-not [bool]$Result.finalPresent -or
+        -not [bool]$Result.liveStarted))
+    ) -and $Result.classification -ne "final-invalid-or-inconsistent") -or
     ($Result.status -eq "success" -and (
       $Result.classification -ne "final-present-validated" -or
       -not [bool]$Result.finalValidated -or $Result.finalStatus -ne "success"
@@ -513,6 +796,28 @@ function Assert-RisePalsCandidateParentResult {
     $Result.resultDigest -ne (Get-RisePalsCandidateParentResultDigest -Result $Result)) {
     throw "The candidate parent result is invalid or internally inconsistent."
   }
-  [void](ConvertFrom-RisePalsCandidateUtc -Value ([string]$Result.generatedAtUtc))
+  $generated = ConvertFrom-RisePalsCandidateUtc -Value ([string]$Result.generatedAtUtc)
+  if ($generated -lt $InvocationStartedAtUtc.AddSeconds(-2) -or
+    $generated -gt $ValidationNowUtc.AddMinutes(1) -or
+    ($generated - $InvocationStartedAtUtc) -gt [TimeSpan]::FromMinutes(31)) {
+    throw "The durable parent result timestamp is stale or incoherent."
+  }
+  $expectedClassification = Resolve-RisePalsCandidateParentClassification `
+    -LaunchDisposition ([string]$Result.launchDisposition) `
+    -BootstrapEntered ([bool]$Result.bootstrapEntered) `
+    -ChildLaunchAttempted ([bool]$Result.childLaunchAttempted) `
+    -ChildStarted ([bool]$Result.childStarted) -LiveStarted ([bool]$Result.liveStarted) `
+    -FinalPresent ([bool]$Result.finalPresent) `
+    -FinalValidated ([bool]$Result.finalValidated) `
+    -EvidenceInvalid ($Result.classification -eq "final-invalid-or-inconsistent") `
+    -FinalStatus $Result.finalStatus
+  if ($Result.classification -ne $expectedClassification) {
+    throw "The durable parent-result classification disagrees with its marker state."
+  }
+  $json = $Result | ConvertTo-Json -Depth 7 -Compress
+  if ($json -match "(?i)(set-cookie|bearer[ ]|password|credential|request[ -]?body|@[a-z0-9.-]+\.[a-z]{2,}|(sk|pk)_(live|test)_)") {
+    throw "The durable parent result contains a prohibited privacy marker."
+  }
+  $ConsumedNonces[[string]$Result.invocationNonce] = $true
   return $true
 }
