@@ -147,6 +147,7 @@ $taskRoot = Join-Path $tempRoot (
 [IO.Directory]::CreateDirectory($taskRoot) | Out-Null
 $beforeHost = Get-RisePalsProcessSuiteHostSnapshot
 $scenarioResults = @()
+$invocationPaths = @()
 
 $scenarios = @(
   @{ Name = "success"; ParentScenario = "SuccessWithInformationalStderr"; Exit = 0; Checkpoint = $true; Result = $true; Cleanup = $true; Overall = "success" },
@@ -164,6 +165,8 @@ $scenarios = @(
 try {
   foreach ($scenario in $scenarios) {
     $nonce = [guid]::NewGuid().ToString("N")
+    $invocation = Join-Path $transientRoot ("invocation-" + $nonce)
+    $invocationPaths += $invocation
     $evidence = Join-Path $taskRoot ([string]$scenario.Name)
     $directory = Initialize-RisePalsCandidateEvidenceDirectory `
       -Path $evidence -Mode Simulation
@@ -185,8 +188,7 @@ try {
       "-SimulationScenario", [string]$scenario.ParentScenario,
       "-RepositoryRoot", (ConvertTo-RisePalsProcessSuiteArgument -Value $repository),
       "-EvidenceDirectory", (ConvertTo-RisePalsProcessSuiteArgument -Value $directory),
-      "-SimulationInvocationNonce", $nonce,
-      "-Confirm:`$false"
+      "-SimulationInvocationNonce", $nonce
     )
     $process = Start-Process -FilePath $powerShell -ArgumentList $arguments `
       -WindowStyle Hidden -Wait -PassThru
@@ -250,7 +252,6 @@ try {
       throw "An interrupted final write unexpectedly produced a final result."
     }
 
-    $invocation = Join-Path $transientRoot ("invocation-" + $nonce)
     if ([bool]$scenario.Cleanup -and
       ([IO.Directory]::Exists($invocation) -or [IO.File]::Exists($invocation))) {
       throw "Scenario $($scenario.Name) left transient invocation resources."
@@ -269,6 +270,11 @@ try {
     Write-Output ("Process-boundary simulation PASS: " + [string]$scenario.Name)
   }
 } finally {
+  foreach ($invocation in $invocationPaths) {
+    if ([IO.Directory]::Exists($invocation)) {
+      Remove-RisePalsProcessSuiteTree -Path $invocation -ExpectedParent $transientRoot
+    }
+  }
   foreach ($scenario in $scenarios) {
     $path = Join-Path $taskRoot ([string]$scenario.Name)
     if ([IO.Directory]::Exists($path)) {
