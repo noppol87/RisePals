@@ -1041,7 +1041,7 @@ function Assert-RisePalsCandidateParentResult {
     [Parameter(Mandatory = $true)][string]$ExpectedTransportScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedChildScriptSha256,
     [Parameter(Mandatory = $true)][string]$ExpectedCheckpointFileName,
-    [AllowNull()][string]$ExpectedCheckpointDigest,
+    [AllowNull()][object]$ExpectedCheckpointDigest,
     [Parameter(Mandatory = $true)][DateTimeOffset]$InvocationStartedAtUtc,
     [Parameter(Mandatory = $true)][hashtable]$ConsumedNonces,
     [DateTimeOffset]$ValidationNowUtc = [DateTimeOffset]::UtcNow

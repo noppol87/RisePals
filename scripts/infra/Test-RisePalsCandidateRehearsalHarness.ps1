@@ -855,6 +855,24 @@ try {
   if ([IO.File]::Exists($interruptedCheckpointPath)) {
     throw "An interrupted checkpoint write created a final checkpoint."
   }
+  $checkpointFailureResult = New-RisePalsCandidateParentResult `
+    -Checkpoint $interruptedCheckpoint `
+    -CheckpointFileName ([IO.Path]::GetFileName($interruptedCheckpointPath)) `
+    -CheckpointDigest $null -DurableCheckpointValidated $false `
+    -TransientCleanupAttempted $false -TransientCleanupCompleted $false `
+    -InvocationDirectoryAbsent $false -RemainingTransientObjectCount 1 `
+    -RemainingTemporaryObjectCount 0 `
+    -RemainingTransientRelativePaths @("result.json")
+  [void](Assert-RisePalsCandidateParentResult -Result $checkpointFailureResult `
+    -ExpectedNonce $interruptedNonce `
+    -ExpectedAuthorizationId "RP-TURN-019-R4-DIAG1-SIMULATION" `
+    -ExpectedHead ("1" * 40) -ExpectedLauncherScriptSha256 ("a" * 64) `
+    -ExpectedBootstrapScriptSha256 ("b" * 64) `
+    -ExpectedTransportScriptSha256 ("c" * 64) `
+    -ExpectedChildScriptSha256 ("d" * 64) `
+    -ExpectedCheckpointFileName ([IO.Path]::GetFileName($interruptedCheckpointPath)) `
+    -ExpectedCheckpointDigest $null -InvocationStartedAtUtc $parentValidationStarted `
+    -ConsumedNonces @{})
 
   $interruptedResultCheckpoint = New-RisePalsCandidateValidParentCheckpoint `
     -Nonce $interruptedResultNonce
