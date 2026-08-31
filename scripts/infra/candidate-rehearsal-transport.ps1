@@ -436,6 +436,25 @@ function Assert-RisePalsCandidateLaunchDiagnostic {
         $Diagnostic.sanitizedLaunchFailureCode -ne "launcher-exception-unknown") {
         throw "The failed launch diagnostic without a native code is inconsistent."
       }
+      $preflightInconsistent = $false
+      if (-not [bool]$Diagnostic.launchAttempted) {
+        switch ([string]$Diagnostic.sanitizedLaunchFailureCode) {
+          "launcher-target-not-found" {
+            $preflightInconsistent = [bool]$Diagnostic.launcherExecutableExists -or
+              $Diagnostic.launcherSignatureStatus -ne "unavailable"
+          }
+          "launcher-access-denied" {
+            $preflightInconsistent = -not [bool]$Diagnostic.launcherExecutableExists -or
+              $Diagnostic.launcherSignatureStatus -ne "unavailable"
+          }
+          "shell-execute-failed" {
+            $preflightInconsistent = -not [bool]$Diagnostic.launcherExecutableExists -or
+              $Diagnostic.launcherSignatureStatus -notin @("not-signed", "invalid")
+          }
+          "malformed-launch-request" { $preflightInconsistent = $false }
+          default { $preflightInconsistent = $true }
+        }
+      }
       if ((-not [bool]$Diagnostic.launchAttempted -and (
           [int]$Diagnostic.exceptionDepth -ne 0 -or
           $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult
@@ -446,7 +465,7 @@ function Assert-RisePalsCandidateLaunchDiagnostic {
         ([bool]$Diagnostic.launchAttempted -and [int]$Diagnostic.exceptionDepth -eq 0 -and (
           $Diagnostic.sanitizedLaunchFailureCode -ne "process-start-failed" -or
           $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult
-        ))) {
+        )) -or $preflightInconsistent) {
         throw "The failed launch diagnostic preflight or exception boundary is inconsistent."
       }
     }

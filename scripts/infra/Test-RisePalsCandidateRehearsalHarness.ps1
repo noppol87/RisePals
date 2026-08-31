@@ -366,6 +366,18 @@ $preflightDiagnostics = @(
 foreach ($diagnostic in $preflightDiagnostics) {
   [void](Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $diagnostic)
 }
+$inconsistentPreflight = New-RisePalsCandidateLaunchDiagnostic `
+  -LaunchAttempted $false -ProcessCreated $false `
+  -LaunchDisposition launch-failure `
+  -SanitizedLaunchFailureCode launcher-access-denied `
+  -NativeErrorCode $null -HResult $null -ExceptionDepth 0 `
+  -LauncherExecutableExists $true -LauncherSignatureStatus valid `
+  -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
+  -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `
+    -Arguments $launchArguments)
+Assert-RisePalsCandidateThrows -Label "Inconsistent launch preflight facts" -Action {
+  Assert-RisePalsCandidateLaunchDiagnostic -Diagnostic $inconsistentPreflight
+}
 
 foreach ($tamper in @("missing-property", "extra-property", "argument-digest", "diagnostic-digest", "process-created", "string-boolean")) {
   $invalidLaunchDiagnostic = Copy-RisePalsCandidateContract `
