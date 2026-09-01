@@ -176,6 +176,10 @@ describe("repository-owned Node destination diagnostic", () => {
       "'scripts\\infra\\node-destination-diagnostic-contract.psm1',",
       "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnostic.ps1',",
       "'scripts\\infra\\Test-RisePalsNodeDestinationDiagnostic.ps1',",
+      "'scripts\\infra\\node-destination-early-transport.psm1',",
+      "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnosticChild.ps1',",
+      "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnosticTransport.ps1',",
+      "'scripts\\infra\\Test-RisePalsNodeDestinationEarlyTransport.ps1',",
       "'scripts\\infra\\windows-powershell-security-bootstrap.ps1',",
       "'scripts\\infra\\candidate-rehearsal-transport.ps1',",
       "'scripts\\infra\\Invoke-RisePalsCandidateLiveSequence.ps1'",
@@ -328,6 +332,128 @@ describe("repository-owned Node destination diagnostic", () => {
       expect(
         report.scenarios.every(({ result: scenarioResult }) => scenarioResult === "PASS"),
       ).toBe(true);
+    } finally {
+      await rm(fixture.moduleRoot, { recursive: true, force: true });
+    }
+  }, 300_000);
+
+  it("defines a closed digest-bound early transport without changing schema-v2", async () => {
+    const early = await text("scripts/infra/node-destination-early-transport.psm1");
+    const parent = await text(
+      "scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticTransport.ps1",
+    );
+    const child = await text("scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticChild.ps1");
+    for (const stage of [
+      "request-created",
+      "elevated-launch-attempted",
+      "elevated-process-created",
+      "bootstrap-entered",
+      "security-module-initialized",
+      "contract-imported",
+      "arguments-validated",
+      "diagnostic-dispatched",
+      "schema-v2-evidence-persisted",
+      "child-exited",
+      "parent-reopened-result",
+      "cleanup-complete",
+    ]) {
+      expect(early).toContain(`"${stage}"`);
+    }
+    for (const property of [
+      "authorizationId",
+      "invocationNonce",
+      "repositoryHead",
+      "launcherSha256",
+      "securityBootstrapSha256",
+      "childSha256",
+      "processCreated",
+      "childExitCode",
+      "firstFailedStage",
+      "sanitizedFailureCategory",
+      "nativeErrorCode",
+      "hResult",
+      "schemaV2EvidencePresent",
+      "schemaV2EvidenceDigest",
+      "cleanupAttempted",
+      "cleanupCompleted",
+      "transientResidueCount",
+      "temporaryResidueCount",
+      "evidenceDigest",
+    ]) {
+      expect(early).toContain(property);
+    }
+    expect(parent).toContain("Write-RisePalsNodeEarlyRequestAtomic");
+    expect(parent).toContain("Read-RisePalsNodeEarlyRequest");
+    expect(parent).toContain("Write-RisePalsNodeEarlyResultAtomic");
+    expect(parent).toContain("Read-RisePalsNodeEarlyResult");
+    expect(parent).toContain("-Verb RunAs");
+    expect(parent).toContain('if ($Mode -ceq "LiveReadOnly")');
+    expect(parent).not.toContain(".env.local");
+    expect(child.indexOf("node-destination-early-transport.psm1")).toBeLessThan(
+      child.indexOf("node-destination-diagnostic-contract.psm1"),
+    );
+    expect(child).toContain("bootstrap-entered");
+    expect(child).toContain("schema-v2-evidence-persisted");
+    expect(child).not.toContain("Write-Output");
+    expect(child).not.toContain("Write-Error");
+    expect(early).not.toMatch(/(?:exceptionMessage|stackTrace|commandLine|rawStdout|rawStderr)/u);
+  });
+
+  it("passes all 16 durable early-transport simulations in hidden Windows PowerShell 5.1 processes", async () => {
+    const fixture = await createPowerShell7FirstModulePath();
+    try {
+      const result = spawnSync(
+        powershell51,
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationEarlyTransport.ps1"),
+          "-RepositoryRoot",
+          repositoryRoot,
+          "-TestOnlyPowerShell7ModuleRoot",
+          fixture.moduleRoot,
+        ],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          env: { ...process.env, PSModulePath: fixture.mixedModulePath },
+          windowsHide: true,
+          timeout: 300_000,
+        },
+      );
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const report = JSON.parse(result.stdout) as {
+        processCount: number;
+        powerShell7FirstModuleRootApplied: boolean;
+        temporaryWorkspaceRemovedAfterReport: boolean;
+        scenarios: Array<{
+          number: number;
+          name: string;
+          independentReopen: boolean;
+          digestValidated: boolean;
+          bindingVariantsRejected: number;
+          staleRequestRejected: boolean;
+        }>;
+      };
+      expect(report.processCount).toBe(16);
+      expect(report.powerShell7FirstModuleRootApplied).toBe(true);
+      expect(report.temporaryWorkspaceRemovedAfterReport).toBe(true);
+      expect(report.scenarios).toHaveLength(16);
+      expect(report.scenarios.map(({ number }) => number)).toEqual(
+        Array.from({ length: 16 }, (_, index) => index + 1),
+      );
+      expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(16);
+      expect(
+        report.scenarios.every(
+          ({ independentReopen, digestValidated }) => independentReopen && digestValidated,
+        ),
+      ).toBe(true);
+      expect(report.scenarios[10]?.bindingVariantsRejected).toBe(3);
+      expect(report.scenarios[11]?.staleRequestRejected).toBe(true);
     } finally {
       await rm(fixture.moduleRoot, { recursive: true, force: true });
     }
