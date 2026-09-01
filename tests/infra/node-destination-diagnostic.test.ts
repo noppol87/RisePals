@@ -437,6 +437,7 @@ describe("repository-owned Node destination diagnostic", () => {
           digestValidated: boolean;
           bindingVariantsRejected: number;
           staleRequestRejected: boolean;
+          inconsistentSuccessRejected: boolean;
         }>;
       };
       expect(report.processCount).toBe(16);
@@ -454,6 +455,7 @@ describe("repository-owned Node destination diagnostic", () => {
       ).toBe(true);
       expect(report.scenarios[10]?.bindingVariantsRejected).toBe(3);
       expect(report.scenarios[11]?.staleRequestRejected).toBe(true);
+      expect(report.scenarios[0]?.inconsistentSuccessRejected).toBe(true);
     } finally {
       await rm(fixture.moduleRoot, { recursive: true, force: true });
     }

@@ -492,6 +492,41 @@ function Assert-RisePalsNodeEarlyResult {
       [string]$category -notin $script:RisePalsNodeEarlyFailureCategories)) {
     throw "early-result-failure"
   }
+  $failureMap = @{
+    "elevated-process-created" = @("launch_failure")
+    "bootstrap-entered" = @(
+      "bootstrap_entry_failure", "malformed_evidence", "binding_failure",
+      "digest_failure", "ordering_failure", "replay_failure", "atomic_write_failure"
+    )
+    "security-module-initialized" = @(
+      "security_module_failure", "malformed_evidence", "binding_failure",
+      "digest_failure", "ordering_failure", "replay_failure", "atomic_write_failure"
+    )
+    "contract-imported" = @(
+      "contract_import_failure", "malformed_evidence", "binding_failure",
+      "digest_failure", "ordering_failure", "replay_failure", "atomic_write_failure"
+    )
+    "arguments-validated" = @(
+      "argument_validation_failure", "malformed_evidence", "binding_failure",
+      "digest_failure", "ordering_failure", "replay_failure", "atomic_write_failure"
+    )
+    "diagnostic-dispatched" = @(
+      "evidence_directory_failure", "dispatch_failure", "malformed_evidence",
+      "binding_failure", "digest_failure", "ordering_failure", "replay_failure",
+      "atomic_write_failure"
+    )
+    "schema-v2-evidence-persisted" = @(
+      "child_exit_failure", "malformed_evidence", "binding_failure", "digest_failure",
+      "ordering_failure", "replay_failure", "evidence_mismatch", "atomic_write_failure"
+    )
+    "parent-reopened-result" = @("final_result_failure")
+    "cleanup-complete" = @("cleanup_failure")
+  }
+  if ($null -ne $failed -and
+    (-not $failureMap.ContainsKey([string]$failed) -or
+      [string]$category -notin $failureMap[[string]$failed])) {
+    throw "early-result-failure"
+  }
   $schemaStage = "schema-v2-evidence-persisted" -in $stages
   if ([bool]$Result.schemaV2EvidencePresent -ne $schemaStage -or
     ($schemaStage -and -not (Test-RisePalsNodeEarlyHash $Result.schemaV2EvidenceDigest)) -or
@@ -502,6 +537,9 @@ function Assert-RisePalsNodeEarlyResult {
     if ([bool]$Result.cleanupAttempted -or [bool]$Result.cleanupCompleted -or
       "parent-reopened-result" -in $stages -or "cleanup-complete" -in $stages -or
       $null -ne $Result.checkpointDigest) {
+      throw "early-result-checkpoint"
+    }
+    if ([string]$category -in @("cleanup_failure", "final_result_failure")) {
       throw "early-result-checkpoint"
     }
   } else {
@@ -518,6 +556,28 @@ function Assert-RisePalsNodeEarlyResult {
       ([int]$Result.transientResidueCount -ne 0 -or [int]$Result.temporaryResidueCount -ne 0)) {
       throw "early-result-cleanup"
     }
+    if ((-not [bool]$Result.cleanupCompleted -and
+        [string]$category -cne "cleanup_failure") -or
+      ([bool]$Result.cleanupCompleted -and [string]$category -ceq "cleanup_failure")) {
+      throw "early-result-cleanup"
+    }
+  }
+  if ($null -eq $failed) {
+    if (-not $hasProcess -or [int]$Result.childExitCode -ne 0 -or
+      $childStages.Count -ne $script:RisePalsNodeEarlyChildStages.Count -or
+      -not [bool]$Result.schemaV2EvidencePresent) {
+      throw "early-result-success"
+    }
+  } elseif ($null -ne $Result.childExitCode -and [int]$Result.childExitCode -ne 0 -and
+    [string]$category -in @(
+      "malformed_evidence", "binding_failure", "digest_failure", "ordering_failure",
+      "replay_failure", "evidence_mismatch", "cleanup_failure", "final_result_failure"
+    )) {
+    throw "early-result-failure"
+  }
+  if ([string]$category -cne "launch_failure" -and
+    ($null -ne $Result.nativeErrorCode -or $null -ne $Result.hResult)) {
+    throw "early-result-failure"
   }
   if (-not (Test-RisePalsNodeEarlyHash $Result.evidenceDigest) -or
     [string]$Result.evidenceDigest -cne (Get-RisePalsNodeEarlyResultDigest -Result $Result)) {

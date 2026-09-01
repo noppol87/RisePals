@@ -167,6 +167,12 @@ $hashes = [ordered]@{
   diagnosticContract = Get-RisePalsNodeEarlySha256File -LiteralPath $diagnosticContractPath
   inventory = Get-RisePalsNodeEarlySha256File -LiteralPath $inventoryExact
 }
+if (-not $PSCmdlet.ShouldProcess(
+    $evidenceRoot,
+    ("Run the {0} Node destination early-evidence transport" -f $Mode)
+  )) {
+  return
+}
 $request = New-RisePalsNodeEarlyRequest -AuthorizationId $AuthorizationId `
   -InvocationNonce $InvocationNonce -RepositoryHead $RepositoryHead `
   -LauncherSha256 $hashes.launcher -EarlyContractSha256 $hashes.earlyContract `

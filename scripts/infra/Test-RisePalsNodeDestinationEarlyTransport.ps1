@@ -238,6 +238,23 @@ function Invoke-RisePalsNodeEarlyWorker {
     Assert-RisePalsNodeEarlyTest -Condition $staleRequestRejected `
       -Label "Scenario 12 did not reject the stale request."
   }
+  $inconsistentSuccessRejected = $false
+  if ($Number -eq 1) {
+    $inconsistent = (($result | ConvertTo-Json -Compress -Depth 8) | ConvertFrom-Json)
+    $inconsistent.completedStages = @($inconsistent.completedStages | Where-Object {
+        [string]$_ -cne "schema-v2-evidence-persisted"
+      })
+    $inconsistent.lastCompletedStage = [string]$inconsistent.completedStages[-1]
+    $inconsistent.schemaV2EvidencePresent = $false
+    $inconsistent.schemaV2EvidenceDigest = $null
+    $inconsistent.evidenceDigest = Get-RisePalsNodeEarlyResultDigest -Result $inconsistent
+    $inconsistentSuccessRejected = Test-RisePalsNodeEarlyControlledRejection -Action {
+      [void](Assert-RisePalsNodeEarlyResult -Result $inconsistent -Request $request `
+          -ExpectedCheckpointDigest $checkpoint.evidenceDigest)
+    }
+    Assert-RisePalsNodeEarlyTest -Condition $inconsistentSuccessRejected `
+      -Label "Scenario 1 accepted a digest-valid success without schema-v2 evidence."
+  }
   $report = [pscustomobject][ordered]@{
     schemaVersion = "rise-pals-node-early-transport-simulation-v1"
     number = $Number
@@ -254,6 +271,7 @@ function Invoke-RisePalsNodeEarlyWorker {
     digestValidated = $true
     bindingVariantsRejected = $bindingVariantsRejected
     staleRequestRejected = $staleRequestRejected
+    inconsistentSuccessRejected = $inconsistentSuccessRejected
   }
   $reportPath = Join-Path $Root ("report-{0:d2}.json" -f $Number)
   [IO.File]::WriteAllText($reportPath, ($report | ConvertTo-Json -Compress),
@@ -304,7 +322,7 @@ try {
       "firstFailedStage", "sanitizedFailureCategory", "schemaV2EvidencePresent",
       "cleanupCompleted", "transientResidueCount", "temporaryResidueCount",
       "independentReopen", "digestValidated", "bindingVariantsRejected",
-      "staleRequestRejected"
+      "staleRequestRejected", "inconsistentSuccessRejected"
     ) -Predicate "simulation-report-property"
     if ([int]$report.number -ne $number -or
       [string]$report.name -cne [string]$scenarioNames[$number - 1] -or
@@ -314,7 +332,9 @@ try {
     if (($number -eq 11 -and [int]$report.bindingVariantsRejected -ne 3) -or
       ($number -ne 11 -and [int]$report.bindingVariantsRejected -ne 0) -or
       ($number -eq 12 -and -not [bool]$report.staleRequestRejected) -or
-      ($number -ne 12 -and [bool]$report.staleRequestRejected)) {
+      ($number -ne 12 -and [bool]$report.staleRequestRejected) -or
+      ($number -eq 1 -and -not [bool]$report.inconsistentSuccessRejected) -or
+      ($number -ne 1 -and [bool]$report.inconsistentSuccessRejected)) {
       throw "Early transport scenario $number binding/staleness evidence was invalid."
     }
     $reports += $report
