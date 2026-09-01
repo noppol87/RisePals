@@ -1,14 +1,36 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 
 async function text(relativePath: string): Promise<string> {
   return readFile(resolve(repositoryRoot, relativePath), "utf8");
+}
+
+async function createIncompatibleSecurityModuleRoot(): Promise<string> {
+  const moduleRoot = await mkdtemp(join(tmpdir(), "risepals-candidate-powershell7-modules-"));
+  const moduleDirectory = join(moduleRoot, "Microsoft.PowerShell.Security");
+  await mkdir(moduleDirectory);
+  await writeFile(
+    join(moduleDirectory, "Microsoft.PowerShell.Security.psd1"),
+    [
+      "@{",
+      "  RootModule = 'Microsoft.PowerShell.Security.dll'",
+      "  ModuleVersion = '99.0.0'",
+      "  GUID = '217e3446-dc29-4294-bad3-60474726db4d'",
+      "  PowerShellVersion = '7.0'",
+      "  CmdletsToExport = @('Get-Acl')",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  return moduleRoot;
 }
 
 describe("repository-only candidate service rehearsal harness", () => {
@@ -538,7 +560,7 @@ describe("repository-only candidate service rehearsal harness", () => {
     }
   }, 20_000);
 
-  it("passes the PowerShell 5.1 deterministic harness suite without elevation or host mutation", () => {
+  it("passes the PowerShell 5.1 deterministic harness suite without elevation or host mutation", async () => {
     const powerShell = resolve(
       process.env.SystemRoot ?? "C:/Windows",
       "System32/WindowsPowerShell/v1.0/powershell.exe",
@@ -547,35 +569,33 @@ describe("repository-only candidate service rehearsal harness", () => {
       repositoryRoot,
       "scripts/infra/Test-RisePalsCandidateRehearsalHarness.ps1",
     );
-    const result = spawnSync(
-      powerShell,
-      [
-        "-NoLogo",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        suite,
-        "-RepositoryRoot",
-        repositoryRoot,
-      ],
-      {
-        encoding: "utf8",
-        timeout: 180_000,
-        env: {
-          ...process.env,
-          PSModulePath: [
-            "C:\\Program Files\\PowerShell\\Modules",
-            "C:\\Program Files\\PowerShell\\7\\Modules",
-            process.env.PSModulePath,
-          ]
-            .filter((entry): entry is string => Boolean(entry))
-            .join(";"),
+    const moduleRoot = await createIncompatibleSecurityModuleRoot();
+    try {
+      const result = spawnSync(
+        powerShell,
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          suite,
+          "-RepositoryRoot",
+          repositoryRoot,
+          "-TestOnlyPowerShell7ModuleRoot",
+          moduleRoot,
+        ],
+        {
+          encoding: "utf8",
+          timeout: 180_000,
+          env: process.env,
         },
-      },
-    );
-    expect(result.error).toBeUndefined();
-    expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain("Rise Pals candidate rehearsal harness suite PASS.");
+      );
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain("Rise Pals candidate rehearsal harness suite PASS.");
+    } finally {
+      await rm(moduleRoot, { recursive: true, force: true });
+    }
   }, 190_000);
 });

@@ -187,7 +187,8 @@ function Initialize-RisePalsWindowsPowerShellSecurityModule {
     -ManifestPath $manifestPath -WindowsPowerShellHome $PSHOME
 
   try {
-    $modules = @(Import-Module -Name $boundary.manifestPath -Force -PassThru -ErrorAction Stop)
+    $modules = @(Import-Module -Name $boundary.manifestPath -Force -Global -PassThru `
+        -ErrorAction Stop)
   } catch {
     Throw-RisePalsWindowsPowerShellSecurityBootstrapFailure `
       -Stage "module-import" -Category "import_failure"

@@ -3,11 +3,24 @@ param(
   [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
   [ValidateRange(0, 45)][int]$WorkerScenario = 0,
   [ValidateRange(0, 5)][int]$BootstrapWorkerScenario = 0,
+  [string]$TestOnlyPowerShell7ModuleRoot = "",
   [string]$WorkspaceRoot
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not [string]::IsNullOrWhiteSpace($TestOnlyPowerShell7ModuleRoot)) {
+  $testModuleRoot = [IO.Path]::GetFullPath($TestOnlyPowerShell7ModuleRoot).TrimEnd('\')
+  $temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
+  $testManifest = Join-Path $testModuleRoot `
+    "Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1"
+  if (-not $testModuleRoot.StartsWith(
+      $temporaryRoot + "\", [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.Directory]::Exists($testModuleRoot) -or -not [IO.File]::Exists($testManifest)) {
+    throw "The test-only PowerShell 7 module root is invalid."
+  }
+  $env:PSModulePath = $testModuleRoot + ";" + $env:PSModulePath
+}
 $repository = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
 $scripts = Join-Path $repository "scripts\infra"
 $securityBootstrapPath = Join-Path $scripts "windows-powershell-security-bootstrap.ps1"
@@ -662,6 +675,11 @@ try {
       "-BootstrapWorkerScenario", [string]$bootstrapScenario,
       "-WorkspaceRoot", ('"{0}"' -f $workspace)
     )
+    if (-not [string]::IsNullOrWhiteSpace($TestOnlyPowerShell7ModuleRoot)) {
+      $arguments += @(
+        "-TestOnlyPowerShell7ModuleRoot", ('"{0}"' -f $testModuleRoot)
+      )
+    }
     $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
       -WindowStyle Hidden -Wait -PassThru
     $capturePath = Join-Path $workspace ("bootstrap-failure-{0:d2}.json" -f $bootstrapScenario)
@@ -701,6 +719,11 @@ try {
       "-WorkerScenario", [string]$scenario,
       "-WorkspaceRoot", ('"{0}"' -f $workspace)
     )
+    if (-not [string]::IsNullOrWhiteSpace($TestOnlyPowerShell7ModuleRoot)) {
+      $arguments += @(
+        "-TestOnlyPowerShell7ModuleRoot", ('"{0}"' -f $testModuleRoot)
+      )
+    }
     $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
       -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -ne 0) {
@@ -716,6 +739,9 @@ try {
     schemaVersion = "rise-pals-node-destination-harness-v2"
     processCount = $passed.Count
     powershell = $powershell51
+    powerShell7FirstModuleRootApplied = -not [string]::IsNullOrWhiteSpace(
+      $TestOnlyPowerShell7ModuleRoot
+    )
     bootstrapFailureScenarios = $bootstrapFailures
     syntheticCaptureResidue = @(Get-ChildItem -LiteralPath $workspace -File -Force |
         Where-Object { $_.Name -like "bootstrap-failure-*.json" }).Count

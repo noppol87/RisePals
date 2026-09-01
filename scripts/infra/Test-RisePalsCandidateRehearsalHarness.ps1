@@ -1,10 +1,23 @@
 [CmdletBinding()]
 param(
-  [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals"
+  [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
+  [string]$TestOnlyPowerShell7ModuleRoot = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (-not [string]::IsNullOrWhiteSpace($TestOnlyPowerShell7ModuleRoot)) {
+  $testModuleRoot = [IO.Path]::GetFullPath($TestOnlyPowerShell7ModuleRoot).TrimEnd('\')
+  $temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
+  $testManifest = Join-Path $testModuleRoot `
+    "Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1"
+  if (-not $testModuleRoot.StartsWith(
+      $temporaryRoot + "\", [StringComparison]::OrdinalIgnoreCase) -or
+    -not [IO.Directory]::Exists($testModuleRoot) -or -not [IO.File]::Exists($testManifest)) {
+    throw "The test-only PowerShell 7 module root is invalid."
+  }
+  $env:PSModulePath = $testModuleRoot + ";" + $env:PSModulePath
+}
 $repository = [IO.Path]::GetFullPath($RepositoryRoot)
 $scripts = Join-Path $repository "scripts\infra"
 . (Join-Path $scripts "candidate-rehearsal-contract.ps1")

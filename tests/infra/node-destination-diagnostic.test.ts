@@ -1,17 +1,40 @@
 import { spawnSync } from "node:child_process";
-import { readdir, readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const powershell51 = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
-const mixedPowerShellModulePath = [
-  "C:\\Program Files\\PowerShell\\Modules",
-  "C:\\Program Files\\PowerShell\\7\\Modules",
-  process.env.PSModulePath,
-]
-  .filter((entry): entry is string => Boolean(entry))
-  .join(";");
+
+async function createPowerShell7FirstModulePath(): Promise<{
+  moduleRoot: string;
+  mixedModulePath: string;
+}> {
+  const moduleRoot = await mkdtemp(join(tmpdir(), "risepals-powershell7-modules-"));
+  const moduleDirectory = join(moduleRoot, "Microsoft.PowerShell.Security");
+  await mkdir(moduleDirectory);
+  await writeFile(
+    join(moduleDirectory, "Microsoft.PowerShell.Security.psd1"),
+    [
+      "@{",
+      "  RootModule = 'Microsoft.PowerShell.Security.dll'",
+      "  ModuleVersion = '99.0.0'",
+      "  GUID = '125f5c1c-1f0d-4f42-897a-815e69e741ae'",
+      "  PowerShellVersion = '7.0'",
+      "  CmdletsToExport = @('Get-Acl')",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+  return {
+    moduleRoot,
+    mixedModulePath: [moduleRoot, process.env.PSModulePath]
+      .filter((entry): entry is string => Boolean(entry))
+      .join(";"),
+  };
+}
 
 async function text(relativePath: string): Promise<string> {
   return readFile(resolve(repositoryRoot, relativePath), "utf8");
@@ -50,7 +73,9 @@ describe("repository-owned Node destination diagnostic", () => {
       '"Modules\\Microsoft.PowerShell.Security\\Microsoft.PowerShell.Security.psd1"',
     );
     expect(bootstrap).toContain("Assert-RisePalsWindowsPowerShell51Runtime");
-    expect(bootstrap).toContain("Import-Module -Name $boundary.manifestPath -Force -PassThru");
+    expect(bootstrap).toContain(
+      "Import-Module -Name $boundary.manifestPath -Force -Global -PassThru",
+    );
     expect(bootstrap).toContain('-Module "Microsoft.PowerShell.Security"');
     expect(bootstrap).toContain("[IO.FileAttributes]::ReparsePoint");
     expect(bootstrap).not.toMatch(/\$env:PSModulePath\s*=/u);
@@ -164,95 +189,148 @@ describe("repository-owned Node destination diagnostic", () => {
     const result = spawnSync(powershell51, ["-NoLogo", "-NoProfile", "-Command", command], {
       cwd: repositoryRoot,
       encoding: "utf8",
-      env: { ...process.env, PSModulePath: mixedPowerShellModulePath },
       windowsHide: true,
       timeout: 30_000,
     });
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
   });
 
-  it("passes all 45 simulations in separate hidden Windows PowerShell 5.1 processes", () => {
-    const result = spawnSync(
-      powershell51,
-      [
-        "-NoLogo",
-        "-NoProfile",
-        "-NonInteractive",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationDiagnostic.ps1"),
-        "-RepositoryRoot",
-        repositoryRoot,
-      ],
-      {
-        cwd: repositoryRoot,
-        encoding: "utf8",
-        env: { ...process.env, PSModulePath: mixedPowerShellModulePath },
-        windowsHide: true,
-        timeout: 300_000,
-      },
+  it("keeps exact Get-Acl available after the initializer returns under a real mixed module path", async () => {
+    const fixture = await createPowerShell7FirstModulePath();
+    const helper = resolve(
+      repositoryRoot,
+      "scripts/infra/windows-powershell-security-bootstrap.ps1",
     );
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    const report = JSON.parse(result.stdout) as {
-      processCount: number;
-      bootstrapFailureScenarios: Array<{
-        number: number;
-        exitCode: number;
-        bootstrapStage: string;
-        sanitizedCategory: string;
-        captureRemoved: boolean;
-      }>;
-      syntheticCaptureResidue: number;
-      scenarios: Array<{ number: number; name: string; result: string }>;
-    };
-    expect(report.processCount).toBe(45);
-    expect(report.bootstrapFailureScenarios).toEqual([
-      {
-        number: 1,
-        exitCode: 61,
-        bootstrapStage: "manifest-item",
-        sanitizedCategory: "not_found",
-        captureRemoved: true,
-      },
-      {
-        number: 2,
-        exitCode: 61,
-        bootstrapStage: "manifest-reparse",
-        sanitizedCategory: "reparse_point",
-        captureRemoved: true,
-      },
-      {
-        number: 3,
-        exitCode: 61,
-        bootstrapStage: "manifest-path",
-        sanitizedCategory: "outside_pshome",
-        captureRemoved: true,
-      },
-      {
-        number: 4,
-        exitCode: 61,
-        bootstrapStage: "module-identity",
-        sanitizedCategory: "module_mismatch",
-        captureRemoved: true,
-      },
-      {
-        number: 5,
-        exitCode: 61,
-        bootstrapStage: "command-resolution",
-        sanitizedCategory: "command_mismatch",
-        captureRemoved: true,
-      },
-    ]);
-    expect(report.syntheticCaptureResidue).toBe(0);
-    expect(report.scenarios).toHaveLength(45);
-    expect(report.scenarios.map(({ number }) => number)).toEqual(
-      Array.from({ length: 45 }, (_, index) => index + 1),
+    const expectedManifest = resolve(
+      process.env.SystemRoot ?? "C:/Windows",
+      "System32/WindowsPowerShell/v1.0/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1",
     );
-    expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(45);
-    expect(report.scenarios.every(({ result: scenarioResult }) => scenarioResult === "PASS")).toBe(
-      true,
-    );
+    const environment = { ...process.env, PSModulePath: fixture.mixedModulePath };
+    try {
+      const command = [
+        `$ErrorActionPreference='Stop';$env:PSModulePath='${fixture.moduleRoot};'+$env:PSModulePath;. '${helper}';`,
+        "function Invoke-SyntheticConsumer {[void](Initialize-RisePalsWindowsPowerShellSecurityModule)};",
+        "Invoke-SyntheticConsumer;",
+        "$PSModuleAutoLoadingPreference='None';",
+        "$command=Get-Command -Name 'Get-Acl' -CommandType Cmdlet -ErrorAction Stop;",
+        "[void](Get-Acl -LiteralPath $env:TEMP -ErrorAction Stop);",
+        "[Console]::Out.WriteLine(($env:PSModulePath -split ';')[0]);",
+        "[Console]::Out.WriteLine($command.ModuleName);",
+        "[Console]::Out.WriteLine($command.Module.Path);",
+        "[Console]::Out.WriteLine($command.Module.ModuleBase);",
+      ].join("");
+      const result = spawnSync(
+        powershell51,
+        ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command],
+        { cwd: repositoryRoot, encoding: "utf8", env: environment, windowsHide: true },
+      );
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const outputLines = result.stdout.trim().split(/\r?\n/u);
+      expect(outputLines).toHaveLength(4);
+      const [firstModuleRoot = "", moduleName = "", manifestPath = "", moduleBase = ""] =
+        outputLines;
+      expect(firstModuleRoot.toLowerCase()).toBe(fixture.moduleRoot.toLowerCase());
+      expect(moduleName).toBe("Microsoft.PowerShell.Security");
+      expect(manifestPath.toLowerCase()).toBe(expectedManifest.toLowerCase());
+      expect(moduleBase.toLowerCase()).toMatch(
+        /^c:\\windows\\system32\\windowspowershell\\v1\.0(?:\\|$)/u,
+      );
+    } finally {
+      await rm(fixture.moduleRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("passes all 45 simulations in separate hidden Windows PowerShell 5.1 processes", async () => {
+    const fixture = await createPowerShell7FirstModulePath();
+    try {
+      const result = spawnSync(
+        powershell51,
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationDiagnostic.ps1"),
+          "-RepositoryRoot",
+          repositoryRoot,
+          "-TestOnlyPowerShell7ModuleRoot",
+          fixture.moduleRoot,
+        ],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          env: { ...process.env, PSModulePath: fixture.mixedModulePath },
+          windowsHide: true,
+          timeout: 300_000,
+        },
+      );
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      const report = JSON.parse(result.stdout) as {
+        processCount: number;
+        powerShell7FirstModuleRootApplied: boolean;
+        bootstrapFailureScenarios: Array<{
+          number: number;
+          exitCode: number;
+          bootstrapStage: string;
+          sanitizedCategory: string;
+          captureRemoved: boolean;
+        }>;
+        syntheticCaptureResidue: number;
+        scenarios: Array<{ number: number; name: string; result: string }>;
+      };
+      expect(report.processCount).toBe(45);
+      expect(report.powerShell7FirstModuleRootApplied).toBe(true);
+      expect(report.bootstrapFailureScenarios).toEqual([
+        {
+          number: 1,
+          exitCode: 61,
+          bootstrapStage: "manifest-item",
+          sanitizedCategory: "not_found",
+          captureRemoved: true,
+        },
+        {
+          number: 2,
+          exitCode: 61,
+          bootstrapStage: "manifest-reparse",
+          sanitizedCategory: "reparse_point",
+          captureRemoved: true,
+        },
+        {
+          number: 3,
+          exitCode: 61,
+          bootstrapStage: "manifest-path",
+          sanitizedCategory: "outside_pshome",
+          captureRemoved: true,
+        },
+        {
+          number: 4,
+          exitCode: 61,
+          bootstrapStage: "module-identity",
+          sanitizedCategory: "module_mismatch",
+          captureRemoved: true,
+        },
+        {
+          number: 5,
+          exitCode: 61,
+          bootstrapStage: "command-resolution",
+          sanitizedCategory: "command_mismatch",
+          captureRemoved: true,
+        },
+      ]);
+      expect(report.syntheticCaptureResidue).toBe(0);
+      expect(report.scenarios).toHaveLength(45);
+      expect(report.scenarios.map(({ number }) => number)).toEqual(
+        Array.from({ length: 45 }, (_, index) => index + 1),
+      );
+      expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(45);
+      expect(
+        report.scenarios.every(({ result: scenarioResult }) => scenarioResult === "PASS"),
+      ).toBe(true);
+    } finally {
+      await rm(fixture.moduleRoot, { recursive: true, force: true });
+    }
   }, 300_000);
 
   it("is not imported by application client routes or components", async () => {
