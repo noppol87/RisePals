@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-08-31; R4-DIAG4 future non-mutating elevation-probe mode pending Project Codex review while RP-TURN-019 remains Partial
+**Last updated:** 2026-09-01; R4-NODE-DIAG2 repository-owned destination diagnostic pending Project Codex review while RP-TURN-019 remains Partial
 
 ## Authorization boundary
 
@@ -223,6 +223,10 @@ LIVE4B subsequently ran once and failed with parent exit 86 and elevated-child e
 LIVE5 subsequently stopped before elevated process creation at head `c73628aa5e9b6558ec9389a9a7b3429499b9ac07`. No bootstrap, child, Live gate or host mutation occurred, and DIAG2 evidence proves cleanup and a safe zero-residue host. Its exact launcher cause remains unknown. DIAG3 does not reinterpret that run. For future runs, the parent records one closed digest-authenticated launch diagnostic in checkpoint schema v3 and result schema v5. It binds only controlled launch state/failure vocabulary, optional integral native/HResult/depth evidence from at most four exception levels, fixed `powershell.exe` existence/signature/verb facts and argument count plus canonical digest. It never stores messages, stacks, type names, raw arguments, paths, streams or environment values. Cancellation code 1223 is recognized at any bounded exception level; unknown native codes remain numeric and receive only `launcher-exception-unknown`. Failed/cancelled launches cannot claim later stages, and functional success additionally requires an actually returned process object. DIAG3 is repository-only and does not authorize UAC, Live mode, service/process/`C:\RisePals` mutation, reboot or deployment.
 
 DIAG4 adds a future-only non-mutating `ElevationProbe` that shares Live's canonical committed PowerShell `RunAs` launch builder and authenticated bootstrap transport, but selects a dedicated child with no Live/service/`C:\RisePals`/Node/firewall/certificate/reboot path. The child can establish only exact provenance plus Administrator/high-or-system-integrity booleans and a sanitized digest-bound result. All Live gates remain `not_applicable`, all Live lifecycle booleans remain false and probe success is distinct from Live functional success. DIAG4 did not execute UAC or the probe. Even a separately authorized passing probe would prove only the elevation transport boundary, not service supervision, graceful shutdown or readiness for production. LIVE5's exact cause remains unknown and RP-TURN-019 remains Partial.
+
+NODE1/DIAG1 remains Partial and must not be treated as destination evidence. It stopped on a malformed temporary relative-path expression before any inspection beneath `C:\RisePals`; therefore all zero/false fields initialized before that failure are non-measurements, and the real Node version directory remains unknown. Do not reuse its consumed authorization.
+
+NODE-DIAG2 prepares, but does not execute, a corrected future `LiveReadOnly` inspection. The repository-owned script fixes five exact protected boundary paths, writes evidence only outside `C:\RisePals`, rejects component/path escape and reparse points, validates a closed deterministic official inventory and emits a closed nonce/authorization/head/script/inventory-file-hash-bound atomic receipt. Unavailable fields stay `null`/`not_reached`; a repair-safe outcome requires a completed comparison with exactly `node.exe` missing and no other discrepancy. Twenty-five temporary non-elevated hidden-process simulations cover every required destination, path, inventory and evidence rejection. Project Codex must accept the committed implementation and issue a new exact authorization before any UAC or protected inspection; Node restoration and Live rehearsal require still-separate permission.
 
 ## Health and failure evidence
 
