@@ -13,6 +13,10 @@ async function text(relativePath: string): Promise<string> {
 describe("repository-owned Node destination diagnostic", () => {
   it("keeps the future LiveReadOnly path read-only and bound to exact protected paths", async () => {
     const source = await text("scripts/infra/Invoke-RisePalsNodeDestinationDiagnostic.ps1");
+    const contract = await text("scripts/infra/node-destination-diagnostic-contract.psm1");
+    const probeStart = contract.indexOf("function Invoke-RisePalsNodeBoundaryProbe");
+    const probeEnd = contract.indexOf("function Get-RisePalsNodeEvidenceDigest", probeStart);
+    const protectedProbe = contract.slice(probeStart, probeEnd);
 
     expect(source).toContain('[ValidateSet("Simulation", "LiveReadOnly")][string]$Mode');
     for (const path of [
@@ -32,6 +36,13 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(source).toContain("Evidence must remain outside the protected Rise Pals root.");
     expect(source).toContain("ExpectedInventorySha256");
     expect(source).toContain("The evidence boundary contains a reparse point.");
+    expect(protectedProbe).toContain("Get-Item -LiteralPath $exactPath -Force -ErrorAction Stop");
+    expect(protectedProbe).toContain("Get-Acl -LiteralPath $exactPath -ErrorAction Stop");
+    expect(protectedProbe).not.toContain("Directory.Exists");
+    expect(protectedProbe).not.toContain("Test-Path");
+    expect(protectedProbe).not.toMatch(
+      /\b(?:Set-Acl|Remove-Item|Copy-Item|Move-Item|Rename-Item|Start-Process|Stop-Process)\b/iu,
+    );
   });
 
   it("uses component and canonical ancestry validation rather than a relative-path regex", async () => {
@@ -72,6 +83,43 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(contract).toContain("inventory-duplicate-path");
     expect(contract).toContain("inventory-record-property-set");
     expect(contract).toContain("inventoryFileSha256");
+    expect(contract).toContain("rise-pals-node-destination-diagnostic-v2");
+    for (const property of [
+      "pathId",
+      "disposition",
+      "objectType",
+      "owner",
+      "accessRulesProtected",
+      "explicitAllowAceCount",
+      "inheritedAllowAceCount",
+      "denyAceCount",
+      "unexpectedAceCount",
+      "resolvedAcePrincipals",
+      "failedOperation",
+      "sanitizedErrorCategory",
+      "nativeErrorCode",
+      "hResult",
+      "protectedWritesAttempted",
+    ]) {
+      expect(contract).toContain(`"${property}"`);
+    }
+    for (const stage of [
+      "boundary-root",
+      "boundary-tools",
+      "boundary-node",
+      "boundary-version",
+      "boundary-executable",
+      "boundary-owner",
+      "boundary-acl",
+      "boundary-reparse",
+      "destination-inventory",
+      "inventory-comparison",
+      "evidence-construction",
+      "evidence-persistence",
+      "evidence-reopen",
+    ]) {
+      expect(contract).toContain(`"${stage}"`);
+    }
     expect(contract).toContain("evidence-measurement-state");
     expect(contract).toContain("evidence-repair-state");
     expect(contract).toContain("evidence-digest");
@@ -101,7 +149,7 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
   });
 
-  it("passes all 25 simulations in separate hidden Windows PowerShell 5.1 processes", () => {
+  it("passes all 45 simulations in separate hidden Windows PowerShell 5.1 processes", () => {
     const result = spawnSync(
       powershell51,
       [
@@ -119,7 +167,7 @@ describe("repository-owned Node destination diagnostic", () => {
         cwd: repositoryRoot,
         encoding: "utf8",
         windowsHide: true,
-        timeout: 180_000,
+        timeout: 300_000,
       },
     );
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
@@ -127,16 +175,16 @@ describe("repository-owned Node destination diagnostic", () => {
       processCount: number;
       scenarios: Array<{ number: number; name: string; result: string }>;
     };
-    expect(report.processCount).toBe(25);
-    expect(report.scenarios).toHaveLength(25);
+    expect(report.processCount).toBe(45);
+    expect(report.scenarios).toHaveLength(45);
     expect(report.scenarios.map(({ number }) => number)).toEqual(
-      Array.from({ length: 25 }, (_, index) => index + 1),
+      Array.from({ length: 45 }, (_, index) => index + 1),
     );
-    expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(25);
+    expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(45);
     expect(report.scenarios.every(({ result: scenarioResult }) => scenarioResult === "PASS")).toBe(
       true,
     );
-  }, 180_000);
+  }, 300_000);
 
   it("is not imported by application client routes or components", async () => {
     const roots = ["src/app", "src/components"];

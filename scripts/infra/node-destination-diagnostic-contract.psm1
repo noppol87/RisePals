@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $script:RisePalsNodeInventorySchema = "rise-pals-node-destination-inventory-v1"
-$script:RisePalsNodeEvidenceSchema = "rise-pals-node-destination-diagnostic-v1"
+$script:RisePalsNodeEvidenceSchema = "rise-pals-node-destination-diagnostic-v2"
 $script:RisePalsNodeClassifications = @(
   "version-directory-absent",
   "version-directory-empty",
@@ -39,6 +39,68 @@ $script:RisePalsNodePredicates = @(
   "evidence-comparison-state",
   "evidence-repair-state",
   "evidence-digest"
+)
+$script:RisePalsNodeBoundaryPathIds = @(
+  "rise-pals-root",
+  "tools-directory",
+  "node-directory",
+  "version-directory",
+  "node-executable"
+)
+$script:RisePalsNodeDiagnosticStages = @(
+  "boundary-root",
+  "boundary-tools",
+  "boundary-node",
+  "boundary-version",
+  "boundary-executable",
+  "destination-inventory",
+  "inventory-comparison",
+  "evidence-construction",
+  "evidence-persistence",
+  "evidence-reopen"
+)
+$script:RisePalsNodeFailurePredicates = @(
+  $script:RisePalsNodeDiagnosticStages + @(
+    "boundary-owner",
+    "boundary-acl",
+    "boundary-reparse",
+    "boundary-canonical",
+    "boundary-parent",
+    "boundary-volume",
+    "boundary-object-type"
+  )
+)
+$script:RisePalsNodeFailedOperations = @(
+  "item-read",
+  "canonical-path-validation",
+  "parent-path-validation",
+  "volume-validation",
+  "filesystem-read",
+  "owner-read",
+  "acl-read",
+  "acl-rule-validation",
+  "reparse-check",
+  "object-type-validation",
+  "inventory-enumeration",
+  "inventory-comparison",
+  "evidence-construction",
+  "evidence-write",
+  "evidence-reopen"
+)
+$script:RisePalsNodeSanitizedErrorCategories = @(
+  "not_found",
+  "access_denied",
+  "io_error",
+  "security_error",
+  "invalid_operation",
+  "canonical_path",
+  "parent_path",
+  "volume_mismatch",
+  "object_type",
+  "reparse_point",
+  "acl_policy",
+  "inventory_mismatch",
+  "evidence_error"
 )
 
 function Get-RisePalsNodeSha256Bytes {
@@ -155,7 +217,8 @@ function Resolve-RisePalsNodeRelativePath {
     $cursor = $root
     foreach ($component in $components) {
       $cursor = Join-Path $cursor $component
-      if ((Test-Path -LiteralPath $cursor) -and (Test-RisePalsNodeReparsePoint -LiteralPath $cursor)) {
+      [void](Get-Item -LiteralPath $cursor -Force -ErrorAction Stop)
+      if (Test-RisePalsNodeReparsePoint -LiteralPath $cursor) {
         throw "reparse-point-present|-1"
       }
     }
@@ -184,8 +247,9 @@ function New-RisePalsNodeInventory {
   param([Parameter(Mandatory = $true)][string]$Root)
 
   $exactRoot = [IO.Path]::GetFullPath($Root).TrimEnd('\')
-  if (-not [IO.Directory]::Exists($exactRoot)) {
-    throw "inventory-root-absent|-1"
+  $rootItem = Get-Item -LiteralPath $exactRoot -Force -ErrorAction Stop
+  if (-not $rootItem.PSIsContainer) {
+    throw "inventory-root-type|-1"
   }
   if (Test-RisePalsNodeReparsePoint -LiteralPath $exactRoot) {
     throw "reparse-point-present|-1"
@@ -386,6 +450,283 @@ function New-RisePalsNodeEmptyComparison {
   }
 }
 
+function New-RisePalsNodeBoundaryResult {
+  param(
+    [Parameter(Mandatory = $true)][ValidateSet(
+      "rise-pals-root", "tools-directory", "node-directory", "version-directory",
+      "node-executable"
+    )][string]$PathId,
+    [ValidateSet("inspected", "absent", "access_denied", "controlled_failure", "not_reached")]
+    [string]$Disposition = "not_reached"
+  )
+
+  return [pscustomobject][ordered]@{
+    pathId = $PathId
+    disposition = $Disposition
+    objectType = $null
+    canonicalPathMatched = $null
+    parentPathMatched = $null
+    sameVolume = $null
+    filesystem = $null
+    owner = $null
+    accessRulesProtected = $null
+    reparsePoint = $null
+    ancestryValid = $null
+    ownerReadSucceeded = $null
+    aclReadSucceeded = $null
+    accessDenied = $(if ($Disposition -ceq "not_reached") { $null } else { $false })
+    explicitAllowAceCount = $null
+    inheritedAllowAceCount = $null
+    denyAceCount = $null
+    unexpectedAceCount = $null
+    resolvedAcePrincipals = $null
+    failedOperation = $null
+    sanitizedErrorCategory = $null
+    nativeErrorCode = $null
+    hResult = $null
+    protectedWritesAttempted = $false
+  }
+}
+
+function Get-RisePalsNodeExceptionFacts {
+  param([Parameter(Mandatory = $true)][Exception]$Exception)
+
+  $cursor = $Exception
+  $selected = $Exception
+  $category = "io_error"
+  for ($depth = 0; $depth -lt 4 -and $null -ne $cursor; $depth++) {
+    $typeName = $cursor.GetType().FullName
+    if ($cursor -is [UnauthorizedAccessException] -or
+      $cursor -is [Security.SecurityException]) {
+      $selected = $cursor
+      $category = "access_denied"
+      break
+    }
+    if ($cursor -is [IO.FileNotFoundException] -or
+      $cursor -is [IO.DirectoryNotFoundException] -or
+      $typeName -ceq "System.Management.Automation.ItemNotFoundException") {
+      $selected = $cursor
+      $category = "not_found"
+      break
+    }
+    if ($cursor -is [InvalidOperationException]) {
+      $selected = $cursor
+      $category = "invalid_operation"
+    } elseif ($cursor -is [Security.SecurityException]) {
+      $selected = $cursor
+      $category = "security_error"
+    }
+    $cursor = $cursor.InnerException
+  }
+
+  $hResult = [int]$selected.HResult
+  $native = $null
+  if ($hResult -eq -2147024891) { $native = 5 }
+  elseif ($hResult -eq -2147024894) { $native = 2 }
+  elseif ($hResult -eq -2147024893) { $native = 3 }
+  return [pscustomobject][ordered]@{
+    category = $category
+    nativeErrorCode = $native
+    hResult = $hResult
+  }
+}
+
+function Invoke-RisePalsNodeSimulationFault {
+  param(
+    [Parameter(Mandatory = $true)][string]$Fault,
+    [Parameter(Mandatory = $true)][string]$Token,
+    [Parameter(Mandatory = $true)][string]$Operation
+  )
+
+  if ($Fault -ceq ("AccessDenied{0}" -f $Token) -and $Operation -ceq "item-read") {
+    throw [UnauthorizedAccessException]::new("synthetic access denial")
+  }
+  if ($Fault -ceq ("OwnerDenied{0}" -f $Token) -and $Operation -ceq "owner-read") {
+    throw [UnauthorizedAccessException]::new("synthetic owner denial")
+  }
+  if ($Fault -ceq ("AclDenied{0}" -f $Token) -and $Operation -ceq "acl-read") {
+    throw [UnauthorizedAccessException]::new("synthetic ACL denial")
+  }
+  if ($Fault -ceq ("ControlledFailure{0}" -f $Token) -and $Operation -ceq "item-read") {
+    throw [IO.IOException]::new("synthetic controlled I/O failure")
+  }
+}
+
+function Invoke-RisePalsNodeBoundaryProbe {
+  param(
+    [Parameter(Mandatory = $true)][string]$PathId,
+    [Parameter(Mandatory = $true)][string]$LiteralPath,
+    [AllowNull()][string]$ExpectedParent,
+    [Parameter(Mandatory = $true)][ValidateSet("directory", "file")][string]$ExpectedType,
+    [Parameter(Mandatory = $true)][string]$FaultToken,
+    [string]$SimulationFault = "None",
+    [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$AllowedPrincipalSids
+  )
+
+  $result = New-RisePalsNodeBoundaryResult -PathId $PathId
+  $exactPath = [IO.Path]::GetFullPath($LiteralPath).TrimEnd('\')
+  $operation = "item-read"
+  try {
+    Invoke-RisePalsNodeSimulationFault -Fault $SimulationFault -Token $FaultToken -Operation $operation
+    $item = Get-Item -LiteralPath $exactPath -Force -ErrorAction Stop
+  } catch {
+    $facts = Get-RisePalsNodeExceptionFacts -Exception $_.Exception
+    $result.disposition = $(if ($facts.category -ceq "not_found") { "absent" } elseif (
+        $facts.category -ceq "access_denied") { "access_denied" } else { "controlled_failure" })
+    $result.accessDenied = $facts.category -ceq "access_denied"
+    $result.failedOperation = $operation
+    $result.sanitizedErrorCategory = $facts.category
+    $result.nativeErrorCode = $facts.nativeErrorCode
+    $result.hResult = $facts.hResult
+    return $result
+  }
+
+  $result.disposition = "inspected"
+  $result.accessDenied = $false
+  $result.objectType = $(if ($item.PSIsContainer) { "directory" } elseif (
+      $item -is [IO.FileInfo]) { "file" } else { "other" })
+  $canonical = [IO.Path]::GetFullPath($item.FullName).TrimEnd('\')
+  $result.canonicalPathMatched = $canonical.Equals($exactPath, [StringComparison]::OrdinalIgnoreCase)
+  if ([string]::IsNullOrEmpty($ExpectedParent)) {
+    $result.parentPathMatched = $null
+  } else {
+    $actualParent = if ($item.PSIsContainer) { $item.Parent.FullName } else { $item.Directory.FullName }
+    $result.parentPathMatched = ([IO.Path]::GetFullPath($actualParent).TrimEnd('\')).Equals(
+      [IO.Path]::GetFullPath($ExpectedParent).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+  }
+  $result.sameVolume = ([IO.Path]::GetPathRoot($canonical)).Equals(
+    [IO.Path]::GetPathRoot($exactPath), [StringComparison]::OrdinalIgnoreCase)
+  try {
+    $result.filesystem = [IO.DriveInfo]::new([IO.Path]::GetPathRoot($canonical)).DriveFormat
+  } catch {
+    $facts = Get-RisePalsNodeExceptionFacts -Exception $_.Exception
+    $result.disposition = $(if ($facts.category -ceq "access_denied") {
+        "access_denied" } else { "controlled_failure" })
+    $result.accessDenied = $facts.category -ceq "access_denied"
+    $result.failedOperation = "filesystem-read"
+    $result.sanitizedErrorCategory = $facts.category
+    $result.nativeErrorCode = $facts.nativeErrorCode
+    $result.hResult = $facts.hResult
+    return $result
+  }
+
+  try {
+    $result.reparsePoint = Test-RisePalsNodeReparsePoint -LiteralPath $exactPath
+  } catch {
+    $facts = Get-RisePalsNodeExceptionFacts -Exception $_.Exception
+    $result.disposition = $(if ($facts.category -ceq "access_denied") {
+        "access_denied" } else { "controlled_failure" })
+    $result.accessDenied = $facts.category -ceq "access_denied"
+    $result.failedOperation = "reparse-check"
+    $result.sanitizedErrorCategory = $facts.category
+    $result.nativeErrorCode = $facts.nativeErrorCode
+    $result.hResult = $facts.hResult
+    return $result
+  }
+
+  if ($SimulationFault -ceq ("CanonicalAncestryFailure{0}" -f $FaultToken)) {
+    $result.canonicalPathMatched = $false
+  }
+  $result.ancestryValid = [bool]($result.canonicalPathMatched -and
+    ($null -eq $result.parentPathMatched -or $result.parentPathMatched) -and
+    $result.sameVolume -and -not $result.reparsePoint)
+
+  if (-not $result.canonicalPathMatched) {
+    $result.failedOperation = "canonical-path-validation"
+    $result.sanitizedErrorCategory = "canonical_path"
+    return $result
+  }
+  if ($null -ne $result.parentPathMatched -and -not $result.parentPathMatched) {
+    $result.failedOperation = "parent-path-validation"
+    $result.sanitizedErrorCategory = "parent_path"
+    return $result
+  }
+  if (-not $result.sameVolume) {
+    $result.failedOperation = "volume-validation"
+    $result.sanitizedErrorCategory = "volume_mismatch"
+    return $result
+  }
+  if ($result.objectType -cne $ExpectedType) {
+    $result.failedOperation = "object-type-validation"
+    $result.sanitizedErrorCategory = "object_type"
+    return $result
+  }
+  if ($result.reparsePoint) {
+    $result.failedOperation = "reparse-check"
+    $result.sanitizedErrorCategory = "reparse_point"
+    return $result
+  }
+
+  $operation = "owner-read"
+  try {
+    Invoke-RisePalsNodeSimulationFault -Fault $SimulationFault -Token $FaultToken -Operation $operation
+    $ownerAcl = Get-Acl -LiteralPath $exactPath -ErrorAction Stop
+    $result.owner = $ownerAcl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+    $result.ownerReadSucceeded = $true
+  } catch {
+    $facts = Get-RisePalsNodeExceptionFacts -Exception $_.Exception
+    $result.disposition = $(if ($facts.category -ceq "access_denied") {
+        "access_denied" } else { "controlled_failure" })
+    $result.ownerReadSucceeded = $false
+    $result.accessDenied = $facts.category -ceq "access_denied"
+    $result.failedOperation = $operation
+    $result.sanitizedErrorCategory = $facts.category
+    $result.nativeErrorCode = $facts.nativeErrorCode
+    $result.hResult = $facts.hResult
+    return $result
+  }
+
+  $operation = "acl-read"
+  try {
+    Invoke-RisePalsNodeSimulationFault -Fault $SimulationFault -Token $FaultToken -Operation $operation
+    $acl = Get-Acl -LiteralPath $exactPath -ErrorAction Stop
+    $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+    $result.accessRulesProtected = [bool]$acl.AreAccessRulesProtected
+    $result.explicitAllowAceCount = @($rules | Where-Object {
+        $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+        -not $_.IsInherited
+      }).Count
+    $result.inheritedAllowAceCount = @($rules | Where-Object {
+        $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Allow -and
+        $_.IsInherited
+      }).Count
+    $result.denyAceCount = @($rules | Where-Object {
+        $_.AccessControlType -eq [Security.AccessControl.AccessControlType]::Deny
+      }).Count
+    $principals = @($rules | ForEach-Object { [string]$_.IdentityReference.Value } | Select-Object -Unique)
+    $result.resolvedAcePrincipals = @(Get-RisePalsNodeOrdinalSortedStrings -Values $principals)
+    $result.unexpectedAceCount = @($rules | Where-Object {
+        [string]$_.IdentityReference.Value -notin $AllowedPrincipalSids
+      }).Count
+    if ($SimulationFault -ceq ("DenyAce{0}" -f $FaultToken)) {
+      $result.denyAceCount = [int]$result.denyAceCount + 1
+    }
+    if ($SimulationFault -ceq ("UnexpectedAce{0}" -f $FaultToken)) {
+      $result.unexpectedAceCount = [int]$result.unexpectedAceCount + 1
+      $result.resolvedAcePrincipals = @($result.resolvedAcePrincipals + "S-1-5-21-999-999-999-999" |
+          Select-Object -Unique | Sort-Object)
+    }
+    $result.aclReadSucceeded = $true
+  } catch {
+    $facts = Get-RisePalsNodeExceptionFacts -Exception $_.Exception
+    $result.disposition = $(if ($facts.category -ceq "access_denied") {
+        "access_denied" } else { "controlled_failure" })
+    $result.aclReadSucceeded = $false
+    $result.accessDenied = $facts.category -ceq "access_denied"
+    $result.failedOperation = $operation
+    $result.sanitizedErrorCategory = $facts.category
+    $result.nativeErrorCode = $facts.nativeErrorCode
+    $result.hResult = $facts.hResult
+    return $result
+  }
+
+  if ([int]$result.denyAceCount -gt 0 -or [int]$result.unexpectedAceCount -gt 0) {
+    $result.failedOperation = "acl-rule-validation"
+    $result.sanitizedErrorCategory = "acl_policy"
+  }
+  return $result
+}
+
 function Get-RisePalsNodeEvidenceDigest {
   param([Parameter(Mandatory = $true)][object]$Evidence)
   $body = [pscustomobject][ordered]@{
@@ -399,11 +740,16 @@ function Get-RisePalsNodeEvidenceDigest {
     status = $Evidence.status
     classification = $Evidence.classification
     completedPredicates = @($Evidence.completedPredicates)
-    failedPredicate = $Evidence.failedPredicate
+    firstFailedPredicate = $Evidence.firstFailedPredicate
+    failedBoundary = $Evidence.failedBoundary
+    failedOperation = $Evidence.failedOperation
+    sanitizedErrorCategory = $Evidence.sanitizedErrorCategory
+    nativeErrorCode = $Evidence.nativeErrorCode
+    hResult = $Evidence.hResult
     source = $Evidence.source
     destination = $Evidence.destination
     comparison = $Evidence.comparison
-    boundary = $Evidence.boundary
+    boundaries = @($Evidence.boundaries)
     nodeExeOnlyRepairSafe = $Evidence.nodeExeOnlyRepairSafe
     recordedAtUtc = $Evidence.recordedAtUtc
   }
@@ -421,11 +767,16 @@ function New-RisePalsNodeEvidence {
     [ValidateSet("complete", "controlled-failure")][string]$Status,
     [Parameter(Mandatory = $true)][string]$Classification,
     [string[]]$CompletedPredicates = @(),
-    [AllowNull()][string]$FailedPredicate,
+    [AllowNull()][string]$FirstFailedPredicate,
+    [AllowNull()][string]$FailedBoundary,
+    [AllowNull()][string]$FailedOperation,
+    [AllowNull()][string]$SanitizedErrorCategory,
+    [AllowNull()][object]$NativeErrorCode,
+    [AllowNull()][object]$HResult,
     [Parameter(Mandatory = $true)][object]$Source,
     [Parameter(Mandatory = $true)][object]$Destination,
     [Parameter(Mandatory = $true)][object]$Comparison,
-    [Parameter(Mandatory = $true)][object]$Boundary,
+    [Parameter(Mandatory = $true)][object[]]$Boundaries,
     [bool]$NodeExeOnlyRepairSafe = $false
   )
   $evidence = [pscustomobject][ordered]@{
@@ -439,11 +790,18 @@ function New-RisePalsNodeEvidence {
     status = $Status
     classification = $Classification
     completedPredicates = @($CompletedPredicates)
-    failedPredicate = $(if ([string]::IsNullOrEmpty($FailedPredicate)) { $null } else { $FailedPredicate })
+    firstFailedPredicate = $(if ([string]::IsNullOrEmpty($FirstFailedPredicate)) {
+        $null } else { $FirstFailedPredicate })
+    failedBoundary = $(if ([string]::IsNullOrEmpty($FailedBoundary)) { $null } else { $FailedBoundary })
+    failedOperation = $(if ([string]::IsNullOrEmpty($FailedOperation)) { $null } else { $FailedOperation })
+    sanitizedErrorCategory = $(if ([string]::IsNullOrEmpty($SanitizedErrorCategory)) {
+        $null } else { $SanitizedErrorCategory })
+    nativeErrorCode = $NativeErrorCode
+    hResult = $HResult
     source = $Source
     destination = $Destination
     comparison = $Comparison
-    boundary = $Boundary
+    boundaries = @($Boundaries)
     nodeExeOnlyRepairSafe = $NodeExeOnlyRepairSafe
     recordedAtUtc = [DateTimeOffset]::UtcNow.ToString("o")
     evidenceDigest = $null
@@ -464,7 +822,8 @@ function Assert-RisePalsNodeEvidence {
   Assert-RisePalsNodeExactProperties -Value $Evidence -Names @(
     "schemaVersion", "authorizationId", "invocationNonce", "repositoryHead", "scriptSha256",
     "inventoryFileSha256", "mode", "status", "classification", "completedPredicates",
-    "failedPredicate", "source", "destination", "comparison", "boundary",
+    "firstFailedPredicate", "failedBoundary", "failedOperation", "sanitizedErrorCategory",
+    "nativeErrorCode", "hResult", "source", "destination", "comparison", "boundaries",
     "nodeExeOnlyRepairSafe", "recordedAtUtc", "evidenceDigest"
   ) -Predicate "evidence-property-set"
   if ([string]$Evidence.schemaVersion -cne $script:RisePalsNodeEvidenceSchema) {
@@ -493,19 +852,37 @@ function Assert-RisePalsNodeEvidence {
     $recordedAt.Offset -ne [TimeSpan]::Zero) {
     throw "evidence-schema|-1"
   }
-  foreach ($predicate in @($Evidence.completedPredicates)) {
-    if ([string]$predicate -notin $script:RisePalsNodePredicates) { throw "evidence-schema|-1" }
+  $completed = @($Evidence.completedPredicates)
+  if ($completed.Count -gt $script:RisePalsNodeDiagnosticStages.Count) {
+    throw "evidence-schema|-1"
   }
-  if (-not [string]::IsNullOrEmpty([string]$Evidence.failedPredicate) -and
-    [string]$Evidence.failedPredicate -notin $script:RisePalsNodePredicates) {
+  for ($index = 0; $index -lt $completed.Count; $index++) {
+    if ([string]$completed[$index] -cne [string]$script:RisePalsNodeDiagnosticStages[$index]) {
+      throw "evidence-schema|-1"
+    }
+  }
+  $hasFailure = -not [string]::IsNullOrEmpty([string]$Evidence.firstFailedPredicate)
+  if ($hasFailure) {
+    if ([string]$Evidence.firstFailedPredicate -notin $script:RisePalsNodeFailurePredicates -or
+      [string]$Evidence.failedOperation -notin $script:RisePalsNodeFailedOperations -or
+      [string]$Evidence.sanitizedErrorCategory -notin $script:RisePalsNodeSanitizedErrorCategories -or
+      ($null -ne $Evidence.failedBoundary -and
+        [string]$Evidence.failedBoundary -notin $script:RisePalsNodeBoundaryPathIds)) {
+      throw "evidence-schema|-1"
+    }
+    foreach ($number in @($Evidence.nativeErrorCode, $Evidence.hResult)) {
+      if ($null -ne $number -and $number -isnot [int] -and $number -isnot [long]) {
+        throw "evidence-schema|-1"
+      }
+    }
+  } elseif ($null -ne $Evidence.failedBoundary -or $null -ne $Evidence.failedOperation -or
+    $null -ne $Evidence.sanitizedErrorCategory -or $null -ne $Evidence.nativeErrorCode -or
+    $null -ne $Evidence.hResult) {
     throw "evidence-schema|-1"
   }
   if (([string]$Evidence.classification -ceq "unknown-controlled-failure") -ne
     ([string]$Evidence.status -ceq "controlled-failure") -or
-    (([string]$Evidence.status -ceq "complete") -and
-      -not [string]::IsNullOrEmpty([string]$Evidence.failedPredicate)) -or
-    (([string]$Evidence.status -ceq "controlled-failure") -and
-      [string]::IsNullOrEmpty([string]$Evidence.failedPredicate))) {
+    (([string]$Evidence.status -ceq "controlled-failure") -and -not $hasFailure)) {
     throw "evidence-schema|-1"
   }
   foreach ($measurement in @($Evidence.source, $Evidence.destination)) {
@@ -555,30 +932,207 @@ function Assert-RisePalsNodeEvidence {
       [string]$comparison.state -cne "not_reached")) {
     throw "evidence-comparison-state|-1"
   }
-  $boundary = $Evidence.boundary
-  Assert-RisePalsNodeExactProperties -Value $boundary -Names @(
-    "state", "rootCanonical", "rootReparse", "ancestryValid", "ownerReadSucceeded",
-    "aclReadSucceeded", "accessDenied", "protectedWritesAttempted"
-  ) -Predicate "evidence-measurement-state"
-  if ([string]$boundary.state -ceq "not_reached") {
-    if ($null -ne $boundary.rootCanonical -or $null -ne $boundary.rootReparse -or
-      $null -ne $boundary.ancestryValid -or $null -ne $boundary.ownerReadSucceeded -or
-      $null -ne $boundary.aclReadSucceeded -or $null -ne $boundary.accessDenied) {
-      throw "evidence-measurement-state|-1"
+  $boundaries = @($Evidence.boundaries)
+  if ($boundaries.Count -ne $script:RisePalsNodeBoundaryPathIds.Count) {
+    throw "evidence-boundary-state|-1"
+  }
+  $ancestorBlocked = $false
+  for ($boundaryIndex = 0; $boundaryIndex -lt $boundaries.Count; $boundaryIndex++) {
+    $boundary = $boundaries[$boundaryIndex]
+    Assert-RisePalsNodeExactProperties -Value $boundary -Names @(
+      "pathId", "disposition", "objectType", "canonicalPathMatched", "parentPathMatched",
+      "sameVolume", "filesystem", "owner", "accessRulesProtected", "reparsePoint",
+      "ancestryValid", "ownerReadSucceeded", "aclReadSucceeded", "accessDenied",
+      "explicitAllowAceCount", "inheritedAllowAceCount", "denyAceCount",
+      "unexpectedAceCount", "resolvedAcePrincipals", "failedOperation",
+      "sanitizedErrorCategory", "nativeErrorCode", "hResult", "protectedWritesAttempted"
+    ) -Predicate "evidence-boundary-state" -RecordIndex $boundaryIndex
+    if ([string]$boundary.pathId -cne $script:RisePalsNodeBoundaryPathIds[$boundaryIndex] -or
+      [string]$boundary.disposition -notin @(
+        "inspected", "absent", "access_denied", "controlled_failure", "not_reached"
+      ) -or $boundary.protectedWritesAttempted -isnot [bool] -or
+      [bool]$boundary.protectedWritesAttempted) {
+      throw "evidence-boundary-state|$boundaryIndex"
     }
-  } elseif ([string]$boundary.state -ceq "measured") {
+    if ($ancestorBlocked -and [string]$boundary.disposition -cne "not_reached") {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+
+    $nullableMeasurementNames = @(
+      "objectType", "canonicalPathMatched", "parentPathMatched", "sameVolume", "filesystem",
+      "owner", "accessRulesProtected", "reparsePoint", "ancestryValid", "ownerReadSucceeded",
+      "aclReadSucceeded", "accessDenied", "explicitAllowAceCount", "inheritedAllowAceCount",
+      "denyAceCount", "unexpectedAceCount", "resolvedAcePrincipals", "failedOperation",
+      "sanitizedErrorCategory", "nativeErrorCode", "hResult"
+    )
+    if ([string]$boundary.disposition -ceq "not_reached") {
+      foreach ($name in $nullableMeasurementNames) {
+        if ($null -ne $boundary.$name) { throw "evidence-boundary-state|$boundaryIndex" }
+      }
+      $ancestorBlocked = $true
+      continue
+    }
+
+    if ([string]$boundary.disposition -ceq "absent") {
+      foreach ($name in @(
+        "objectType", "canonicalPathMatched", "parentPathMatched", "sameVolume", "filesystem",
+        "owner", "accessRulesProtected", "reparsePoint", "ancestryValid", "ownerReadSucceeded",
+        "aclReadSucceeded", "explicitAllowAceCount", "inheritedAllowAceCount", "denyAceCount",
+        "unexpectedAceCount", "resolvedAcePrincipals"
+      )) {
+        if ($null -ne $boundary.$name) { throw "evidence-boundary-state|$boundaryIndex" }
+      }
+      if ($boundary.accessDenied -isnot [bool] -or [bool]$boundary.accessDenied -or
+        [string]$boundary.failedOperation -cne "item-read" -or
+        [string]$boundary.sanitizedErrorCategory -cne "not_found") {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+      $ancestorBlocked = $true
+      continue
+    }
+
+    if ([string]$boundary.disposition -in @("access_denied", "controlled_failure")) {
+      if ([string]::IsNullOrEmpty([string]$boundary.failedOperation) -or
+        [string]::IsNullOrEmpty([string]$boundary.sanitizedErrorCategory) -or
+        [string]$boundary.failedOperation -notin $script:RisePalsNodeFailedOperations -or
+        [string]$boundary.sanitizedErrorCategory -notin $script:RisePalsNodeSanitizedErrorCategories -or
+        $boundary.accessDenied -isnot [bool] -or
+        ([string]$boundary.disposition -ceq "access_denied") -ne [bool]$boundary.accessDenied -or
+        (([string]$boundary.disposition -ceq "access_denied") -and
+          [string]$boundary.sanitizedErrorCategory -cne "access_denied")) {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+      if ($boundary.aclReadSucceeded -eq $true) {
+        foreach ($name in @(
+          "explicitAllowAceCount", "inheritedAllowAceCount", "denyAceCount", "unexpectedAceCount"
+        )) {
+          if (-not (Test-RisePalsNodeNonnegativeInteger $boundary.$name)) {
+            throw "evidence-boundary-state|$boundaryIndex"
+          }
+        }
+        if ($null -eq $boundary.resolvedAcePrincipals) {
+          throw "evidence-boundary-state|$boundaryIndex"
+        }
+      } elseif ($null -ne $boundary.explicitAllowAceCount -or
+        $null -ne $boundary.inheritedAllowAceCount -or $null -ne $boundary.denyAceCount -or
+        $null -ne $boundary.unexpectedAceCount -or $null -ne $boundary.resolvedAcePrincipals) {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+      $ancestorBlocked = $true
+      continue
+    }
+
     foreach ($name in @(
-      "rootCanonical", "rootReparse", "ancestryValid", "ownerReadSucceeded",
-      "aclReadSucceeded", "accessDenied"
+      "canonicalPathMatched", "sameVolume", "reparsePoint", "ancestryValid",
+      "ownerReadSucceeded", "aclReadSucceeded", "accessDenied"
     )) {
       if ($null -ne $boundary.$name -and $boundary.$name -isnot [bool]) {
-        throw "evidence-measurement-state|-1"
+        throw "evidence-boundary-state|$boundaryIndex"
       }
     }
-  } else { throw "evidence-measurement-state|-1" }
-  if ($boundary.protectedWritesAttempted -isnot [bool] -or
-    [bool]$boundary.protectedWritesAttempted) {
-    throw "evidence-measurement-state|-1"
+    if ($boundaryIndex -eq 0) {
+      if ($null -ne $boundary.parentPathMatched) { throw "evidence-boundary-state|0" }
+    } elseif ($boundary.parentPathMatched -isnot [bool]) {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+    if ([string]$boundary.objectType -notin @("directory", "file", "other") -or
+      [string]::IsNullOrWhiteSpace([string]$boundary.filesystem) -or
+      [string]$boundary.filesystem -cnotmatch "^[A-Za-z0-9._-]{1,32}$" -or
+      $boundary.accessDenied -ne $false) {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+
+    $structuralFailure = -not [bool]$boundary.canonicalPathMatched -or
+      ($boundaryIndex -gt 0 -and -not [bool]$boundary.parentPathMatched) -or
+      -not [bool]$boundary.sameVolume -or [bool]$boundary.reparsePoint -or
+      -not [bool]$boundary.ancestryValid -or
+      (($boundaryIndex -lt 4) -and [string]$boundary.objectType -cne "directory") -or
+      (($boundaryIndex -eq 4) -and [string]$boundary.objectType -cne "file")
+    if ($structuralFailure) {
+      if ($null -ne $boundary.owner -or $null -ne $boundary.accessRulesProtected -or
+        $null -ne $boundary.ownerReadSucceeded -or $null -ne $boundary.aclReadSucceeded -or
+        $null -ne $boundary.explicitAllowAceCount -or $null -ne $boundary.inheritedAllowAceCount -or
+        $null -ne $boundary.denyAceCount -or $null -ne $boundary.unexpectedAceCount -or
+        $null -ne $boundary.resolvedAcePrincipals -or
+        [string]::IsNullOrEmpty([string]$boundary.failedOperation) -or
+        [string]::IsNullOrEmpty([string]$boundary.sanitizedErrorCategory)) {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+      $ancestorBlocked = $true
+      continue
+    }
+
+    if ([string]$boundary.owner -cnotmatch "^S-[0-9-]{3,184}$" -or
+      $boundary.accessRulesProtected -isnot [bool] -or $boundary.ownerReadSucceeded -ne $true -or
+      $boundary.aclReadSucceeded -ne $true) {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+    foreach ($name in @(
+      "explicitAllowAceCount", "inheritedAllowAceCount", "denyAceCount", "unexpectedAceCount"
+    )) {
+      if (-not (Test-RisePalsNodeNonnegativeInteger $boundary.$name)) {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+    }
+    if ($null -eq $boundary.resolvedAcePrincipals) {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+    foreach ($principal in @($boundary.resolvedAcePrincipals)) {
+      if ([string]$principal -cnotmatch "^S-[0-9-]{3,184}$") {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+    }
+    $aclPolicyFailure = [int]$boundary.denyAceCount -gt 0 -or
+      [int]$boundary.unexpectedAceCount -gt 0
+    if ($aclPolicyFailure) {
+      if ([string]$boundary.failedOperation -cne "acl-rule-validation" -or
+        [string]$boundary.sanitizedErrorCategory -cne "acl_policy") {
+        throw "evidence-boundary-state|$boundaryIndex"
+      }
+      $ancestorBlocked = $true
+    } elseif ($null -ne $boundary.failedOperation -or $null -ne $boundary.sanitizedErrorCategory -or
+      $null -ne $boundary.nativeErrorCode -or $null -ne $boundary.hResult) {
+      throw "evidence-boundary-state|$boundaryIndex"
+    }
+  }
+
+  $versionBoundary = $boundaries[3]
+  $executableBoundary = $boundaries[4]
+  if ([string]$comparison.state -ceq "measured" -and
+    ([string]$versionBoundary.disposition -cne "inspected" -or
+      [string]$versionBoundary.objectType -cne "directory" -or
+      [string]$Evidence.destination.state -cne "measured")) {
+    throw "evidence-comparison-state|-1"
+  }
+  if ($Evidence.nodeExeOnlyRepairSafe -isnot [bool]) {
+    throw "evidence-repair-state|-1"
+  }
+  $repairFacts = [string]$Evidence.status -ceq "complete" -and
+    [string]$Evidence.classification -ceq "complete-except-node" -and
+    [string]$comparison.state -ceq "measured" -and
+    [int]$comparison.missingCount -eq 1 -and
+    @($comparison.missingPaths).Count -eq 1 -and
+    [string]$comparison.missingPaths[0] -ceq "node.exe" -and
+    [int]$comparison.unexpectedCount -eq 0 -and [int]$comparison.typeMismatchCount -eq 0 -and
+    [int]$comparison.contentMismatchCount -eq 0 -and
+    [string]$versionBoundary.disposition -ceq "inspected" -and
+    [string]$versionBoundary.objectType -ceq "directory" -and
+    [string]$executableBoundary.disposition -ceq "absent" -and
+    [string]$executableBoundary.failedOperation -ceq "item-read" -and
+    [string]$executableBoundary.sanitizedErrorCategory -ceq "not_found"
+  if ($repairFacts) {
+    foreach ($boundary in @($boundaries | Select-Object -First 4)) {
+      if ([string]$boundary.disposition -cne "inspected" -or
+        [bool]$boundary.reparsePoint -or -not [bool]$boundary.ancestryValid -or
+        $boundary.ownerReadSucceeded -ne $true -or $boundary.aclReadSucceeded -ne $true -or
+        [int]$boundary.denyAceCount -ne 0 -or [int]$boundary.unexpectedAceCount -ne 0) {
+        $repairFacts = $false
+        break
+      }
+    }
+  }
+  if ([bool]$Evidence.nodeExeOnlyRepairSafe -ne [bool]$repairFacts) {
+    throw "evidence-repair-state|-1"
   }
   if ([bool]$Evidence.nodeExeOnlyRepairSafe) {
     if ([string]$Evidence.status -cne "complete" -or
@@ -591,6 +1145,77 @@ function Assert-RisePalsNodeEvidence {
       [int]$comparison.contentMismatchCount -ne 0) {
       throw "evidence-repair-state|-1"
     }
+  }
+
+  if ([string]$Evidence.classification -ceq "version-directory-absent") {
+    if (@($boundaries | Select-Object -First 3 | Where-Object {
+          [string]$_.disposition -cne "inspected" -or [string]$_.objectType -cne "directory"
+        }).Count -ne 0 -or [string]$versionBoundary.disposition -cne "absent" -or
+      [string]$executableBoundary.disposition -cne "not_reached" -or
+      [string]$Evidence.destination.state -cne "not_reached" -or
+      [string]$comparison.state -cne "not_reached") {
+      throw "evidence-boundary-state|-1"
+    }
+  }
+  if ([string]$Evidence.classification -ceq "node-already-present") {
+    if ([string]$executableBoundary.disposition -cne "inspected" -or
+      [string]$executableBoundary.objectType -cne "file" -or
+      [string]$comparison.state -cne "measured" -or [int]$comparison.missingCount -ne 0 -or
+      [int]$comparison.unexpectedCount -ne 0 -or [int]$comparison.typeMismatchCount -ne 0 -or
+      [int]$comparison.contentMismatchCount -ne 0) {
+      throw "evidence-boundary-state|-1"
+    }
+  }
+
+  $failedBoundaryResult = $null
+  if ($null -ne $Evidence.failedBoundary) {
+    $failedBoundaryResult = @($boundaries | Where-Object {
+        [string]$_.pathId -ceq [string]$Evidence.failedBoundary
+      })[0]
+  }
+  if ($null -ne $failedBoundaryResult -and
+    [string]$Evidence.firstFailedPredicate -notin @("destination-inventory", "inventory-comparison")) {
+    if ([string]$failedBoundaryResult.failedOperation -cne [string]$Evidence.failedOperation -or
+      [string]$failedBoundaryResult.sanitizedErrorCategory -cne
+        [string]$Evidence.sanitizedErrorCategory -or
+      $failedBoundaryResult.nativeErrorCode -ne $Evidence.nativeErrorCode -or
+      $failedBoundaryResult.hResult -ne $Evidence.hResult) {
+      throw "evidence-failure-provenance|-1"
+    }
+    $expectedFailurePredicate = switch ([string]$Evidence.failedOperation) {
+      "item-read" {
+        $script:RisePalsNodeDiagnosticStages[[Array]::IndexOf(
+            [object[]]$script:RisePalsNodeBoundaryPathIds, [string]$Evidence.failedBoundary)]
+      }
+      "owner-read" { "boundary-owner" }
+      "acl-read" { "boundary-acl" }
+      "acl-rule-validation" { "boundary-acl" }
+      "reparse-check" { "boundary-reparse" }
+      "canonical-path-validation" { "boundary-canonical" }
+      "parent-path-validation" { "boundary-parent" }
+      "volume-validation" { "boundary-volume" }
+      "filesystem-read" { "boundary-volume" }
+      "object-type-validation" { "boundary-object-type" }
+      default { $null }
+    }
+    if ([string]$Evidence.firstFailedPredicate -cne [string]$expectedFailurePredicate) {
+      throw "evidence-failure-provenance|-1"
+    }
+  }
+  if ([string]$Evidence.classification -ceq "access-denied") {
+    $denied = @($boundaries | Where-Object { [string]$_.disposition -ceq "access_denied" })
+    if ($denied.Count -ne 1 -or $null -eq $failedBoundaryResult -or
+      [string]$Evidence.sanitizedErrorCategory -cne "access_denied") {
+      throw "evidence-failure-provenance|-1"
+    }
+  }
+  if ([string]$Evidence.classification -ceq "ACL-boundary-failure") {
+    $aclFailures = @($boundaries | Where-Object {
+        [string]$_.failedOperation -ceq "acl-rule-validation" -or
+        ([string]$_.disposition -in @("access_denied", "controlled_failure") -and
+          [string]$_.failedOperation -in @("owner-read", "acl-read"))
+      })
+    if ($aclFailures.Count -ne 1) { throw "evidence-failure-provenance|-1" }
   }
   if ([string]$Evidence.evidenceDigest -cne (Get-RisePalsNodeEvidenceDigest -Evidence $Evidence)) {
     throw "evidence-digest|-1"
@@ -653,6 +1278,10 @@ Export-ModuleMember -Function @(
   "Compare-RisePalsNodeInventories",
   "New-RisePalsNodeMeasurement",
   "New-RisePalsNodeEmptyComparison",
+  "New-RisePalsNodeBoundaryResult",
+  "Get-RisePalsNodeExceptionFacts",
+  "Invoke-RisePalsNodeSimulationFault",
+  "Invoke-RisePalsNodeBoundaryProbe",
   "Get-RisePalsNodeEvidenceDigest",
   "New-RisePalsNodeEvidence",
   "Assert-RisePalsNodeEvidence",

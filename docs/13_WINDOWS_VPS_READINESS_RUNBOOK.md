@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-09-01; R4-NODE-DIAG2 repository-owned destination diagnostic pending Project Codex review while RP-TURN-019 remains Partial
+**Last updated:** 2026-09-01; R4-NODE-DIAG2-R1 exact protected-boundary diagnostic correction pending Project Codex review while RP-TURN-019 remains Partial
 
 ## Authorization boundary
 
@@ -226,7 +226,7 @@ DIAG4 adds a future-only non-mutating `ElevationProbe` that shares Live's canoni
 
 NODE1/DIAG1 remains Partial and must not be treated as destination evidence. It stopped on a malformed temporary relative-path expression before any inspection beneath `C:\RisePals`; therefore all zero/false fields initialized before that failure are non-measurements, and the real Node version directory remains unknown. Do not reuse its consumed authorization.
 
-NODE-DIAG2 prepares, but does not execute, a corrected future `LiveReadOnly` inspection. The repository-owned script fixes five exact protected boundary paths, writes evidence only outside `C:\RisePals`, rejects component/path escape and reparse points, validates a closed deterministic official inventory and emits a closed nonce/authorization/head/script/inventory-file-hash-bound atomic receipt. Unavailable fields stay `null`/`not_reached`; a repair-safe outcome requires a completed comparison with exactly `node.exe` missing and no other discrepancy. Twenty-five temporary non-elevated hidden-process simulations cover every required destination, path, inventory and evidence rejection. Project Codex must accept the committed implementation and issue a new exact authorization before any UAC or protected inspection; Node restoration and Live rehearsal require still-separate permission.
+NODE-DIAG2-R1 prepares, but does not execute, a corrected future `LiveReadOnly` inspection. One shared helper explicitly probes the exact root, tools, node, version and executable boundaries with error-producing `Get-Item` and `Get-Acl` calls; `Directory.Exists=false` and `Test-Path=false` are never accepted as protected-path absence. Its five ordered closed results preserve object/canonical-parent-volume/filesystem, owner, ACL/ACE, reparse, ancestry and exact failed operation/category/native/HRESULT evidence, while descendants remain `not_reached` after an unsafe ancestor. The receipt is nonce/authorization/head/script/inventory-file-hash bound, atomic and stored only outside `C:\RisePals`. Repair safety requires four coherent inspected directories, an explicit final executable not-found and a completed comparison showing exactly `node.exe` missing with zero unexpected/type/content mismatch. Forty-five temporary non-elevated hidden-process simulations cover the original cases plus every boundary denial, owner/ACL split failure, ACL policy failure, every directory reparse boundary, false absence, failure provenance and tampering. Project Codex must accept the committed implementation and issue a new exact authorization before any UAC or protected inspection; Node restoration and Live rehearsal require still-separate permission.
 
 ## Health and failure evidence
 
