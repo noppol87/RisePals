@@ -1,6 +1,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "windows-powershell-security-bootstrap.ps1")
+[void](Initialize-RisePalsWindowsPowerShellSecurityModule)
+
 $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1"
 $script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v4"
 $script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v6"

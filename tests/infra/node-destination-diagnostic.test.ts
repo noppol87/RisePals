@@ -5,6 +5,13 @@ import { describe, expect, it } from "vitest";
 
 const repositoryRoot = resolve(import.meta.dirname, "../..");
 const powershell51 = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe";
+const mixedPowerShellModulePath = [
+  "C:\\Program Files\\PowerShell\\Modules",
+  "C:\\Program Files\\PowerShell\\7\\Modules",
+  process.env.PSModulePath,
+]
+  .filter((entry): entry is string => Boolean(entry))
+  .join(";");
 
 async function text(relativePath: string): Promise<string> {
   return readFile(resolve(repositoryRoot, relativePath), "utf8");
@@ -14,6 +21,7 @@ describe("repository-owned Node destination diagnostic", () => {
   it("keeps the future LiveReadOnly path read-only and bound to exact protected paths", async () => {
     const source = await text("scripts/infra/Invoke-RisePalsNodeDestinationDiagnostic.ps1");
     const contract = await text("scripts/infra/node-destination-diagnostic-contract.psm1");
+    const bootstrap = await text("scripts/infra/windows-powershell-security-bootstrap.ps1");
     const probeStart = contract.indexOf("function Invoke-RisePalsNodeBoundaryProbe");
     const probeEnd = contract.indexOf("function Get-RisePalsNodeEvidenceDigest", probeStart);
     const protectedProbe = contract.slice(probeStart, probeEnd);
@@ -36,6 +44,16 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(source).toContain("Evidence must remain outside the protected Rise Pals root.");
     expect(source).toContain("ExpectedInventorySha256");
     expect(source).toContain("The evidence boundary contains a reparse point.");
+    expect(contract).toContain("Initialize-RisePalsWindowsPowerShellSecurityModule");
+    expect(bootstrap).toContain("Join-Path $PSHOME");
+    expect(bootstrap).toContain(
+      '"Modules\\Microsoft.PowerShell.Security\\Microsoft.PowerShell.Security.psd1"',
+    );
+    expect(bootstrap).toContain("Assert-RisePalsWindowsPowerShell51Runtime");
+    expect(bootstrap).toContain("Import-Module -Name $boundary.manifestPath -Force -PassThru");
+    expect(bootstrap).toContain('-Module "Microsoft.PowerShell.Security"');
+    expect(bootstrap).toContain("[IO.FileAttributes]::ReparsePoint");
+    expect(bootstrap).not.toMatch(/\$env:PSModulePath\s*=/u);
     expect(protectedProbe).toContain("Get-Item -LiteralPath $exactPath -Force -ErrorAction Stop");
     expect(protectedProbe).toContain("Get-Acl -LiteralPath $exactPath -ErrorAction Stop");
     expect(protectedProbe).not.toContain("Directory.Exists");
@@ -132,7 +150,10 @@ describe("repository-owned Node destination diagnostic", () => {
       "$files=@(",
       "'scripts\\infra\\node-destination-diagnostic-contract.psm1',",
       "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnostic.ps1',",
-      "'scripts\\infra\\Test-RisePalsNodeDestinationDiagnostic.ps1'",
+      "'scripts\\infra\\Test-RisePalsNodeDestinationDiagnostic.ps1',",
+      "'scripts\\infra\\windows-powershell-security-bootstrap.ps1',",
+      "'scripts\\infra\\candidate-rehearsal-transport.ps1',",
+      "'scripts\\infra\\Invoke-RisePalsCandidateLiveSequence.ps1'",
       ");",
       "foreach($file in $files){",
       "$tokens=$null;$errors=$null;",
@@ -143,6 +164,7 @@ describe("repository-owned Node destination diagnostic", () => {
     const result = spawnSync(powershell51, ["-NoLogo", "-NoProfile", "-Command", command], {
       cwd: repositoryRoot,
       encoding: "utf8",
+      env: { ...process.env, PSModulePath: mixedPowerShellModulePath },
       windowsHide: true,
       timeout: 30_000,
     });
@@ -166,6 +188,7 @@ describe("repository-owned Node destination diagnostic", () => {
       {
         cwd: repositoryRoot,
         encoding: "utf8",
+        env: { ...process.env, PSModulePath: mixedPowerShellModulePath },
         windowsHide: true,
         timeout: 300_000,
       },
@@ -173,9 +196,55 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     const report = JSON.parse(result.stdout) as {
       processCount: number;
+      bootstrapFailureScenarios: Array<{
+        number: number;
+        exitCode: number;
+        bootstrapStage: string;
+        sanitizedCategory: string;
+        captureRemoved: boolean;
+      }>;
+      syntheticCaptureResidue: number;
       scenarios: Array<{ number: number; name: string; result: string }>;
     };
     expect(report.processCount).toBe(45);
+    expect(report.bootstrapFailureScenarios).toEqual([
+      {
+        number: 1,
+        exitCode: 61,
+        bootstrapStage: "manifest-item",
+        sanitizedCategory: "not_found",
+        captureRemoved: true,
+      },
+      {
+        number: 2,
+        exitCode: 61,
+        bootstrapStage: "manifest-reparse",
+        sanitizedCategory: "reparse_point",
+        captureRemoved: true,
+      },
+      {
+        number: 3,
+        exitCode: 61,
+        bootstrapStage: "manifest-path",
+        sanitizedCategory: "outside_pshome",
+        captureRemoved: true,
+      },
+      {
+        number: 4,
+        exitCode: 61,
+        bootstrapStage: "module-identity",
+        sanitizedCategory: "module_mismatch",
+        captureRemoved: true,
+      },
+      {
+        number: 5,
+        exitCode: 61,
+        bootstrapStage: "command-resolution",
+        sanitizedCategory: "command_mismatch",
+        captureRemoved: true,
+      },
+    ]);
+    expect(report.syntheticCaptureResidue).toBe(0);
     expect(report.scenarios).toHaveLength(45);
     expect(report.scenarios.map(({ number }) => number)).toEqual(
       Array.from({ length: 45 }, (_, index) => index + 1),

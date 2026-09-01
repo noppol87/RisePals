@@ -2,6 +2,7 @@
 param(
   [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
   [ValidateRange(0, 45)][int]$WorkerScenario = 0,
+  [ValidateRange(0, 5)][int]$BootstrapWorkerScenario = 0,
   [string]$WorkspaceRoot
 )
 
@@ -9,8 +10,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $repository = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\')
 $scripts = Join-Path $repository "scripts\infra"
+$securityBootstrapPath = Join-Path $scripts "windows-powershell-security-bootstrap.ps1"
 $contractPath = Join-Path $scripts "node-destination-diagnostic-contract.psm1"
 $diagnosticPath = Join-Path $scripts "Invoke-RisePalsNodeDestinationDiagnostic.ps1"
+. $securityBootstrapPath
+[void](Initialize-RisePalsWindowsPowerShellSecurityModule)
 Import-Module -Name $contractPath -Force -ErrorAction Stop
 
 $scenarioNames = @(
@@ -116,6 +120,108 @@ function Get-RisePalsNodeHarnessHead {
     throw "Repository HEAD unavailable."
   }
   return $head
+}
+
+function Invoke-RisePalsNodeBootstrapFailureWorker {
+  param(
+    [Parameter(Mandatory = $true)][ValidateRange(1, 5)][int]$Scenario,
+    [Parameter(Mandatory = $true)][string]$Root
+  )
+
+  $caseRoot = Join-Path $Root ("bootstrap-case-{0:d2}" -f $Scenario)
+  $syntheticHome = Join-Path $caseRoot "WindowsPowerShell\v1.0"
+  $moduleRoot = Join-Path $syntheticHome "Modules"
+  $moduleDirectory = Join-Path $moduleRoot "Microsoft.PowerShell.Security"
+  $manifestPath = Join-Path $moduleDirectory "Microsoft.PowerShell.Security.psd1"
+  $junctionPath = $null
+  [IO.Directory]::CreateDirectory($moduleRoot) | Out-Null
+
+  $failure = $null
+  try {
+    switch ($Scenario) {
+      1 {
+        [IO.Directory]::CreateDirectory($moduleDirectory) | Out-Null
+        [void](Assert-RisePalsWindowsPowerShellSecurityManifestBoundary `
+            -ManifestPath $manifestPath -WindowsPowerShellHome $syntheticHome)
+      }
+      2 {
+        $target = Join-Path $caseRoot "synthetic-module-target"
+        [IO.Directory]::CreateDirectory($target) | Out-Null
+        [IO.File]::WriteAllText((Join-Path $target "Microsoft.PowerShell.Security.psd1"),
+          "synthetic manifest", [Text.UTF8Encoding]::new($false))
+        $junction = New-Item -ItemType Junction -Path $moduleDirectory -Target $target `
+          -ErrorAction Stop
+        $junctionPath = [string]$junction.FullName
+        [void](Assert-RisePalsWindowsPowerShellSecurityManifestBoundary `
+            -ManifestPath $manifestPath -WindowsPowerShellHome $syntheticHome)
+      }
+      3 {
+        $outside = Join-Path $caseRoot "outside\Microsoft.PowerShell.Security.psd1"
+        [IO.Directory]::CreateDirectory((Split-Path -Parent $outside)) | Out-Null
+        [IO.File]::WriteAllText($outside, "synthetic manifest", [Text.UTF8Encoding]::new($false))
+        [void](Assert-RisePalsWindowsPowerShellSecurityManifestBoundary `
+            -ManifestPath $outside -WindowsPowerShellHome $syntheticHome)
+      }
+      4 {
+        [IO.Directory]::CreateDirectory($moduleDirectory) | Out-Null
+        [IO.File]::WriteAllText($manifestPath, "synthetic manifest", [Text.UTF8Encoding]::new($false))
+        $module = [pscustomobject]@{
+          Name = "Microsoft.PowerShell.Security"
+          Path = (Join-Path $caseRoot "other-security-module.psd1")
+          ModuleBase = $syntheticHome
+        }
+        $command = [pscustomobject]@{
+          Name = "Get-Acl"
+          ModuleName = "Microsoft.PowerShell.Security"
+          Module = $module
+        }
+        Assert-RisePalsWindowsPowerShellSecurityLoadedState -Module $module -Command $command `
+          -ManifestPath $manifestPath -WindowsPowerShellHome $syntheticHome
+      }
+      5 {
+        [IO.Directory]::CreateDirectory($moduleDirectory) | Out-Null
+        [IO.File]::WriteAllText($manifestPath, "synthetic manifest", [Text.UTF8Encoding]::new($false))
+        $module = [pscustomobject]@{
+          Name = "Microsoft.PowerShell.Security"
+          Path = $manifestPath
+          ModuleBase = $syntheticHome
+        }
+        $otherModule = [pscustomobject]@{
+          Name = "Synthetic.Security"
+          Path = (Join-Path $caseRoot "synthetic-security.psd1")
+          ModuleBase = $caseRoot
+        }
+        $command = [pscustomobject]@{
+          Name = "Get-Acl"
+          ModuleName = "Synthetic.Security"
+          Module = $otherModule
+        }
+        Assert-RisePalsWindowsPowerShellSecurityLoadedState -Module $module -Command $command `
+          -ManifestPath $manifestPath -WindowsPowerShellHome $syntheticHome
+      }
+    }
+    throw "The synthetic bootstrap scenario did not fail closed."
+  } catch {
+    $failure = Get-RisePalsWindowsPowerShellSecurityBootstrapFailure -ErrorRecord $_
+  } finally {
+    if ($null -ne $junctionPath -and [IO.Directory]::Exists($junctionPath)) {
+      [IO.Directory]::Delete($junctionPath)
+    }
+    if ([IO.Directory]::Exists($caseRoot)) {
+      [IO.Directory]::Delete($caseRoot, $true)
+    }
+  }
+
+  $capture = [pscustomobject][ordered]@{
+    schemaVersion = "rise-pals-security-bootstrap-failure-v1"
+    scenarioNumber = $Scenario
+    exitCode = 61
+    bootstrapStage = [string]$failure.stage
+    sanitizedCategory = [string]$failure.category
+  }
+  $capturePath = Join-Path $Root ("bootstrap-failure-{0:d2}.json" -f $Scenario)
+  [IO.File]::WriteAllText($capturePath, ($capture | ConvertTo-Json -Compress),
+    [Text.UTF8Encoding]::new($false))
 }
 
 function Invoke-RisePalsNodeWorkerScenario {
@@ -518,12 +624,16 @@ function Invoke-RisePalsNodeWorkerScenario {
     "PASS", [Text.UTF8Encoding]::new($false))
 }
 
-if ($WorkerScenario -gt 0) {
+if ($WorkerScenario -gt 0 -or $BootstrapWorkerScenario -gt 0) {
   if ([string]::IsNullOrWhiteSpace($WorkspaceRoot)) { throw "WorkspaceRoot is required." }
   $workspace = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\')
   $temporary = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
   if (-not $workspace.StartsWith($temporary + "\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "The worker workspace must remain below the temporary root."
+  }
+  if ($BootstrapWorkerScenario -gt 0) {
+    Invoke-RisePalsNodeBootstrapFailureWorker -Scenario $BootstrapWorkerScenario -Root $workspace
+    exit 61
   }
   Invoke-RisePalsNodeWorkerScenario -Scenario $WorkerScenario -Root $workspace
   exit 0
@@ -534,7 +644,55 @@ if (-not [IO.File]::Exists($powershell51)) { throw "Windows PowerShell 5.1 is un
 $workspace = Join-Path ([IO.Path]::GetTempPath()) ("risepals-node-diagnostic-{0}" -f [Guid]::NewGuid().ToString("N"))
 [IO.Directory]::CreateDirectory($workspace) | Out-Null
 $passed = @()
+$bootstrapFailures = @()
 try {
+  [void](Get-Acl -LiteralPath $workspace -ErrorAction Stop)
+  $expectedBootstrapFailures = @(
+    [pscustomobject]@{ stage = "manifest-item"; category = "not_found" },
+    [pscustomobject]@{ stage = "manifest-reparse"; category = "reparse_point" },
+    [pscustomobject]@{ stage = "manifest-path"; category = "outside_pshome" },
+    [pscustomobject]@{ stage = "module-identity"; category = "module_mismatch" },
+    [pscustomobject]@{ stage = "command-resolution"; category = "command_mismatch" }
+  )
+  for ($bootstrapScenario = 1; $bootstrapScenario -le 5; $bootstrapScenario++) {
+    $arguments = @(
+      "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-File", ('"{0}"' -f $MyInvocation.MyCommand.Path),
+      "-RepositoryRoot", ('"{0}"' -f $repository),
+      "-BootstrapWorkerScenario", [string]$bootstrapScenario,
+      "-WorkspaceRoot", ('"{0}"' -f $workspace)
+    )
+    $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
+      -WindowStyle Hidden -Wait -PassThru
+    $capturePath = Join-Path $workspace ("bootstrap-failure-{0:d2}.json" -f $bootstrapScenario)
+    if ($process.ExitCode -ne 61 -or -not [IO.File]::Exists($capturePath)) {
+      throw "Bootstrap scenario $bootstrapScenario did not preserve its exit and capture."
+    }
+    $capture = [IO.File]::ReadAllText($capturePath) | ConvertFrom-Json -ErrorAction Stop
+    $properties = @($capture.PSObject.Properties.Name)
+    if (@($properties).Count -ne 5 -or
+      @($properties | Where-Object { $_ -notin @(
+            "schemaVersion", "scenarioNumber", "exitCode", "bootstrapStage", "sanitizedCategory"
+          ) }).Count -ne 0 -or
+      [string]$capture.schemaVersion -cne "rise-pals-security-bootstrap-failure-v1" -or
+      [int]$capture.scenarioNumber -ne $bootstrapScenario -or [int]$capture.exitCode -ne 61 -or
+      [string]$capture.bootstrapStage -cne $expectedBootstrapFailures[$bootstrapScenario - 1].stage -or
+      [string]$capture.sanitizedCategory -cne
+        $expectedBootstrapFailures[$bootstrapScenario - 1].category) {
+      throw "Bootstrap scenario $bootstrapScenario retained invalid sanitized evidence."
+    }
+    [IO.File]::Delete($capturePath)
+    if ([IO.File]::Exists($capturePath)) {
+      throw "Bootstrap scenario $bootstrapScenario capture cleanup failed."
+    }
+    $bootstrapFailures += [pscustomobject][ordered]@{
+      number = $bootstrapScenario
+      exitCode = 61
+      bootstrapStage = [string]$capture.bootstrapStage
+      sanitizedCategory = [string]$capture.sanitizedCategory
+      captureRemoved = $true
+    }
+  }
   for ($scenario = 1; $scenario -le 45; $scenario++) {
     $arguments = @(
       "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
@@ -558,6 +716,9 @@ try {
     schemaVersion = "rise-pals-node-destination-harness-v2"
     processCount = $passed.Count
     powershell = $powershell51
+    bootstrapFailureScenarios = $bootstrapFailures
+    syntheticCaptureResidue = @(Get-ChildItem -LiteralPath $workspace -File -Force |
+        Where-Object { $_.Name -like "bootstrap-failure-*.json" }).Count
     scenarios = $passed
   } | ConvertTo-Json -Depth 5
 } finally {

@@ -559,7 +559,20 @@ describe("repository-only candidate service rehearsal harness", () => {
         "-RepositoryRoot",
         repositoryRoot,
       ],
-      { encoding: "utf8", timeout: 180_000 },
+      {
+        encoding: "utf8",
+        timeout: 180_000,
+        env: {
+          ...process.env,
+          PSModulePath: [
+            "C:\\Program Files\\PowerShell\\Modules",
+            "C:\\Program Files\\PowerShell\\7\\Modules",
+            process.env.PSModulePath,
+          ]
+            .filter((entry): entry is string => Boolean(entry))
+            .join(";"),
+        },
+      },
     );
     expect(result.error).toBeUndefined();
     expect(result.status, result.stderr).toBe(0);

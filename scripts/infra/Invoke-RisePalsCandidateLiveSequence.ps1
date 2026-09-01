@@ -11,6 +11,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "windows-powershell-security-bootstrap.ps1")
+[void](Initialize-RisePalsWindowsPowerShellSecurityModule)
 . (Join-Path $PSScriptRoot "common.ps1")
 . (Join-Path $PSScriptRoot "candidate-rehearsal-contract.ps1")
 . (Join-Path $PSScriptRoot "candidate-rehearsal-result.ps1")

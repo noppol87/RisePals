@@ -1,6 +1,9 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "windows-powershell-security-bootstrap.ps1")
+[void](Initialize-RisePalsWindowsPowerShellSecurityModule)
+
 $script:RisePalsNodeInventorySchema = "rise-pals-node-destination-inventory-v1"
 $script:RisePalsNodeEvidenceSchema = "rise-pals-node-destination-diagnostic-v2"
 $script:RisePalsNodeClassifications = @(
