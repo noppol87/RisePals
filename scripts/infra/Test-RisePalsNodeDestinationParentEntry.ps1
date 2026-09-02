@@ -2,7 +2,9 @@
 param(
   [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
   [int]$WorkerScenario = 0,
-  [string]$WorkspaceRoot
+  [string]$WorkspaceRoot,
+  [ValidateSet("", "scenario-assertions-complete")]
+  [string]$TestOnlyWorkerFailureStage = ""
 )
 
 Set-StrictMode -Version Latest
@@ -61,6 +63,39 @@ $scenarioNames = @(
   "SuccessWithoutInnerRequest",
   "EarliestMarkerPersistenceFailure"
 )
+$workerStages = @(
+  "worker-started",
+  "fixture-created",
+  "outer-parent-invoked",
+  "outer-parent-exited",
+  "durable-records-reopened",
+  "scenario-assertions-complete",
+  "report-persisted",
+  "cleanup-complete"
+)
+$workerCategories = @(
+  "fixture_failure",
+  "outer_parent_failure",
+  "durable_record_failure",
+  "scenario_assertion_failure",
+  "preflight_outer_exit_failure",
+  "preflight_parent_failure_claim",
+  "preflight_process_creation_claim",
+  "preflight_child_exit_claim",
+  "preflight_inner_request_claim",
+  "preflight_dispatch_claim",
+  "report_persistence_failure",
+  "cleanup_failure"
+)
+$workerPropertyNames = @(
+  "scenarioNumber", "scenarioName", "workerStarted", "workerStage",
+  "sanitizedFailureCategory", "outerExitCode", "childExitCode",
+  "parentMarkerPresent", "parentMarkerDigest", "parentCheckpointPresent",
+  "parentCheckpointDigest", "parentFinalPresent", "parentFinalDigest",
+  "reportPersistenceAttempted", "reportPersistenceCompleted", "cleanupAttempted",
+  "cleanupCompleted", "evidenceResidueCount", "temporaryResidueCount",
+  "canonicalDigest"
+)
 
 function Assert-RisePalsParentTest {
   param([bool]$Condition, [string]$Label)
@@ -80,14 +115,310 @@ function Test-RisePalsParentControlledRejection {
 function Remove-RisePalsParentHarnessDirectory {
   param([string]$Path)
   if (-not (Test-Path -LiteralPath $Path)) { return }
-  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
-    & (Join-Path $env:SystemRoot "System32\cmd.exe") /d /c rmdir ('"{0}"' -f $item.FullName) |
-      Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Harness reparse cleanup failed." }
-  } else {
-    Remove-Item -LiteralPath $item.FullName -Recurse -Force -ErrorAction Stop
+  $exact = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $beneathTemporary = $exact.StartsWith(
+    $temporaryRoot + "\", [StringComparison]::OrdinalIgnoreCase
+  )
+  $beneathDocuments = $exact.StartsWith(
+    $documentsCodex + "\", [StringComparison]::OrdinalIgnoreCase
+  )
+  if (-not $beneathTemporary -and -not $beneathDocuments) {
+    throw "Harness cleanup escaped its exact temporary boundaries."
   }
+  $item = Get-Item -LiteralPath $exact -Force -ErrorAction Stop
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    if (($item.Attributes -band [IO.FileAttributes]::Directory) -ne 0) {
+      [IO.Directory]::Delete($item.FullName, $false)
+    } else {
+      [IO.File]::Delete($item.FullName)
+    }
+  } elseif ($item.PSIsContainer) {
+    foreach ($child in @(Get-ChildItem -LiteralPath $item.FullName -Force)) {
+      Remove-RisePalsParentHarnessDirectory -Path $child.FullName
+    }
+    [IO.Directory]::Delete($item.FullName, $false)
+  } else {
+    [IO.File]::Delete($item.FullName)
+  }
+  if (Test-Path -LiteralPath $exact) {
+    throw "Harness cleanup left exact-path residue."
+  }
+}
+
+function Test-RisePalsParentWorkerInteger {
+  param([object]$Value, [int64]$Minimum, [int64]$Maximum)
+  if ($Value -isnot [byte] -and $Value -isnot [sbyte] -and
+    $Value -isnot [int16] -and $Value -isnot [uint16] -and
+    $Value -isnot [int32] -and $Value -isnot [uint32] -and
+    $Value -isnot [int64] -and $Value -isnot [uint64]) {
+    return $false
+  }
+  try {
+    $number = [int64]$Value
+    return $number -ge $Minimum -and $number -le $Maximum
+  } catch {
+    return $false
+  }
+}
+
+function Test-RisePalsParentWorkerHash {
+  param([object]$Value)
+  return $null -ne $Value -and [string]$Value -cmatch "^[a-f0-9]{64}$"
+}
+
+function Get-RisePalsParentWorkerDigest {
+  param([Parameter(Mandatory = $true)][object]$Record)
+  $values = @(
+    [string]$Record.scenarioNumber,
+    [string]$Record.scenarioName,
+    ([bool]$Record.workerStarted).ToString().ToLowerInvariant(),
+    [string]$Record.workerStage,
+    $(if ($null -eq $Record.sanitizedFailureCategory) { "" } else {
+        [string]$Record.sanitizedFailureCategory
+      }),
+    $(if ($null -eq $Record.outerExitCode) { "" } else { [string]$Record.outerExitCode }),
+    $(if ($null -eq $Record.childExitCode) { "" } else { [string]$Record.childExitCode }),
+    ([bool]$Record.parentMarkerPresent).ToString().ToLowerInvariant(),
+    $(if ($null -eq $Record.parentMarkerDigest) { "" } else {
+        [string]$Record.parentMarkerDigest
+      }),
+    ([bool]$Record.parentCheckpointPresent).ToString().ToLowerInvariant(),
+    $(if ($null -eq $Record.parentCheckpointDigest) { "" } else {
+        [string]$Record.parentCheckpointDigest
+      }),
+    ([bool]$Record.parentFinalPresent).ToString().ToLowerInvariant(),
+    $(if ($null -eq $Record.parentFinalDigest) { "" } else {
+        [string]$Record.parentFinalDigest
+      }),
+    ([bool]$Record.reportPersistenceAttempted).ToString().ToLowerInvariant(),
+    ([bool]$Record.reportPersistenceCompleted).ToString().ToLowerInvariant(),
+    ([bool]$Record.cleanupAttempted).ToString().ToLowerInvariant(),
+    ([bool]$Record.cleanupCompleted).ToString().ToLowerInvariant(),
+    [string]$Record.evidenceResidueCount,
+    [string]$Record.temporaryResidueCount
+  )
+  $bytes = [Text.Encoding]::UTF8.GetBytes(($values -join "`n"))
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try {
+    return ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
+  } finally {
+    $sha.Dispose()
+  }
+}
+
+function New-RisePalsParentWorkerRecord {
+  param(
+    [int]$ScenarioNumber,
+    [string]$ScenarioName,
+    [string]$WorkerStage,
+    [AllowNull()][object]$SanitizedFailureCategory,
+    [AllowNull()][object]$OuterExitCode,
+    [AllowNull()][object]$ChildExitCode,
+    [hashtable]$EvidenceState,
+    [bool]$ReportPersistenceAttempted,
+    [bool]$ReportPersistenceCompleted,
+    [bool]$CleanupAttempted,
+    [bool]$CleanupCompleted,
+    [int64]$EvidenceResidueCount,
+    [int64]$TemporaryResidueCount
+  )
+  $record = [pscustomobject][ordered]@{
+    scenarioNumber = $ScenarioNumber
+    scenarioName = $ScenarioName
+    workerStarted = $true
+    workerStage = $WorkerStage
+    sanitizedFailureCategory = $SanitizedFailureCategory
+    outerExitCode = $OuterExitCode
+    childExitCode = $ChildExitCode
+    parentMarkerPresent = [bool]$EvidenceState.markerPresent
+    parentMarkerDigest = $EvidenceState.markerDigest
+    parentCheckpointPresent = [bool]$EvidenceState.checkpointPresent
+    parentCheckpointDigest = $EvidenceState.checkpointDigest
+    parentFinalPresent = [bool]$EvidenceState.finalPresent
+    parentFinalDigest = $EvidenceState.finalDigest
+    reportPersistenceAttempted = $ReportPersistenceAttempted
+    reportPersistenceCompleted = $ReportPersistenceCompleted
+    cleanupAttempted = $CleanupAttempted
+    cleanupCompleted = $CleanupCompleted
+    evidenceResidueCount = $EvidenceResidueCount
+    temporaryResidueCount = $TemporaryResidueCount
+    canonicalDigest = $null
+  }
+  $record.canonicalDigest = Get-RisePalsParentWorkerDigest -Record $record
+  return $record
+}
+
+function Assert-RisePalsParentWorkerRecord {
+  param([Parameter(Mandatory = $true)][object]$Record, [int]$ExpectedNumber)
+  $actualNames = @($Record.PSObject.Properties.Name | Sort-Object -CaseSensitive)
+  $expectedNames = @($workerPropertyNames | Sort-Object -CaseSensitive)
+  if (($actualNames -join "`n") -cne ($expectedNames -join "`n") -or
+    -not (Test-RisePalsParentWorkerInteger $Record.scenarioNumber 1 $scenarioNames.Count) -or
+    [int]$Record.scenarioNumber -ne $ExpectedNumber -or
+    [string]$Record.scenarioName -cne [string]$scenarioNames[$ExpectedNumber - 1] -or
+    $Record.workerStarted -isnot [bool] -or -not [bool]$Record.workerStarted -or
+    [string]$Record.workerStage -notin $workerStages -or
+    ($null -ne $Record.sanitizedFailureCategory -and
+      [string]$Record.sanitizedFailureCategory -notin $workerCategories)) {
+    throw "worker-report-contract"
+  }
+  foreach ($value in @($Record.outerExitCode, $Record.childExitCode)) {
+    if ($null -ne $value -and
+      -not (Test-RisePalsParentWorkerInteger $value ([int32]::MinValue) ([int32]::MaxValue))) {
+      throw "worker-report-exit-code"
+    }
+  }
+  foreach ($name in @(
+      "workerStarted", "parentMarkerPresent", "parentCheckpointPresent", "parentFinalPresent",
+      "reportPersistenceAttempted", "reportPersistenceCompleted", "cleanupAttempted",
+      "cleanupCompleted"
+    )) {
+    if ($Record.$name -isnot [bool]) { throw "worker-report-boolean" }
+  }
+  foreach ($pair in @(
+      @([bool]$Record.parentMarkerPresent, $Record.parentMarkerDigest),
+      @([bool]$Record.parentCheckpointPresent, $Record.parentCheckpointDigest),
+      @([bool]$Record.parentFinalPresent, $Record.parentFinalDigest)
+    )) {
+    if (($pair[0] -and -not (Test-RisePalsParentWorkerHash $pair[1])) -or
+      (-not $pair[0] -and $null -ne $pair[1])) {
+      throw "worker-report-parent-evidence"
+    }
+  }
+  if (-not (Test-RisePalsParentWorkerInteger $Record.evidenceResidueCount 0 1000) -or
+    -not (Test-RisePalsParentWorkerInteger $Record.temporaryResidueCount 0 1000) -or
+    ([bool]$Record.cleanupCompleted -and
+      ([int64]$Record.evidenceResidueCount -ne 0 -or
+        [int64]$Record.temporaryResidueCount -ne 0)) -or
+    ([bool]$Record.reportPersistenceCompleted -and
+      -not [bool]$Record.reportPersistenceAttempted) -or
+    -not (Test-RisePalsParentWorkerHash $Record.canonicalDigest) -or
+    [string]$Record.canonicalDigest -cne (Get-RisePalsParentWorkerDigest -Record $Record)) {
+    throw "worker-report-state"
+  }
+  return $Record
+}
+
+function Read-RisePalsParentWorkerRecord {
+  param([string]$Path, [int]$ExpectedNumber)
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if ($item.PSIsContainer -or
+    ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "worker-report-file"
+  }
+  try {
+    $bytes = [IO.File]::ReadAllBytes($item.FullName)
+    $record = [Text.UTF8Encoding]::new($false, $true).GetString($bytes) |
+      ConvertFrom-Json -ErrorAction Stop
+  } catch {
+    throw "worker-report-json"
+  }
+  return Assert-RisePalsParentWorkerRecord -Record $record -ExpectedNumber $ExpectedNumber
+}
+
+function Write-RisePalsParentWorkerRecordAtomic {
+  param(
+    [string]$Root,
+    [Parameter(Mandatory = $true)][object]$Record,
+    [switch]$Authoritative
+  )
+  [void](Assert-RisePalsParentWorkerRecord -Record $Record `
+      -ExpectedNumber ([int]$Record.scenarioNumber))
+  $fileName = if ($Authoritative) {
+    "report-{0:d2}.json" -f [int]$Record.scenarioNumber
+  } else {
+    "checkpoint-{0:d2}-{1}.json" -f [int]$Record.scenarioNumber, [string]$Record.workerStage
+  }
+  $finalPath = Join-Path $Root $fileName
+  $temporary = $finalPath + ".tmp"
+  if ([IO.File]::Exists($finalPath) -or [IO.File]::Exists($temporary)) {
+    throw "worker-report-temporary-exists"
+  }
+  try {
+    [IO.File]::WriteAllText($temporary, ($Record | ConvertTo-Json -Compress),
+      [Text.UTF8Encoding]::new($false))
+  } catch {
+    throw "worker-report-write"
+  }
+  try {
+    [IO.File]::Move($temporary, $finalPath)
+  } catch {
+    throw "worker-report-move"
+  }
+  try {
+    return Read-RisePalsParentWorkerRecord -Path $finalPath `
+      -ExpectedNumber ([int]$Record.scenarioNumber)
+  } catch {
+    throw "worker-report-reopen"
+  }
+}
+
+function Get-RisePalsParentWorkerEvidenceState {
+  param([string]$EvidenceRoot, [int]$ScenarioNumber)
+  $state = @{
+    markerPresent = $false; markerDigest = $null
+    checkpointPresent = $false; checkpointDigest = $null
+    finalPresent = $false; finalDigest = $null
+  }
+  if (-not [IO.Directory]::Exists($EvidenceRoot)) { return $state }
+  $rootItem = Get-Item -LiteralPath $EvidenceRoot -Force -ErrorAction Stop
+  if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    return $state
+  }
+  $nonce = "{0:x32}" -f $ScenarioNumber
+  foreach ($entry in @(
+      @("marker", "node-parent-entry-marker-$nonce.json"),
+      @("checkpoint", "node-parent-checkpoint-$nonce.json"),
+      @("final", "node-parent-result-$nonce.json")
+    )) {
+    $path = Join-Path $rootItem.FullName $entry[1]
+    if (-not [IO.File]::Exists($path)) { continue }
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+    if ($item.PSIsContainer -or
+      ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      continue
+    }
+    $state["$($entry[0])Present"] = $true
+    $state["$($entry[0])Digest"] =
+      (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  return $state
+}
+
+function Get-RisePalsParentHarnessResidueCount {
+  param([string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return 0 }
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { return 1 }
+  return 1 + @(Get-ChildItem -LiteralPath $item.FullName -Force).Count
+}
+
+function Get-RisePalsParentWorkerPersistenceExitCode {
+  param([string]$ClosedError)
+  $map = @{
+    "worker-report-contract" = 101
+    "worker-report-exit-code" = 102
+    "worker-report-boolean" = 103
+    "worker-report-parent-evidence" = 104
+    "worker-report-state" = 105
+    "worker-report-file" = 106
+    "worker-report-json" = 107
+    "worker-report-temporary-exists" = 108
+    "worker-report-write" = 109
+    "worker-report-move" = 110
+    "worker-report-reopen" = 111
+    "worker-report-evidence-state" = 112
+    "worker-report-construction" = 113
+    "worker-report-state-update" = 114
+    "worker-report-state-completion" = 115
+    "worker-report-attempt-state" = 116
+    "worker-report-write-call" = 117
+    "worker-report-command-resolution" = 118
+    "worker-report-root" = 119
+    "worker-report-record-shape" = 120
+  }
+  if ($map.ContainsKey($ClosedError)) { return [int]$map[$ClosedError] }
+  return 121
 }
 
 function New-RisePalsParentFixture {
@@ -169,7 +500,12 @@ function New-RisePalsParentValidPreflightRecords {
 }
 
 function Invoke-RisePalsParentEndToEnd {
-  param([string]$Scenario, [string]$CaseRoot, [string]$EvidenceRoot)
+  param(
+    [string]$Scenario,
+    [string]$CaseRoot,
+    [string]$EvidenceRoot,
+    [scriptblock]$WorkerStageSink
+  )
   $caseInfra = Join-Path $CaseRoot "infra"
   Copy-RisePalsParentArtifacts -CaseInfra $caseInfra
   Import-Module (Join-Path $caseInfra "node-destination-diagnostic-contract.psm1") -Force
@@ -179,6 +515,7 @@ function Invoke-RisePalsParentEndToEnd {
   [IO.File]::WriteAllText($inventoryPath, ($inventory | ConvertTo-Json -Depth 12),
     [Text.UTF8Encoding]::new($false))
   $expectedInventoryHash = (Get-FileHash -LiteralPath $inventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($null -ne $WorkerStageSink) { & $WorkerStageSink "fixture-created" $null $null }
   $mode = "PreflightOnly"
   $repositoryArgument = $repository
   $head = Get-RisePalsParentHarnessHead
@@ -311,10 +648,17 @@ function Invoke-RisePalsParentEndToEnd {
     $arguments += [string]$entry.Value
   }
   $arguments += $extraArguments
+  if ($null -ne $WorkerStageSink) { & $WorkerStageSink "outer-parent-invoked" $null $null }
   $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
     -WindowStyle Hidden -Wait -PassThru
+  $outerExitCode = $process.ExitCode
+  $process.Dispose()
+  $process = $null
+  if ($null -ne $WorkerStageSink) {
+    & $WorkerStageSink "outer-parent-exited" $outerExitCode $null
+  }
   if ($expectNoEvidence) {
-    Assert-RisePalsParentTest -Condition ($process.ExitCode -eq 82) `
+    Assert-RisePalsParentTest -Condition ($outerExitCode -eq 82) `
       -Label "$Scenario did not fail at the primitive evidence boundary."
     if ([IO.Directory]::Exists($EvidenceRoot)) {
       $allowedPreexisting = if ($Scenario -ceq "EvidenceNonempty") { 1 } else { 0 }
@@ -322,7 +666,11 @@ function Invoke-RisePalsParentEndToEnd {
         -Condition (@(Get-ChildItem -LiteralPath $EvidenceRoot -Force).Count -eq $allowedPreexisting) `
         -Label "$Scenario wrote unauthorized evidence."
     }
-    return [pscustomobject]@{ exitCode = $process.ExitCode; stage = $null; category = $null }
+    if ($null -ne $WorkerStageSink) {
+      & $WorkerStageSink "durable-records-reopened" $outerExitCode $null
+      & $WorkerStageSink "scenario-assertions-complete" $outerExitCode $null
+    }
+    return [pscustomobject]@{ exitCode = $outerExitCode; stage = $null; category = $null }
   }
   $nonce = "{0:x32}" -f ([Array]::IndexOf($scenarioNames, $Scenario) + 1)
   Import-Module (Join-Path $caseInfra "node-destination-parent-entry-contract.psm1") -Force
@@ -343,20 +691,29 @@ function Invoke-RisePalsParentEndToEnd {
   $final = Read-RisePalsNodeParentResult `
     -Path (Get-RisePalsNodeParentResultPath $EvidenceRoot $nonce) -Marker $marker `
     -ExpectedCheckpointDigest $checkpoint.evidenceDigest
+  if ($null -ne $WorkerStageSink) {
+    & $WorkerStageSink "durable-records-reopened" $outerExitCode $final.childExitCode
+  }
   if ($Scenario -ceq "PreflightSuccess") {
-    Assert-RisePalsParentTest -Condition ($process.ExitCode -eq 0 -and
-      $null -eq $final.firstFailedStage -and -not [bool]$final.processCreated -and
-      $null -eq $final.childExitCode -and [bool]$final.innerRequestPresent -and
-      "inner-transport-dispatched" -notin @($final.completedStages)) `
-      -Label "PreflightOnly did not remain non-elevated and pre-dispatch."
+    if ($outerExitCode -ne 0) { throw "preflight_outer_exit_failure" }
+    if ($null -ne $final.firstFailedStage) { throw "preflight_parent_failure_claim" }
+    if ([bool]$final.processCreated) { throw "preflight_process_creation_claim" }
+    if ($null -ne $final.childExitCode) { throw "preflight_child_exit_claim" }
+    if (-not [bool]$final.innerRequestPresent) { throw "preflight_inner_request_claim" }
+    if ("inner-transport-dispatched" -in @($final.completedStages)) {
+      throw "preflight_dispatch_claim"
+    }
   } else {
-    Assert-RisePalsParentTest -Condition ($process.ExitCode -eq 90 -and
+    Assert-RisePalsParentTest -Condition ($outerExitCode -eq 90 -and
       [string]$final.firstFailedStage -ceq $expectedStage -and
       [string]$final.sanitizedFailureCategory -ceq $expectedCategory) `
       -Label "$Scenario failure classification mismatch."
   }
+  if ($null -ne $WorkerStageSink) {
+    & $WorkerStageSink "scenario-assertions-complete" $outerExitCode $final.childExitCode
+  }
   return [pscustomobject]@{
-    exitCode = $process.ExitCode
+    exitCode = $outerExitCode
     stage = $final.firstFailedStage
     category = $final.sanitizedFailureCategory
   }
@@ -544,36 +901,175 @@ function Invoke-RisePalsParentPureScenario {
 }
 
 function Invoke-RisePalsParentWorker {
-  param([int]$Number, [string]$Root)
+  param([int]$Number, [string]$Root, [string]$InjectedFailureStage)
   $scenario = [string]$scenarioNames[$Number - 1]
   $caseRoot = Join-Path $Root ("case-{0:d2}" -f $Number)
   $evidenceRoot = Join-Path $documentsCodex (
     "risepals-parent-entry-harness-{0}-{1:d2}" -f (Split-Path -Leaf $Root), $Number
   )
-  [IO.Directory]::CreateDirectory($caseRoot) | Out-Null
-  [IO.Directory]::CreateDirectory($evidenceRoot) | Out-Null
+  $state = @{
+    workerStage = "worker-started"
+    sanitizedFailureCategory = $null
+    outerExitCode = $null
+    childExitCode = $null
+    evidenceState = @{
+      markerPresent = $false; markerDigest = $null
+      checkpointPresent = $false; checkpointDigest = $null
+      finalPresent = $false; finalDigest = $null
+    }
+    reportPersistenceAttempted = $false
+    reportPersistenceCompleted = $false
+    cleanupAttempted = $false
+    cleanupCompleted = $false
+    evidenceResidueCount = 0
+    temporaryResidueCount = 0
+  }
+  $script:RisePalsParentWorkerState = $state
+  $stageSink = {
+    param([string]$Stage, [AllowNull()][object]$OuterExitCode,
+      [AllowNull()][object]$ChildExitCode)
+    $workerState = $script:RisePalsParentWorkerState
+    $workerState.workerStage = $Stage
+    if ($null -ne $OuterExitCode) { $workerState.outerExitCode = [int]$OuterExitCode }
+    if ($null -ne $ChildExitCode) { $workerState.childExitCode = [int]$ChildExitCode }
+  }
+  $endToEnd = $Number -le 23
+  $workerExitCode = 0
   try {
-    $endToEnd = $Number -le 23
+    [IO.Directory]::CreateDirectory($caseRoot) | Out-Null
+    [IO.Directory]::CreateDirectory($evidenceRoot) | Out-Null
     $result = if ($endToEnd) {
       Invoke-RisePalsParentEndToEnd -Scenario $scenario -CaseRoot $caseRoot `
-        -EvidenceRoot $evidenceRoot
+        -EvidenceRoot $evidenceRoot -WorkerStageSink $stageSink
     } else {
+      & $stageSink "fixture-created" $null $null
       Invoke-RisePalsParentPureScenario -Scenario $scenario -CaseRoot $caseRoot
     }
-    $report = [pscustomobject][ordered]@{
-      schemaVersion = "rise-pals-node-parent-entry-simulation-v1"
-      number = $Number
-      name = $scenario
-      passed = $true
-      exitCode = $result.exitCode
-      firstFailedStage = $result.stage
-      sanitizedFailureCategory = $result.category
+    if (-not $endToEnd) {
+      & $stageSink "scenario-assertions-complete" $null $null
     }
-    [IO.File]::WriteAllText((Join-Path $Root ("report-{0:d2}.json" -f $Number)),
-      ($report | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+    if ($InjectedFailureStage -ceq "scenario-assertions-complete") {
+      $state.workerStage = "scenario-assertions-complete"
+      throw "scenario_assertion_failure"
+    }
+    $reportedOuterExitCode = if ($endToEnd) { $result.exitCode } else { $null }
+    & $stageSink "report-persisted" $reportedOuterExitCode $null
+    $state.evidenceState = Get-RisePalsParentWorkerEvidenceState `
+      -EvidenceRoot $evidenceRoot -ScenarioNumber $Number
+    $state.reportPersistenceAttempted = $true
+    $checkpointRecord = New-RisePalsParentWorkerRecord -ScenarioNumber $Number `
+      -ScenarioName $scenario -WorkerStage $state.workerStage `
+      -SanitizedFailureCategory $null -OuterExitCode $state.outerExitCode `
+      -ChildExitCode $state.childExitCode -EvidenceState $state.evidenceState `
+      -ReportPersistenceAttempted $true -ReportPersistenceCompleted $true `
+      -CleanupAttempted $false -CleanupCompleted $false -EvidenceResidueCount 0 `
+      -TemporaryResidueCount 0
+    [void](Write-RisePalsParentWorkerRecordAtomic -Root $Root -Record $checkpointRecord)
+    $state.reportPersistenceCompleted = $true
+  } catch {
+    $closedMessage = [string]$_.Exception.Message
+    if ($closedMessage.StartsWith("worker-report-", [StringComparison]::Ordinal)) {
+      $state.sanitizedFailureCategory = "report_persistence_failure"
+      $workerExitCode = Get-RisePalsParentWorkerPersistenceExitCode -ClosedError $closedMessage
+    } elseif ($closedMessage -in $workerCategories -and
+      $closedMessage.StartsWith("preflight_", [StringComparison]::Ordinal)) {
+      $state.sanitizedFailureCategory = $closedMessage
+    } elseif ([string]$state.workerStage -ceq "worker-started") {
+      $state.sanitizedFailureCategory = "fixture_failure"
+    } elseif ([string]$state.workerStage -ceq "outer-parent-invoked") {
+      $state.sanitizedFailureCategory = "outer_parent_failure"
+    } elseif ([string]$state.workerStage -ceq "outer-parent-exited") {
+      $state.sanitizedFailureCategory = "durable_record_failure"
+    } elseif ([string]$state.workerStage -ceq "durable-records-reopened" -or
+      (-not $endToEnd -and [string]$state.workerStage -ceq "fixture-created")) {
+      $state.sanitizedFailureCategory = "scenario_assertion_failure"
+    } elseif ([string]$state.workerStage -ceq "report-persisted") {
+      $state.sanitizedFailureCategory = "report_persistence_failure"
+    } else {
+      $state.sanitizedFailureCategory = "scenario_assertion_failure"
+    }
+    if ($workerExitCode -eq 0) {
+      $workerExitCode = 91
+    }
   } finally {
-    Remove-RisePalsParentHarnessDirectory -Path $evidenceRoot
+    try {
+      $state.evidenceState = Get-RisePalsParentWorkerEvidenceState `
+        -EvidenceRoot $evidenceRoot -ScenarioNumber $Number
+    } catch {
+      if ($null -eq $state.sanitizedFailureCategory) {
+        $state.sanitizedFailureCategory = "durable_record_failure"
+        $workerExitCode = 91
+      }
+    }
+    $state.cleanupAttempted = $true
+    try {
+      Remove-RisePalsParentHarnessDirectory -Path $evidenceRoot
+      $state.evidenceResidueCount = Get-RisePalsParentHarnessResidueCount -Path $evidenceRoot
+      $state.cleanupCompleted = $state.evidenceResidueCount -eq 0
+    } catch {
+      $state.cleanupCompleted = $false
+      $state.evidenceResidueCount = 1
+    }
+    $state.temporaryResidueCount = @(
+      Get-ChildItem -LiteralPath $Root -Force -File |
+        Where-Object { $_.Name -clike "*.tmp" }
+    ).Count
+    if (-not $state.cleanupCompleted -and $null -eq $state.sanitizedFailureCategory) {
+      $state.workerStage = "cleanup-complete"
+      $state.sanitizedFailureCategory = "cleanup_failure"
+      $workerExitCode = 91
+    } elseif ($null -eq $state.sanitizedFailureCategory) {
+      $state.workerStage = "cleanup-complete"
+    }
+    try {
+      $state.reportPersistenceAttempted = $true
+      try {
+        $finalRecord = New-RisePalsParentWorkerRecord -ScenarioNumber $Number `
+          -ScenarioName $scenario -WorkerStage $state.workerStage `
+          -SanitizedFailureCategory $state.sanitizedFailureCategory `
+          -OuterExitCode $state.outerExitCode -ChildExitCode $state.childExitCode `
+          -EvidenceState $state.evidenceState -ReportPersistenceAttempted $true `
+          -ReportPersistenceCompleted $true -CleanupAttempted $state.cleanupAttempted `
+          -CleanupCompleted $state.cleanupCompleted `
+          -EvidenceResidueCount $state.evidenceResidueCount `
+          -TemporaryResidueCount $state.temporaryResidueCount
+      } catch {
+        throw "worker-report-construction"
+      }
+      try {
+        $writeCommand = Get-Command -Name "Write-RisePalsParentWorkerRecordAtomic" `
+          -CommandType Function -ErrorAction Stop
+        if ($null -eq $writeCommand) { throw "worker-report-command-resolution" }
+        if ([string]::IsNullOrWhiteSpace([string]$Root)) { throw "worker-report-root" }
+        if (@($finalRecord).Count -ne 1 -or $null -eq $finalRecord.PSObject) {
+          throw "worker-report-record-shape"
+        }
+        [void](Write-RisePalsParentWorkerRecordAtomic -Root $Root -Record $finalRecord `
+            -Authoritative)
+      } catch {
+        $closedWrite = [string]$_.Exception.Message
+        if ($closedWrite.StartsWith("worker-report-", [StringComparison]::Ordinal)) {
+          throw $closedWrite
+        }
+        foreach ($closedCandidate in @(
+            "worker-report-contract", "worker-report-exit-code", "worker-report-boolean",
+            "worker-report-parent-evidence", "worker-report-state", "worker-report-file",
+            "worker-report-json", "worker-report-temporary-exists", "worker-report-write",
+            "worker-report-move", "worker-report-reopen"
+          )) {
+          if ($closedWrite.Contains($closedCandidate)) { throw $closedCandidate }
+        }
+        throw "worker-report-write-call"
+      }
+      $state.reportPersistenceCompleted = $true
+    } catch {
+      if ($workerExitCode -lt 100) {
+        $workerExitCode = Get-RisePalsParentWorkerPersistenceExitCode `
+          -ClosedError ([string]$_.Exception.Message)
+      }
+    }
   }
+  return $workerExitCode
 }
 
 if ($WorkerScenario -gt 0) {
@@ -582,8 +1078,17 @@ if ($WorkerScenario -gt 0) {
   if (-not $workspace.StartsWith($temporaryRoot + "\", [StringComparison]::OrdinalIgnoreCase)) {
     throw "Worker workspace escaped the temporary root."
   }
-  Invoke-RisePalsParentWorker -Number $WorkerScenario -Root $workspace
-  exit 0
+  if (-not [string]::IsNullOrEmpty($TestOnlyWorkerFailureStage) -and
+    $WorkerScenario -ne 1) {
+    throw "Synthetic worker failure is restricted to scenario 1."
+  }
+  $workerExitCode = Invoke-RisePalsParentWorker -Number $WorkerScenario -Root $workspace `
+    -InjectedFailureStage $TestOnlyWorkerFailureStage
+  exit $workerExitCode
+}
+
+if (-not [string]::IsNullOrEmpty($TestOnlyWorkerFailureStage)) {
+  throw "Synthetic worker failure requires worker mode."
 }
 
 if (-not [IO.File]::Exists($powershell51)) { throw "Windows PowerShell 5.1 unavailable." }
@@ -603,17 +1108,21 @@ try {
     )
     $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
       -WindowStyle Hidden -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-      throw "Parent-entry scenario $number failed in its separate process."
-    }
     $reportPath = Join-Path $workspace ("report-{0:d2}.json" -f $number)
     if (-not [IO.File]::Exists($reportPath)) {
-      throw "Parent-entry scenario $number omitted its report."
+      throw "Parent-entry scenario $number stage worker-started category report_persistence_failure exit $($process.ExitCode)."
     }
-    $report = [IO.File]::ReadAllText($reportPath) | ConvertFrom-Json -ErrorAction Stop
-    if ([string]$report.name -cne [string]$scenarioNames[$number - 1] -or
-      -not [bool]$report.passed) {
-      throw "Parent-entry scenario $number report was invalid."
+    $report = Read-RisePalsParentWorkerRecord -Path $reportPath -ExpectedNumber $number
+    if ($process.ExitCode -ne 0 -or $null -ne $report.sanitizedFailureCategory -or
+      [string]$report.workerStage -cne "cleanup-complete" -or
+      -not [bool]$report.reportPersistenceCompleted -or
+      -not [bool]$report.cleanupCompleted) {
+      $category = if ($null -eq $report.sanitizedFailureCategory) {
+        "report_persistence_failure"
+      } else {
+        [string]$report.sanitizedFailureCategory
+      }
+      throw "Parent-entry scenario $number stage $($report.workerStage) category $category exit $($process.ExitCode)."
     }
     $reports += $report
   }

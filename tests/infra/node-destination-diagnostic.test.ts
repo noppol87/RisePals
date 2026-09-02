@@ -343,6 +343,7 @@ describe("repository-owned Node destination diagnostic", () => {
   it("closes the durable parent entry before any elevation request", async () => {
     const parent = await text("scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticParent.ps1");
     const contract = await text("scripts/infra/node-destination-parent-entry-contract.psm1");
+    const harness = await text("scripts/infra/Test-RisePalsNodeDestinationParentEntry.ps1");
     const innerTransport = await text(
       "scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticTransport.ps1",
     );
@@ -394,13 +395,29 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(innerTransport).toContain("Read-RisePalsNodeEarlyRequest");
     for (const stage of stages) expect(contract).toContain(`"${stage}"`);
     for (const category of categories) expect(contract).toContain(`"${category}"`);
-    expect(`${parent}\n${contract}`).not.toMatch(
-      /(?:rawStdout|rawStderr|exceptionMessage|stackTrace|environmentValues)/u,
+    for (const stage of [
+      "fixture-created",
+      "outer-parent-invoked",
+      "outer-parent-exited",
+      "durable-records-reopened",
+      "scenario-assertions-complete",
+      "report-persisted",
+      "cleanup-complete",
+    ]) {
+      expect(harness).toContain(`"${stage}"`);
+    }
+    expect(harness).toContain("Get-RisePalsParentWorkerDigest");
+    expect(harness).toContain("Assert-RisePalsParentWorkerRecord");
+    expect(harness).toContain("$process.Dispose()");
+    expect(harness).not.toMatch(/(?:Start-Sleep|retry-until-pass)/iu);
+    expect(`${parent}\n${contract}\n${harness}`).not.toMatch(
+      /(?:rawStdout|rawStderr|exceptionMessage|exceptionType|stackTrace|commandLine|environmentValues)/u,
     );
     expect(parent).not.toContain(".env.local");
+    expect(harness).not.toContain(".env.local");
   });
 
-  it("passes all 41 durable parent-entry simulations without UAC or child creation", () => {
+  it("passes all 41 durable parent-entry simulations without UAC or child creation", async () => {
     const result = spawnSync(
       powershell51,
       [
@@ -429,11 +446,26 @@ describe("repository-owned Node destination diagnostic", () => {
       elevatedChildCount: number;
       temporaryWorkspaceRemovedAfterReport: boolean;
       scenarios: Array<{
-        number: number;
-        name: string;
-        passed: boolean;
-        firstFailedStage: string | null;
+        scenarioNumber: number;
+        scenarioName: string;
+        workerStarted: boolean;
+        workerStage: string;
         sanitizedFailureCategory: string | null;
+        outerExitCode: number | null;
+        childExitCode: number | null;
+        parentMarkerPresent: boolean;
+        parentMarkerDigest: string | null;
+        parentCheckpointPresent: boolean;
+        parentCheckpointDigest: string | null;
+        parentFinalPresent: boolean;
+        parentFinalDigest: string | null;
+        reportPersistenceAttempted: boolean;
+        reportPersistenceCompleted: boolean;
+        cleanupAttempted: boolean;
+        cleanupCompleted: boolean;
+        evidenceResidueCount: number;
+        temporaryResidueCount: number;
+        canonicalDigest: string;
       }>;
     };
     expect(report.processCount).toBe(41);
@@ -442,11 +474,73 @@ describe("repository-owned Node destination diagnostic", () => {
     expect(report.elevatedChildCount).toBe(0);
     expect(report.temporaryWorkspaceRemovedAfterReport).toBe(true);
     expect(report.scenarios).toHaveLength(41);
-    expect(report.scenarios.map(({ number }) => number)).toEqual(
+    expect(report.scenarios.map(({ scenarioNumber }) => scenarioNumber)).toEqual(
       Array.from({ length: 41 }, (_, index) => index + 1),
     );
-    expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(41);
-    expect(report.scenarios.every(({ passed }) => passed)).toBe(true);
+    expect(new Set(report.scenarios.map(({ scenarioName }) => scenarioName)).size).toBe(41);
+    expect(
+      report.scenarios.every(
+        ({
+          workerStarted,
+          workerStage,
+          sanitizedFailureCategory,
+          reportPersistenceAttempted,
+          reportPersistenceCompleted,
+          cleanupAttempted,
+          cleanupCompleted,
+          evidenceResidueCount,
+          temporaryResidueCount,
+          canonicalDigest,
+        }) =>
+          workerStarted &&
+          workerStage === "cleanup-complete" &&
+          sanitizedFailureCategory === null &&
+          reportPersistenceAttempted &&
+          reportPersistenceCompleted &&
+          cleanupAttempted &&
+          cleanupCompleted &&
+          evidenceResidueCount === 0 &&
+          temporaryResidueCount === 0 &&
+          /^[a-f0-9]{64}$/u.test(canonicalDigest),
+      ),
+    ).toBe(true);
+    const preflight = report.scenarios[0];
+    expect(preflight).toMatchObject({
+      scenarioNumber: 1,
+      scenarioName: "PreflightSuccess",
+      outerExitCode: 0,
+      childExitCode: null,
+      parentMarkerPresent: true,
+      parentCheckpointPresent: true,
+      parentFinalPresent: true,
+    });
+    expect(preflight?.parentMarkerDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(preflight?.parentCheckpointDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(preflight?.parentFinalDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(Object.keys(preflight ?? {}).sort()).toEqual(
+      [
+        "scenarioNumber",
+        "scenarioName",
+        "workerStarted",
+        "workerStage",
+        "sanitizedFailureCategory",
+        "outerExitCode",
+        "childExitCode",
+        "parentMarkerPresent",
+        "parentMarkerDigest",
+        "parentCheckpointPresent",
+        "parentCheckpointDigest",
+        "parentFinalPresent",
+        "parentFinalDigest",
+        "reportPersistenceAttempted",
+        "reportPersistenceCompleted",
+        "cleanupAttempted",
+        "cleanupCompleted",
+        "evidenceResidueCount",
+        "temporaryResidueCount",
+        "canonicalDigest",
+      ].sort(),
+    );
     for (const name of [
       "PreflightSuccess",
       "InnerRequestPersistenceFailure",
@@ -457,7 +551,63 @@ describe("repository-owned Node destination diagnostic", () => {
       "InterruptedAtomicWrite",
       "CleanupFailure",
     ]) {
-      expect(report.scenarios.some((scenario) => scenario.name === name)).toBe(true);
+      expect(report.scenarios.some((scenario) => scenario.scenarioName === name)).toBe(true);
+    }
+
+    const failureWorkspace = await mkdtemp(join(tmpdir(), "risepals-parent-worker-failure-"));
+    try {
+      const failureResult = spawnSync(
+        powershell51,
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationParentEntry.ps1"),
+          "-RepositoryRoot",
+          repositoryRoot,
+          "-WorkerScenario",
+          "1",
+          "-WorkspaceRoot",
+          failureWorkspace,
+          "-TestOnlyWorkerFailureStage",
+          "scenario-assertions-complete",
+        ],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 30_000,
+        },
+      );
+      expect(failureResult.status, `${failureResult.stdout}\n${failureResult.stderr}`).toBe(91);
+      const failureReport = JSON.parse(
+        await readFile(join(failureWorkspace, "report-01.json"), "utf8"),
+      ) as (typeof report.scenarios)[number];
+      expect(failureReport).toMatchObject({
+        scenarioNumber: 1,
+        scenarioName: "PreflightSuccess",
+        workerStarted: true,
+        workerStage: "scenario-assertions-complete",
+        sanitizedFailureCategory: "scenario_assertion_failure",
+        outerExitCode: 0,
+        childExitCode: null,
+        parentMarkerPresent: true,
+        parentCheckpointPresent: true,
+        parentFinalPresent: true,
+        reportPersistenceAttempted: true,
+        reportPersistenceCompleted: true,
+        cleanupAttempted: true,
+        cleanupCompleted: true,
+        evidenceResidueCount: 0,
+        temporaryResidueCount: 0,
+      });
+      expect(failureReport.canonicalDigest).toMatch(/^[a-f0-9]{64}$/u);
+      expect(await readdir(failureWorkspace)).not.toContain("report-01.json.tmp");
+    } finally {
+      await rm(failureWorkspace, { recursive: true, force: true });
     }
   }, 300_000);
 
