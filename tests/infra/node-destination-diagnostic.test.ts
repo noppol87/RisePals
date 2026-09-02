@@ -28,6 +28,22 @@ async function createPowerShell7FirstModulePath(): Promise<{
     ].join("\n"),
     "utf8",
   );
+  const utilityDirectory = join(moduleRoot, "Microsoft.PowerShell.Utility");
+  await mkdir(utilityDirectory);
+  await writeFile(
+    join(utilityDirectory, "Microsoft.PowerShell.Utility.psd1"),
+    [
+      "@{",
+      "  RootModule = 'Microsoft.PowerShell.Utility.dll'",
+      "  ModuleVersion = '99.0.0'",
+      "  GUID = '8ff0ce6d-a046-4f4a-ab49-1e3a40e51e46'",
+      "  PowerShellVersion = '7.0'",
+      "  CmdletsToExport = @('Get-FileHash')",
+      "}",
+      "",
+    ].join("\n"),
+    "utf8",
+  );
   return {
     moduleRoot,
     mixedModulePath: [moduleRoot, process.env.PSModulePath]
@@ -424,6 +440,11 @@ describe("repository-owned Node destination diagnostic", () => {
       expect(harness).toContain(`"${fixturePredicate}"`);
     }
     expect(harness).toContain("Get-RisePalsParentWorkerDigest");
+    expect(harness).toContain("Get-RisePalsParentHarnessFileSha256");
+    expect(harness).toContain("[Security.Cryptography.SHA256]::Create()");
+    expect(harness).toContain("[IO.File]::Open(");
+    expect(harness).toContain(".ComputeHash(");
+    expect(harness).not.toContain("Get-FileHash");
     expect(harness).toContain("Assert-RisePalsParentWorkerRecord");
     expect(harness).toContain("$process.Dispose()");
     expect(harness).not.toMatch(/(?:Start-Sleep|retry-until-pass)/iu);
@@ -435,6 +456,7 @@ describe("repository-owned Node destination diagnostic", () => {
   });
 
   it("passes all 41 durable parent-entry simulations without UAC or child creation", async () => {
+    const mixedModuleFixture = await createPowerShell7FirstModulePath();
     const result = spawnSync(
       powershell51,
       [
@@ -451,10 +473,12 @@ describe("repository-owned Node destination diagnostic", () => {
       {
         cwd: repositoryRoot,
         encoding: "utf8",
+        env: { ...process.env, PSModulePath: mixedModuleFixture.mixedModulePath },
         windowsHide: true,
         timeout: 300_000,
       },
     );
+    await rm(mixedModuleFixture.moduleRoot, { recursive: true, force: true });
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     const report = JSON.parse(result.stdout) as {
       processCount: number;

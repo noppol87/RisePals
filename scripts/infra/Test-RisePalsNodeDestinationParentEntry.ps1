@@ -179,6 +179,27 @@ function Test-RisePalsParentWorkerHash {
   return $null -ne $Value -and [string]$Value -cmatch "^[a-f0-9]{64}$"
 }
 
+function Get-RisePalsParentHarnessFileSha256 {
+  param([Parameter(Mandatory = $true)][string]$LiteralPath)
+  $exact = [IO.Path]::GetFullPath($LiteralPath)
+  if (-not [IO.File]::Exists($exact) -or
+    ([IO.File]::GetAttributes($exact) -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Harness SHA-256 input is not a regular non-reparse file."
+  }
+  $stream = $null
+  $algorithm = $null
+  try {
+    $stream = [IO.File]::Open($exact, [IO.FileMode]::Open, [IO.FileAccess]::Read,
+      [IO.FileShare]::Read)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $bytes = $algorithm.ComputeHash($stream)
+    return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+  } finally {
+    if ($null -ne $algorithm) { $algorithm.Dispose() }
+    if ($null -ne $stream) { $stream.Dispose() }
+  }
+}
+
 function Get-RisePalsParentWorkerDigest {
   param([Parameter(Mandatory = $true)][object]$Record)
   $values = @(
@@ -408,7 +429,7 @@ function Get-RisePalsParentWorkerEvidenceState {
     }
     $state["$($entry[0])Present"] = $true
     $state["$($entry[0])Digest"] =
-      (Get-FileHash -LiteralPath $item.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+      Get-RisePalsParentHarnessFileSha256 -LiteralPath $item.FullName
   }
   return $state
 }
@@ -554,7 +575,7 @@ function Invoke-RisePalsParentEndToEnd {
     [Text.UTF8Encoding]::new($false))
   if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-persist" "passed" }
   if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-digest" "pending" }
-  $expectedInventoryHash = (Get-FileHash -LiteralPath $inventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $expectedInventoryHash = Get-RisePalsParentHarnessFileSha256 -LiteralPath $inventoryPath
   if ($null -ne $FixtureStageSink) {
     & $FixtureStageSink "inventory-digest" "passed"
     & $FixtureStageSink "complete" "passed"
@@ -642,7 +663,7 @@ function Invoke-RisePalsParentEndToEnd {
   foreach ($entry in $files.GetEnumerator()) {
     $path = Join-Path $caseInfra $entry.Value
     if ([IO.File]::Exists($path)) {
-      $hashValues[$entry.Key] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+      $hashValues[$entry.Key] = Get-RisePalsParentHarnessFileSha256 -LiteralPath $path
     } else {
       $hashValues[$entry.Key] = "e" * 64
     }
