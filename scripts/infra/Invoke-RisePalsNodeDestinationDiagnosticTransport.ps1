@@ -9,6 +9,7 @@ param(
   [string]$RepositoryHead,
   [Parameter(Mandatory = $true)][string]$InventoryPath,
   [Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+  [string]$PrevalidatedRequestPath,
   [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
   [string]$SimulationRoot,
   [ValidateSet(
@@ -145,7 +146,8 @@ if ($Mode -ceq "LiveReadOnly") {
   if ($Scenario -cne "Success" -or -not [string]::IsNullOrEmpty($SimulationRoot)) {
     throw "LiveReadOnly prohibits simulation controls."
   }
-} elseif ([string]::IsNullOrWhiteSpace($SimulationRoot)) {
+} elseif ([string]::IsNullOrWhiteSpace($SimulationRoot) -or
+  -not [string]::IsNullOrWhiteSpace($PrevalidatedRequestPath)) {
   throw "SimulationRoot is required in Simulation mode."
 }
 
@@ -155,8 +157,12 @@ if ($LASTEXITCODE -ne 0 -or $head -cne $RepositoryHead) {
   throw "The repository HEAD does not match the authorized binding."
 }
 
-$evidenceRoot = Assert-RisePalsNodeEarlyEvidenceDirectory -Path $EvidenceDirectory `
-  -Mode $Mode -RequireEmpty
+$usingPrevalidatedRequest = -not [string]::IsNullOrWhiteSpace($PrevalidatedRequestPath)
+$evidenceRoot = if ($usingPrevalidatedRequest) {
+  Assert-RisePalsNodeEarlyEvidenceDirectory -Path $EvidenceDirectory -Mode $Mode
+} else {
+  Assert-RisePalsNodeEarlyEvidenceDirectory -Path $EvidenceDirectory -Mode $Mode -RequireEmpty
+}
 $inventoryExact = [IO.Path]::GetFullPath($InventoryPath)
 $hashes = [ordered]@{
   launcher = Get-RisePalsNodeEarlySha256File -LiteralPath $launcherPath
@@ -173,14 +179,27 @@ if (-not $PSCmdlet.ShouldProcess(
   )) {
   return
 }
-$request = New-RisePalsNodeEarlyRequest -AuthorizationId $AuthorizationId `
-  -InvocationNonce $InvocationNonce -RepositoryHead $RepositoryHead `
-  -LauncherSha256 $hashes.launcher -EarlyContractSha256 $hashes.earlyContract `
-  -SecurityBootstrapSha256 $hashes.securityBootstrap -ChildSha256 $hashes.child `
-  -DiagnosticSha256 $hashes.diagnostic `
-  -DiagnosticContractSha256 $hashes.diagnosticContract -InventorySha256 $hashes.inventory
-$requestPath = Write-RisePalsNodeEarlyRequestAtomic -Request $request `
-  -EvidenceDirectory $evidenceRoot
+$requestPath = if ($usingPrevalidatedRequest) {
+  $candidate = [IO.Path]::GetFullPath($PrevalidatedRequestPath)
+  $expected = [IO.Path]::GetFullPath((Get-RisePalsNodeEarlyRequestPath `
+        -EvidenceDirectory $evidenceRoot -InvocationNonce $InvocationNonce))
+  $children = @(Get-ChildItem -LiteralPath $evidenceRoot -Force)
+  $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
+  if ($candidate -cne $expected -or $children.Count -ne 1 -or
+    $children[0].FullName -cne $candidate -or $item.PSIsContainer -or
+    ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "The prevalidated request boundary is invalid."
+  }
+  $candidate
+} else {
+  $request = New-RisePalsNodeEarlyRequest -AuthorizationId $AuthorizationId `
+    -InvocationNonce $InvocationNonce -RepositoryHead $RepositoryHead `
+    -LauncherSha256 $hashes.launcher -EarlyContractSha256 $hashes.earlyContract `
+    -SecurityBootstrapSha256 $hashes.securityBootstrap -ChildSha256 $hashes.child `
+    -DiagnosticSha256 $hashes.diagnostic `
+    -DiagnosticContractSha256 $hashes.diagnosticContract -InventorySha256 $hashes.inventory
+  Write-RisePalsNodeEarlyRequestAtomic -Request $request -EvidenceDirectory $evidenceRoot
+}
 $request = Read-RisePalsNodeEarlyRequest -Path $requestPath `
   -ExpectedAuthorizationId $AuthorizationId -ExpectedInvocationNonce $InvocationNonce `
   -ExpectedRepositoryHead $RepositoryHead -ExpectedLauncherSha256 $hashes.launcher `

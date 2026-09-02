@@ -180,6 +180,9 @@ describe("repository-owned Node destination diagnostic", () => {
       "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnosticChild.ps1',",
       "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnosticTransport.ps1',",
       "'scripts\\infra\\Test-RisePalsNodeDestinationEarlyTransport.ps1',",
+      "'scripts\\infra\\node-destination-parent-entry-contract.psm1',",
+      "'scripts\\infra\\Invoke-RisePalsNodeDestinationDiagnosticParent.ps1',",
+      "'scripts\\infra\\Test-RisePalsNodeDestinationParentEntry.ps1',",
       "'scripts\\infra\\windows-powershell-security-bootstrap.ps1',",
       "'scripts\\infra\\candidate-rehearsal-transport.ps1',",
       "'scripts\\infra\\Invoke-RisePalsCandidateLiveSequence.ps1'",
@@ -334,6 +337,127 @@ describe("repository-owned Node destination diagnostic", () => {
       ).toBe(true);
     } finally {
       await rm(fixture.moduleRoot, { recursive: true, force: true });
+    }
+  }, 300_000);
+
+  it("closes the durable parent entry before any elevation request", async () => {
+    const parent = await text("scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticParent.ps1");
+    const contract = await text("scripts/infra/node-destination-parent-entry-contract.psm1");
+    const innerTransport = await text(
+      "scripts/infra/Invoke-RisePalsNodeDestinationDiagnosticTransport.ps1",
+    );
+    const stages = [
+      "parent-entry-received",
+      "primitive-arguments-validated",
+      "early-contract-available",
+      "mode-validated",
+      "repository-head-validated",
+      "evidence-directory-validated",
+      "inventory-path-validated",
+      "committed-artifact-hashes-validated",
+      "should-process-approved",
+      "inner-request-created",
+      "inner-transport-dispatched",
+      "outer-parent-reopened-result",
+      "cleanup-complete",
+    ];
+    const categories = [
+      "primitive_argument_failure",
+      "parent_entry_persistence_failure",
+      "early_contract_failure",
+      "mode_validation_failure",
+      "repository_binding_failure",
+      "evidence_boundary_failure",
+      "inventory_path_failure",
+      "artifact_hash_failure",
+      "approval_failure",
+      "request_persistence_failure",
+      "inner_transport_failure",
+      "digest_failure",
+      "ordering_failure",
+      "replay_failure",
+      "cleanup_failure",
+      "final_result_failure",
+    ];
+
+    expect(parent).toMatch(/^Set-StrictMode -Version Latest/u);
+    expect(parent).toContain(
+      'if ($null -eq $failedStage -and [string]$marker.mode -ceq "LiveReadOnly")',
+    );
+    expect(parent.indexOf("Write-RisePalsParentBuiltinMarker")).toBeLessThan(
+      parent.indexOf("Import-Module -Name $outerContractPath"),
+    );
+    expect(parent.indexOf("Write-RisePalsNodeEarlyRequestAtomic")).toBeLessThan(
+      parent.indexOf("inner-transport-dispatched"),
+    );
+    expect(innerTransport).toContain("PrevalidatedRequestPath");
+    expect(innerTransport).toContain("Read-RisePalsNodeEarlyRequest");
+    for (const stage of stages) expect(contract).toContain(`"${stage}"`);
+    for (const category of categories) expect(contract).toContain(`"${category}"`);
+    expect(`${parent}\n${contract}`).not.toMatch(
+      /(?:rawStdout|rawStderr|exceptionMessage|stackTrace|environmentValues)/u,
+    );
+    expect(parent).not.toContain(".env.local");
+  });
+
+  it("passes all 41 durable parent-entry simulations without UAC or child creation", () => {
+    const result = spawnSync(
+      powershell51,
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationParentEntry.ps1"),
+        "-RepositoryRoot",
+        repositoryRoot,
+      ],
+      {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+        windowsHide: true,
+        timeout: 300_000,
+      },
+    );
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    const report = JSON.parse(result.stdout) as {
+      processCount: number;
+      preflightProcessCreated: boolean;
+      preflightUacCount: number;
+      elevatedChildCount: number;
+      temporaryWorkspaceRemovedAfterReport: boolean;
+      scenarios: Array<{
+        number: number;
+        name: string;
+        passed: boolean;
+        firstFailedStage: string | null;
+        sanitizedFailureCategory: string | null;
+      }>;
+    };
+    expect(report.processCount).toBe(41);
+    expect(report.preflightProcessCreated).toBe(false);
+    expect(report.preflightUacCount).toBe(0);
+    expect(report.elevatedChildCount).toBe(0);
+    expect(report.temporaryWorkspaceRemovedAfterReport).toBe(true);
+    expect(report.scenarios).toHaveLength(41);
+    expect(report.scenarios.map(({ number }) => number)).toEqual(
+      Array.from({ length: 41 }, (_, index) => index + 1),
+    );
+    expect(new Set(report.scenarios.map(({ name }) => name)).size).toBe(41);
+    expect(report.scenarios.every(({ passed }) => passed)).toBe(true);
+    for (const name of [
+      "PreflightSuccess",
+      "InnerRequestPersistenceFailure",
+      "Replay",
+      "StaleBinding",
+      "MarkerDigestMismatch",
+      "StageOmission",
+      "InterruptedAtomicWrite",
+      "CleanupFailure",
+    ]) {
+      expect(report.scenarios.some((scenario) => scenario.name === name)).toBe(true);
     }
   }, 300_000);
 

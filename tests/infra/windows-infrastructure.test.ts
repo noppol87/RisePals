@@ -192,6 +192,7 @@ describe("Windows infrastructure contract", () => {
         name !== "windows-powershell-security-bootstrap.ps1" &&
         name !== "Invoke-RisePalsLauncherFixture.ps1" &&
         name !== "Invoke-RisePalsNodeDestinationDiagnosticChild.ps1" &&
+        name !== "Invoke-RisePalsNodeDestinationDiagnosticParent.ps1" &&
         !name.startsWith("Get-") &&
         !name.startsWith("Test-"),
     );

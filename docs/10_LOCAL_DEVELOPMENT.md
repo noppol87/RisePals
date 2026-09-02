@@ -1,8 +1,8 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R4-NODE-DIAG4 durable pre-evidence failure transport complete pending Project Codex review; NODE1/DIAG1 and RP-TURN-019 remain Partial, the protected Node destination remains unknown, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
-**Checked:** 2026-08-28
+**Status:** RP-TURN-019-R4-NODE-DIAG6 durable parent-entry/pre-request transport complete pending Project Codex review; NODE1/DIAG1, NODE-DIAG5 and RP-TURN-019 remain Partial, the protected Node destination remains unknown, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
+**Checked:** 2026-09-02
 
 ## Confirmed host role and separation rule
 
@@ -1076,6 +1076,12 @@ The accepted schema-v2 Node destination evidence remains unchanged and remains t
 Markers form a canonical digest chain for `bootstrap-entered`, `security-module-initialized`, `contract-imported`, `arguments-validated`, `diagnostic-dispatched` and `schema-v2-evidence-persisted`. The parent records `request-created`, launch attempt/process creation and child exit separately, independently validates the schema-v2 digest when present, atomically writes and reopens a pre-cleanup checkpoint, then removes the exact non-reparse transient marker directory and writes/reopens the final cleanup result. Cleanup failure and interrupted final persistence are themselves durable controlled failures. Only closed stages/categories, bounded optional numeric native/HRESULT values, lifecycle booleans, counts and digests are retained; raw stdout/stderr, exception message/type/stack, command line/arguments, environment values, credentials, ACL contents and `.env.local` are excluded.
 
 The focused harness uses sixteen separate hidden Windows PowerShell 5.1 processes with no in-scenario retry. It covers success with independently reopened schema-v2 evidence; launch, bootstrap, security-module, contract-import, argument, evidence-directory, pre-dispatch and child-exit failures; malformed, wrong-bound, replayed and schema-digest-mismatched markers; interrupted atomic marker creation; cleanup residue; and primary final-result persistence interruption with a validated fallback result. Every scenario validates exit/process separation, closed stage/category, canonical digests, independent reopen and exact residue disposition. All fixtures remain below the temporary root. No UAC, LiveReadOnly, protected `C:\RisePals` inspection, Node restore/download/execution, service/ACL/firewall/profile mutation or rehearsal occurred.
+
+### RP-TURN-019-R4-NODE-DIAG6 durable parent entry
+
+NODE-DIAG5 stopped before that DIAG4 request existed, so it is not destination evidence and its exact cause remains unknown. NODE-DIAG6 adds an outer raw-argument boundary that writes and reopens its earliest marker before importing the outer contract. It then validates primitive arguments, exact mode, repository head, fresh non-reparse evidence root, regular non-reparse inventory, every committed artifact digest and explicit approval before creating and reopening the unchanged inner DIAG4 request.
+
+`PreflightOnly` deliberately omits `inner-transport-dispatched`; it creates no process, UAC prompt or elevated child and never reaches `C:\RisePals`. The 41-process harness covers the successful preflight plus closed failure, stale, partial, replay, malformed, ordering, digest, atomic, cleanup and final-result boundaries. A later `LiveReadOnly` invocation remains unauthorized and must use a new exact reviewed authorization.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 
