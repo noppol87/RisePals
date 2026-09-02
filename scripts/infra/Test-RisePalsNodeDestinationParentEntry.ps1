@@ -3,7 +3,7 @@ param(
   [string]$RepositoryRoot = "C:\Codex PC SG2\Jeff\risepals",
   [int]$WorkerScenario = 0,
   [string]$WorkspaceRoot,
-  [ValidateSet("", "scenario-assertions-complete")]
+  [ValidateSet("", "fixture-inventory-persist", "scenario-assertions-complete")]
   [string]$TestOnlyWorkerFailureStage = ""
 )
 
@@ -87,9 +87,22 @@ $workerCategories = @(
   "report_persistence_failure",
   "cleanup_failure"
 )
+$fixtureStages = @(
+  "worker-entry",
+  "case-root-create",
+  "evidence-root-create",
+  "artifact-copy",
+  "diagnostic-contract-import",
+  "synthetic-node-create",
+  "inventory-create",
+  "inventory-persist",
+  "inventory-digest",
+  "complete"
+)
+$fixturePredicates = @("pending", "passed", "failed")
 $workerPropertyNames = @(
   "scenarioNumber", "scenarioName", "workerStarted", "workerStage",
-  "sanitizedFailureCategory", "outerExitCode", "childExitCode",
+  "fixtureStage", "fixturePredicate", "sanitizedFailureCategory", "outerExitCode", "childExitCode",
   "parentMarkerPresent", "parentMarkerDigest", "parentCheckpointPresent",
   "parentCheckpointDigest", "parentFinalPresent", "parentFinalDigest",
   "reportPersistenceAttempted", "reportPersistenceCompleted", "cleanupAttempted",
@@ -173,6 +186,8 @@ function Get-RisePalsParentWorkerDigest {
     [string]$Record.scenarioName,
     ([bool]$Record.workerStarted).ToString().ToLowerInvariant(),
     [string]$Record.workerStage,
+    [string]$Record.fixtureStage,
+    [string]$Record.fixturePredicate,
     $(if ($null -eq $Record.sanitizedFailureCategory) { "" } else {
         [string]$Record.sanitizedFailureCategory
       }),
@@ -211,6 +226,8 @@ function New-RisePalsParentWorkerRecord {
     [int]$ScenarioNumber,
     [string]$ScenarioName,
     [string]$WorkerStage,
+    [string]$FixtureStage,
+    [string]$FixturePredicate,
     [AllowNull()][object]$SanitizedFailureCategory,
     [AllowNull()][object]$OuterExitCode,
     [AllowNull()][object]$ChildExitCode,
@@ -227,6 +244,8 @@ function New-RisePalsParentWorkerRecord {
     scenarioName = $ScenarioName
     workerStarted = $true
     workerStage = $WorkerStage
+    fixtureStage = $FixtureStage
+    fixturePredicate = $FixturePredicate
     sanitizedFailureCategory = $SanitizedFailureCategory
     outerExitCode = $OuterExitCode
     childExitCode = $ChildExitCode
@@ -258,6 +277,8 @@ function Assert-RisePalsParentWorkerRecord {
     [string]$Record.scenarioName -cne [string]$scenarioNames[$ExpectedNumber - 1] -or
     $Record.workerStarted -isnot [bool] -or -not [bool]$Record.workerStarted -or
     [string]$Record.workerStage -notin $workerStages -or
+    [string]$Record.fixtureStage -notin $fixtureStages -or
+    [string]$Record.fixturePredicate -notin $fixturePredicates -or
     ($null -ne $Record.sanitizedFailureCategory -and
       [string]$Record.sanitizedFailureCategory -notin $workerCategories)) {
     throw "worker-report-contract"
@@ -285,7 +306,14 @@ function Assert-RisePalsParentWorkerRecord {
       throw "worker-report-parent-evidence"
     }
   }
-  if (-not (Test-RisePalsParentWorkerInteger $Record.evidenceResidueCount 0 1000) -or
+  if (([string]$Record.sanitizedFailureCategory -ceq "fixture_failure" -and
+      ([string]$Record.workerStage -cne "worker-started" -or
+        [string]$Record.fixturePredicate -cne "failed" -or
+        [string]$Record.fixtureStage -ceq "complete")) -or
+    ([string]$Record.workerStage -cne "worker-started" -and
+      ([string]$Record.fixtureStage -cne "complete" -or
+        [string]$Record.fixturePredicate -cne "passed")) -or
+    -not (Test-RisePalsParentWorkerInteger $Record.evidenceResidueCount 0 1000) -or
     -not (Test-RisePalsParentWorkerInteger $Record.temporaryResidueCount 0 1000) -or
     ([bool]$Record.cleanupCompleted -and
       ([int64]$Record.evidenceResidueCount -ne 0 -or
@@ -504,17 +532,33 @@ function Invoke-RisePalsParentEndToEnd {
     [string]$Scenario,
     [string]$CaseRoot,
     [string]$EvidenceRoot,
-    [scriptblock]$WorkerStageSink
+    [scriptblock]$WorkerStageSink,
+    [scriptblock]$FixtureStageSink
   )
   $caseInfra = Join-Path $CaseRoot "infra"
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "artifact-copy" "pending" }
   Copy-RisePalsParentArtifacts -CaseInfra $caseInfra
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "artifact-copy" "passed" }
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "diagnostic-contract-import" "pending" }
   Import-Module (Join-Path $caseInfra "node-destination-diagnostic-contract.psm1") -Force
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "diagnostic-contract-import" "passed" }
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "synthetic-node-create" "pending" }
   $fixture = New-RisePalsParentFixture -CaseRoot $CaseRoot
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "synthetic-node-create" "passed" }
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-create" "pending" }
   $inventory = New-RisePalsNodeInventory -Root $fixture
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-create" "passed" }
   $inventoryPath = Join-Path $CaseRoot "inventory.json"
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-persist" "pending" }
   [IO.File]::WriteAllText($inventoryPath, ($inventory | ConvertTo-Json -Depth 12),
     [Text.UTF8Encoding]::new($false))
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-persist" "passed" }
+  if ($null -ne $FixtureStageSink) { & $FixtureStageSink "inventory-digest" "pending" }
   $expectedInventoryHash = (Get-FileHash -LiteralPath $inventoryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  if ($null -ne $FixtureStageSink) {
+    & $FixtureStageSink "inventory-digest" "passed"
+    & $FixtureStageSink "complete" "passed"
+  }
   if ($null -ne $WorkerStageSink) { & $WorkerStageSink "fixture-created" $null $null }
   $mode = "PreflightOnly"
   $repositoryArgument = $repository
@@ -909,6 +953,8 @@ function Invoke-RisePalsParentWorker {
   )
   $state = @{
     workerStage = "worker-started"
+    fixtureStage = "worker-entry"
+    fixturePredicate = "pending"
     sanitizedFailureCategory = $null
     outerExitCode = $null
     childExitCode = $null
@@ -925,6 +971,20 @@ function Invoke-RisePalsParentWorker {
     temporaryResidueCount = 0
   }
   $script:RisePalsParentWorkerState = $state
+  $script:RisePalsParentInjectedFailureStage = $InjectedFailureStage
+  $fixtureStageSink = {
+    param([string]$Stage, [string]$Predicate)
+    if ($Stage -notin $fixtureStages -or $Predicate -notin $fixturePredicates) {
+      throw "fixture_failure"
+    }
+    $workerState = $script:RisePalsParentWorkerState
+    $workerState.fixtureStage = $Stage
+    $workerState.fixturePredicate = $Predicate
+    if ($Stage -ceq "inventory-persist" -and $Predicate -ceq "pending" -and
+      [string]$script:RisePalsParentInjectedFailureStage -ceq "fixture-inventory-persist") {
+      throw "fixture_failure"
+    }
+  }
   $stageSink = {
     param([string]$Stage, [AllowNull()][object]$OuterExitCode,
       [AllowNull()][object]$ChildExitCode)
@@ -936,12 +996,18 @@ function Invoke-RisePalsParentWorker {
   $endToEnd = $Number -le 23
   $workerExitCode = 0
   try {
+    & $fixtureStageSink "case-root-create" "pending"
     [IO.Directory]::CreateDirectory($caseRoot) | Out-Null
+    & $fixtureStageSink "case-root-create" "passed"
+    & $fixtureStageSink "evidence-root-create" "pending"
     [IO.Directory]::CreateDirectory($evidenceRoot) | Out-Null
+    & $fixtureStageSink "evidence-root-create" "passed"
     $result = if ($endToEnd) {
       Invoke-RisePalsParentEndToEnd -Scenario $scenario -CaseRoot $caseRoot `
-        -EvidenceRoot $evidenceRoot -WorkerStageSink $stageSink
+        -EvidenceRoot $evidenceRoot -WorkerStageSink $stageSink `
+        -FixtureStageSink $fixtureStageSink
     } else {
+      & $fixtureStageSink "complete" "passed"
       & $stageSink "fixture-created" $null $null
       Invoke-RisePalsParentPureScenario -Scenario $scenario -CaseRoot $caseRoot
     }
@@ -959,6 +1025,7 @@ function Invoke-RisePalsParentWorker {
     $state.reportPersistenceAttempted = $true
     $checkpointRecord = New-RisePalsParentWorkerRecord -ScenarioNumber $Number `
       -ScenarioName $scenario -WorkerStage $state.workerStage `
+      -FixtureStage $state.fixtureStage -FixturePredicate $state.fixturePredicate `
       -SanitizedFailureCategory $null -OuterExitCode $state.outerExitCode `
       -ChildExitCode $state.childExitCode -EvidenceState $state.evidenceState `
       -ReportPersistenceAttempted $true -ReportPersistenceCompleted $true `
@@ -975,6 +1042,7 @@ function Invoke-RisePalsParentWorker {
       $closedMessage.StartsWith("preflight_", [StringComparison]::Ordinal)) {
       $state.sanitizedFailureCategory = $closedMessage
     } elseif ([string]$state.workerStage -ceq "worker-started") {
+      $state.fixturePredicate = "failed"
       $state.sanitizedFailureCategory = "fixture_failure"
     } elseif ([string]$state.workerStage -ceq "outer-parent-invoked") {
       $state.sanitizedFailureCategory = "outer_parent_failure"
@@ -1026,6 +1094,7 @@ function Invoke-RisePalsParentWorker {
       try {
         $finalRecord = New-RisePalsParentWorkerRecord -ScenarioNumber $Number `
           -ScenarioName $scenario -WorkerStage $state.workerStage `
+          -FixtureStage $state.fixtureStage -FixturePredicate $state.fixturePredicate `
           -SanitizedFailureCategory $state.sanitizedFailureCategory `
           -OuterExitCode $state.outerExitCode -ChildExitCode $state.childExitCode `
           -EvidenceState $state.evidenceState -ReportPersistenceAttempted $true `
@@ -1108,12 +1177,15 @@ try {
     )
     $process = Start-Process -FilePath $powershell51 -ArgumentList $arguments `
       -WindowStyle Hidden -Wait -PassThru
+    $processExitCode = $process.ExitCode
+    $process.Dispose()
+    $process = $null
     $reportPath = Join-Path $workspace ("report-{0:d2}.json" -f $number)
     if (-not [IO.File]::Exists($reportPath)) {
-      throw "Parent-entry scenario $number stage worker-started category report_persistence_failure exit $($process.ExitCode)."
+      throw "Parent-entry scenario $number stage worker-started fixture worker-entry/pending category report_persistence_failure exit $processExitCode."
     }
     $report = Read-RisePalsParentWorkerRecord -Path $reportPath -ExpectedNumber $number
-    if ($process.ExitCode -ne 0 -or $null -ne $report.sanitizedFailureCategory -or
+    if ($processExitCode -ne 0 -or $null -ne $report.sanitizedFailureCategory -or
       [string]$report.workerStage -cne "cleanup-complete" -or
       -not [bool]$report.reportPersistenceCompleted -or
       -not [bool]$report.cleanupCompleted) {
@@ -1122,7 +1194,7 @@ try {
       } else {
         [string]$report.sanitizedFailureCategory
       }
-      throw "Parent-entry scenario $number stage $($report.workerStage) category $category exit $($process.ExitCode)."
+      throw "Parent-entry scenario $number stage $($report.workerStage) fixture $($report.fixtureStage)/$($report.fixturePredicate) category $category exit $processExitCode."
     }
     $reports += $report
   }

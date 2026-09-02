@@ -406,6 +406,23 @@ describe("repository-owned Node destination diagnostic", () => {
     ]) {
       expect(harness).toContain(`"${stage}"`);
     }
+    for (const fixtureStage of [
+      "worker-entry",
+      "case-root-create",
+      "evidence-root-create",
+      "artifact-copy",
+      "diagnostic-contract-import",
+      "synthetic-node-create",
+      "inventory-create",
+      "inventory-persist",
+      "inventory-digest",
+      "complete",
+    ]) {
+      expect(harness).toContain(`"${fixtureStage}"`);
+    }
+    for (const fixturePredicate of ["pending", "passed", "failed"]) {
+      expect(harness).toContain(`"${fixturePredicate}"`);
+    }
     expect(harness).toContain("Get-RisePalsParentWorkerDigest");
     expect(harness).toContain("Assert-RisePalsParentWorkerRecord");
     expect(harness).toContain("$process.Dispose()");
@@ -450,6 +467,8 @@ describe("repository-owned Node destination diagnostic", () => {
         scenarioName: string;
         workerStarted: boolean;
         workerStage: string;
+        fixtureStage: string;
+        fixturePredicate: string;
         sanitizedFailureCategory: string | null;
         outerExitCode: number | null;
         childExitCode: number | null;
@@ -483,6 +502,8 @@ describe("repository-owned Node destination diagnostic", () => {
         ({
           workerStarted,
           workerStage,
+          fixtureStage,
+          fixturePredicate,
           sanitizedFailureCategory,
           reportPersistenceAttempted,
           reportPersistenceCompleted,
@@ -494,6 +515,8 @@ describe("repository-owned Node destination diagnostic", () => {
         }) =>
           workerStarted &&
           workerStage === "cleanup-complete" &&
+          fixtureStage === "complete" &&
+          fixturePredicate === "passed" &&
           sanitizedFailureCategory === null &&
           reportPersistenceAttempted &&
           reportPersistenceCompleted &&
@@ -523,6 +546,8 @@ describe("repository-owned Node destination diagnostic", () => {
         "scenarioName",
         "workerStarted",
         "workerStage",
+        "fixtureStage",
+        "fixturePredicate",
         "sanitizedFailureCategory",
         "outerExitCode",
         "childExitCode",
@@ -591,6 +616,8 @@ describe("repository-owned Node destination diagnostic", () => {
         scenarioName: "PreflightSuccess",
         workerStarted: true,
         workerStage: "scenario-assertions-complete",
+        fixtureStage: "complete",
+        fixturePredicate: "passed",
         sanitizedFailureCategory: "scenario_assertion_failure",
         outerExitCode: 0,
         childExitCode: null,
@@ -608,6 +635,69 @@ describe("repository-owned Node destination diagnostic", () => {
       expect(await readdir(failureWorkspace)).not.toContain("report-01.json.tmp");
     } finally {
       await rm(failureWorkspace, { recursive: true, force: true });
+    }
+
+    const fixtureFailureWorkspace = await mkdtemp(
+      join(tmpdir(), "risepals-parent-worker-fixture-failure-"),
+    );
+    try {
+      const fixtureFailureResult = spawnSync(
+        powershell51,
+        [
+          "-NoLogo",
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          resolve(repositoryRoot, "scripts/infra/Test-RisePalsNodeDestinationParentEntry.ps1"),
+          "-RepositoryRoot",
+          repositoryRoot,
+          "-WorkerScenario",
+          "1",
+          "-WorkspaceRoot",
+          fixtureFailureWorkspace,
+          "-TestOnlyWorkerFailureStage",
+          "fixture-inventory-persist",
+        ],
+        {
+          cwd: repositoryRoot,
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 30_000,
+        },
+      );
+      expect(
+        fixtureFailureResult.status,
+        `${fixtureFailureResult.stdout}\n${fixtureFailureResult.stderr}`,
+      ).toBe(91);
+      const fixtureFailureReport = JSON.parse(
+        await readFile(join(fixtureFailureWorkspace, "report-01.json"), "utf8"),
+      ) as (typeof report.scenarios)[number];
+      expect(fixtureFailureReport).toMatchObject({
+        scenarioNumber: 1,
+        scenarioName: "PreflightSuccess",
+        workerStarted: true,
+        workerStage: "worker-started",
+        fixtureStage: "inventory-persist",
+        fixturePredicate: "failed",
+        sanitizedFailureCategory: "fixture_failure",
+        outerExitCode: null,
+        childExitCode: null,
+        parentMarkerPresent: false,
+        parentCheckpointPresent: false,
+        parentFinalPresent: false,
+        reportPersistenceAttempted: true,
+        reportPersistenceCompleted: true,
+        cleanupAttempted: true,
+        cleanupCompleted: true,
+        evidenceResidueCount: 0,
+        temporaryResidueCount: 0,
+      });
+      expect(fixtureFailureReport.canonicalDigest).toMatch(/^[a-f0-9]{64}$/u);
+      expect(await readdir(fixtureFailureWorkspace)).not.toContain("report-01.json.tmp");
+    } finally {
+      await rm(fixtureFailureWorkspace, { recursive: true, force: true });
     }
   }, 300_000);
 
