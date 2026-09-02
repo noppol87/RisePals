@@ -8,6 +8,14 @@ namespace RisePals.ServiceHost.Tests;
 public sealed class NodeFixtureTests
 {
     private static readonly string[] ExpectedStreamOutput = ["chunk-1", "chunk-2", "chunk-3", "work-rejected-draining"];
+    private static readonly string[] ExpectedDiagnosticStages =
+    [
+        "fixture-started",
+        "pipe-connection-attempted",
+        "pipe-connected",
+        "ready-write-attempted",
+        "ready-write-completed",
+    ];
     private static readonly string[] OutputFixtureArguments = ["output-fixture"];
 
     [TestMethod]
@@ -15,8 +23,14 @@ public sealed class NodeFixtureTests
     {
         var pipeName = NewPipeName();
         await using var transport = new NamedPipeDrainTransport(pipeName);
-        using var process = StartFixture(pipeName, "normal");
-        await transport.WaitForReadyAsync(TimeSpan.FromSeconds(3), CancellationToken.None);
+        await using var fixture = DiagnosticNodeFixture.Start(pipeName, "normal");
+        var process = fixture.Process;
+        var diagnosticRecords = await FixtureReadinessObserver.WaitForReadyAsync(
+            transport,
+            fixture,
+            TimeSpan.FromSeconds(3),
+            CancellationToken.None);
+        CollectionAssert.AreEqual(ExpectedDiagnosticStages, diagnosticRecords.Select(record => record.Stage).ToArray());
 
         await process.StandardInput.WriteLineAsync("stream");
         var nonce = Guid.NewGuid().ToString("N");

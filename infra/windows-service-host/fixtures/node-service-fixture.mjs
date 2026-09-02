@@ -1,6 +1,66 @@
 import net from "node:net";
 import http from "node:http";
 import process from "node:process";
+import { renameSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+
+const diagnosticSchemaVersion = 1;
+const diagnosticDirectory = process.env.RISEPALS_FIXTURE_DIAGNOSTIC_DIRECTORY;
+const diagnosticNonce = process.env.RISEPALS_FIXTURE_DIAGNOSTIC_NONCE;
+const diagnosticRoot = process.env.RISEPALS_FIXTURE_DIAGNOSTIC_ROOT;
+const diagnosticStartedAt = process.hrtime.bigint();
+let diagnosticSequence = 0;
+let diagnosticTerminalRecorded = false;
+
+if (
+  (diagnosticDirectory && (!diagnosticNonce || !diagnosticRoot)) ||
+  (!diagnosticDirectory && (diagnosticNonce || diagnosticRoot))
+) {
+  process.stderr.write("fixture diagnostic configuration incomplete\n");
+  process.exit(64);
+}
+
+if (diagnosticDirectory) {
+  const expectedDirectoryName = `risepals-servicehost-diagnostic-${diagnosticNonce}`;
+  const expectedRoot = resolve(diagnosticRoot);
+  const expectedDirectory = resolve(join(expectedRoot, expectedDirectoryName));
+  if (
+    !/^[0-9a-f]{32}$/u.test(diagnosticNonce) ||
+    resolve(diagnosticDirectory) !== expectedDirectory ||
+    basename(expectedDirectory) !== expectedDirectoryName ||
+    resolve(dirname(expectedDirectory)) !== expectedRoot
+  ) {
+    process.stderr.write("fixture diagnostic configuration invalid\n");
+    process.exit(64);
+  }
+}
+
+function recordDiagnostic(stage, failureCategory = "none", exitCode = null) {
+  if (!diagnosticDirectory) return;
+
+  diagnosticSequence += 1;
+  const elapsedMilliseconds = Number((process.hrtime.bigint() - diagnosticStartedAt) / 1_000_000n);
+  const fileName = `${String(diagnosticSequence).padStart(6, "0")}.json`;
+  const finalPath = join(diagnosticDirectory, fileName);
+  const temporaryPath = `${finalPath}.${diagnosticNonce}.tmp`;
+  const record = {
+    schemaVersion: diagnosticSchemaVersion,
+    nonce: diagnosticNonce,
+    sequence: diagnosticSequence,
+    stage,
+    failureCategory,
+    exitCode,
+    elapsedMilliseconds,
+  };
+  writeFileSync(temporaryPath, `${JSON.stringify(record)}\n`, { encoding: "utf8", flag: "wx" });
+  renameSync(temporaryPath, finalPath);
+}
+
+function recordTerminalDiagnostic(stage, failureCategory, exitCode) {
+  if (diagnosticTerminalRecorded) return;
+  diagnosticTerminalRecorded = true;
+  recordDiagnostic(stage, failureCategory, exitCode);
+}
 
 const pipeArgumentIndex = process.argv.indexOf("--rise-pals-drain-pipe");
 const pipeName =
@@ -27,10 +87,26 @@ if (mode === "startup-failure") {
   process.exit(70);
 }
 
+recordDiagnostic("fixture-started");
+
+if (mode === "diagnostic-exit-before-connect") {
+  recordTerminalDiagnostic("fixture-exit-recorded", "controlled-fixture-exit", 74);
+  process.exit(74);
+}
+
+if (mode === "diagnostic-alive-before-connect") {
+  setInterval(() => {}, 1_000);
+} else {
+  recordDiagnostic("pipe-connection-attempted");
+}
+
 let state = "Ready";
 let activeCount = 0;
 let drainNonce = "";
-const socket = net.createConnection(`\\\\.\\pipe\\${pipeName}`);
+const socket =
+  mode === "diagnostic-alive-before-connect"
+    ? new net.Socket()
+    : net.createConnection(`\\\\.\\pipe\\${pipeName}`);
 let server;
 
 function finishAcceptedWork() {
@@ -106,18 +182,46 @@ function send(message) {
   socket.write(`${JSON.stringify(message)}\n`);
 }
 
+function sendReady(payload) {
+  recordDiagnostic("ready-write-attempted");
+  if (mode === "diagnostic-ready-write-failure") {
+    socket.destroy();
+    socket.write(payload, () => {});
+    recordTerminalDiagnostic("fixture-exit-recorded", "ready-write-failure", 76);
+    setImmediate(() => process.exit(76));
+    return;
+  }
+
+  socket.write(payload, (error) => {
+    if (error) {
+      recordTerminalDiagnostic("fixture-exit-recorded", "ready-write-failure", 76);
+      process.exit(76);
+      return;
+    }
+
+    recordDiagnostic("ready-write-completed");
+  });
+}
+
 function acknowledgement(nonce, nextState) {
   return { version: 1, type: "ack", nonce, state: nextState, activeCount };
 }
 
 socket.once("connect", () => {
+  recordDiagnostic("pipe-connected");
+  if (mode === "diagnostic-exit-after-connect") {
+    recordTerminalDiagnostic("fixture-exit-recorded", "controlled-fixture-exit", 75);
+    socket.destroy();
+    process.exit(75);
+  }
+
   if (mode === "malformed-ready") {
-    socket.write("not-json\n");
+    sendReady("not-json\n");
     return;
   }
 
   startLoopbackServer(() => {
-    send(acknowledgement("", "Ready"));
+    sendReady(`${JSON.stringify(acknowledgement("", "Ready"))}\n`);
     if (mode === "output-fixture") {
       process.stdout.write("synthetic-standard-output\n");
       process.stderr.write("synthetic-standard-error\n");
@@ -207,4 +311,12 @@ process.stdin.on("data", (text) => {
   }
 });
 
-socket.on("error", () => process.exit(72));
+socket.on("error", () => {
+  if (mode === "diagnostic-ready-write-failure") {
+    recordTerminalDiagnostic("fixture-exit-recorded", "ready-write-failure", 76);
+    process.exit(76);
+  }
+
+  recordTerminalDiagnostic("fixture-exit-recorded", "connection-failure", 72);
+  process.exit(72);
+});
