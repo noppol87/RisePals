@@ -1,7 +1,7 @@
 # Windows Service Supervision Decision Pack
 
 **Turn:** RP-TURN-019-R4  
-**Status:** Option B repository-only prototype retained; R4-R4 deterministic test-only named-pipe readiness diagnostics complete pending Project Codex review while RP-TURN-019 remains Partial  
+**Status:** Option B repository-only prototype retained; R4-R4-R1 exact test-only named-pipe readiness diagnostics complete pending Project Codex review while RP-TURN-019 remains Partial  
 **Decision owner:** Project Codex and Jeff  
 **Sources verified:** 2026-08-29
 
@@ -180,7 +180,7 @@ NODE-DIAG5 subsequently ended before the DIAG4 request boundary and therefore pr
 
 ### Separately authorized host rehearsal — not authorized
 
-R4-R4 responds only to LIVE7's pre-UAC Phase A timeout. It leaves the production host, protocol and three-second test deadline unchanged and adds a closed schema-v1 fixture diagnostic sequence beneath one nonce-bound temporary directory. The parent still accepts readiness only from the genuine private named pipe; diagnostic records classify process creation, connection attempt/connect, Ready-write attempt/completion, controlled exit, live-at-timeout and invalid Ready outcomes. Atomic reopen, strict nonce/path/reparse/sequence/monotonic validation and deterministic cleanup fail closed. The new 12-test diagnostics suite, 10/10 isolated affected-test runs and three consecutive 63/63 service-host suites pass. No UAC, candidate install or host mutation is authorized by this evidence.
+R4-R4-R1 responds only to LIVE7's pre-UAC Phase A timeout. It leaves the production host, protocol and three-second test deadline unchanged and adds a closed schema-v1 fixture diagnostic sequence beneath one nonce-bound temporary directory. The parent still accepts readiness only from the genuine private named pipe. Exact required-once properties, typed nullable exit code, filename/sequence binding and nonnegative monotonic elapsed time reject missing, duplicate, unknown, mistyped, replayed or malformed records. Bounded atomic-publication observation preserves the primary timeout, exit or protocol classification and records diagnostic validity separately. Setup is observed under its own bound; flat cleanup rejects directories, reparse objects and unattributable residue before exact deletion. The 26-test diagnostics suite, 38/38 focused fixture/pipe/drain tests, 10/10 isolated affected-test runs and three consecutive 77/77 service-host suites pass. No UAC, candidate install or host mutation is authorized by this evidence.
 
 - install the candidate under a **new service name** while both existing WinSW services remain Stopped/Disabled;
 - use only synthetic loopback endpoints and an immutable reviewed release;

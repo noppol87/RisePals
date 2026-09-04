@@ -1,8 +1,8 @@
 # Local Development
 
 **Turn:** RP-TURN-019  
-**Status:** RP-TURN-019-R4-R4 deterministic test-only named-pipe readiness diagnostics complete pending Project Codex review; RP-TURN-019 remains Partial, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
-**Checked:** 2026-09-02
+**Status:** RP-TURN-019-R4-R4-R1 exact test-only named-pipe readiness diagnostics complete pending Project Codex review; RP-TURN-019 remains Partial, the prototype remains unsigned/uninstalled and no real users/data, production database, CI or deployment exists  
+**Checked:** 2026-09-04
 
 ## Confirmed host role and separation rule
 
@@ -1083,21 +1083,23 @@ NODE-DIAG5 stopped before that DIAG4 request existed, so it is not destination e
 
 `PreflightOnly` deliberately omits `inner-transport-dispatched`; it creates no process, UAC prompt or elevated child and never reaches `C:\RisePals`. The 41-process harness covers the successful preflight plus closed failure, stale, partial, replay, malformed, ordering, digest, atomic, cleanup and final-result boundaries. A later `LiveReadOnly` invocation remains unauthorized and must use a new exact reviewed authorization.
 
-### RP-TURN-019-R4-R4 deterministic named-pipe readiness diagnostics
+### RP-TURN-019-R4-R4-R1 exact named-pipe readiness diagnostics
 
-LIVE7 stopped before UAC after its fresh locked restore and zero-warning Release build because `ActiveThreeChunkStreamCompletesAndNewWorkIsRejectedDuringDrain` timed out at `NamedPipeDrainTransport.WaitForReadyAsync`; that Phase A run passed 50/51 tests and was not retried. A later unchanged-head isolated run and complete suite both passed, so R4-R3 correctly made no speculative change. R4-R4 changes only the test fixture and test project. Production `NamedPipeDrainTransport`, the three-second test deadline, stream/drain/rejection/nonces and service lifecycle remain unchanged.
+LIVE7 stopped before UAC after its fresh locked restore and zero-warning Release build because `ActiveThreeChunkStreamCompletesAndNewWorkIsRejectedDuringDrain` timed out at `NamedPipeDrainTransport.WaitForReadyAsync`; that Phase A run passed 50/51 tests and was not retried. A later unchanged-head isolated run and complete suite both passed, so R4-R3 correctly made no speculative change. R4-R4-R1 changes only the test fixture and test project. Production `NamedPipeDrainTransport`, the three-second test deadline, stream/drain/rejection/nonces and service lifecycle remain unchanged.
 
-The test parent creates one exact `%TEMP%\risepals-servicehost-diagnostic-{nonce}` directory, rejects pre-existing/reparse/escaped paths and passes its canonical root explicitly so Windows short-path aliases cannot weaken containment. The Node fixture atomically renames strictly sequenced records for `fixture-started`, connection attempt/connect, Ready write attempt/completion and one controlled terminal record. Schema v1 allows only the exact lowercase nonce, sequence, closed stage/category, bounded exit code and nondecreasing monotonic milliseconds. The independent reader rejects unknown objects/properties, wrong nonce, gaps, stage regression/replay, stale elapsed values, malformed UTF-8/JSON, partial `.tmp` files and non-atomic or reparse evidence. Diagnostics never create readiness success: only the existing valid private-pipe `Ready` message does. The parent races that wait against process exit and enriches failures without catching timeout/protocol failure as success.
+The test parent creates one exact `%TEMP%\risepals-servicehost-diagnostic-{nonce}` directory, rejects pre-existing/reparse/escaped paths and passes its canonical root explicitly so Windows short-path aliases cannot weaken containment. The Node fixture atomically renames strictly sequenced records for `fixture-started`, connection attempt/connect, Ready write attempt/completion and one controlled terminal record. Schema v1 requires exactly one of every defined property, including nullable `exitCode`; filenames must equal the six-digit record sequence. The independent reader rejects missing, duplicate, unknown or mistyped properties, negative or non-monotonic elapsed values, wrong nonce, gaps, stage regression/replay, malformed UTF-8/JSON, non-attributable temporary files and reparse evidence. A one-second diagnostic-only settlement bound may observe an exact concurrent atomic publication but never restarts or extends the readiness operation and never retries malformed evidence. Primary timeout, process-exit and protocol-failure classifications remain explicit sanitized facts beside diagnostic validity (`valid`, `incomplete` or `invalid`). Fixture startup is observed under a separate bound before the short injected readiness timeout. Diagnostics never create readiness success: only the existing valid private-pipe `Ready` message does.
 
-| R4-R4 service-host verification | Result |
+All process and environment setup after diagnostic-scope creation is covered by exact failure injection. Cleanup first validates the complete flat directory, then deletes only attributable regular non-reparse files and the exact empty task directory; unexpected child directories, reparse objects or unattributable residue cause an explicit cleanup failure. Only the exact test-owned process is disposed and awaited.
+
+| R4-R4-R1 service-host verification | Result |
 | --- | --- |
-| diagnostics classifier/integration | PASS — 12/12 cover process-not-created, exit before connect, connection failure, exit after connect, Ready-write failure, written invalid Ready, live-at-deadline, valid Ready, wrong nonce, stale/replayed stages, malformed/partial evidence and cleanup |
-| focused fixture/pipe/drain tests | PASS — 24/24 |
+| diagnostics classifier/integration | PASS — 26/26 cover exact schema/property/type/filename/elapsed rejection, primary-failure preservation, incomplete versus invalid publication, separate startup timing, setup failures and cleanup rejection |
+| focused fixture/pipe/drain tests | PASS — 38/38 |
 | affected stream/drain test | PASS — 10/10 separate process executions; no internal retry and unchanged three-second readiness deadline |
-| complete service-host suite | PASS — 63/63 in each of three consecutive executions |
+| complete service-host suite | PASS — 77/77 in each of three consecutive executions |
 | production behavior | unchanged — no production C# file, protocol, lifecycle, artifact pin or dependency changed |
 
-R4-R4 requested no UAC and performed no Live/LiveReadOnly, protected-host, service, listener, firewall, DNS, certificate, reboot or deployment operation. Another Live attempt requires a separate exact reviewed authorization.
+R4-R4-R1 requested no UAC and performed no Live/LiveReadOnly, protected-host, service, listener, firewall, DNS, certificate, reboot or deployment operation. Another Live attempt requires a separate exact reviewed authorization.
 
 The eighth migration adds no table. It extends `user_accounts` with nullable unique `deletion_request_id`, nullable `deletion_requested_at` and lifecycle consistency checks, then establishes the credentialless `NOLOGIN`, `NOINHERIT`, `NOBYPASSRLS` `rise_pals_privacy_operator` boundary. That role owns zero tables, can execute only the two controlled privacy functions through the separately bootstrapped maintenance path, and cannot be assumed by the application, resolver or migration runtime after bootstrap cleanup. The fresh schema remains 26 tables, with forced owner RLS on all 20 private tables.
 

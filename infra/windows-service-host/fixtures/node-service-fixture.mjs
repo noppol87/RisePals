@@ -87,6 +87,11 @@ if (mode === "startup-failure") {
   process.exit(70);
 }
 
+if (mode === "diagnostic-no-startup-record") {
+  setInterval(() => {}, 1_000);
+  await new Promise(() => {});
+}
+
 recordDiagnostic("fixture-started");
 
 if (mode === "diagnostic-exit-before-connect") {
@@ -184,11 +189,20 @@ function send(message) {
 
 function sendReady(payload) {
   recordDiagnostic("ready-write-attempted");
+  if (mode === "diagnostic-malformed-evidence-at-protocol-failure") {
+    writeFileSync(join(diagnosticDirectory, "000005.json"), "{malformed", {
+      encoding: "utf8",
+      flag: "wx",
+    });
+    socket.write(payload);
+    return;
+  }
+
   if (mode === "diagnostic-ready-write-failure") {
     socket.destroy();
     socket.write(payload, () => {});
     recordTerminalDiagnostic("fixture-exit-recorded", "ready-write-failure", 76);
-    setImmediate(() => process.exit(76));
+    setTimeout(() => process.exit(76), 50);
     return;
   }
 
@@ -215,7 +229,7 @@ socket.once("connect", () => {
     process.exit(75);
   }
 
-  if (mode === "malformed-ready") {
+  if (mode === "malformed-ready" || mode === "diagnostic-malformed-evidence-at-protocol-failure") {
     sendReady("not-json\n");
     return;
   }
@@ -314,7 +328,8 @@ process.stdin.on("data", (text) => {
 socket.on("error", () => {
   if (mode === "diagnostic-ready-write-failure") {
     recordTerminalDiagnostic("fixture-exit-recorded", "ready-write-failure", 76);
-    process.exit(76);
+    setTimeout(() => process.exit(76), 50);
+    return;
   }
 
   recordTerminalDiagnostic("fixture-exit-recorded", "connection-failure", 72);

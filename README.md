@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-019-R4-R4 deterministic test-only named-pipe readiness diagnostics are implemented pending Project Codex review; RP-TURN-019 remains Partial and the candidate remains unsigned, uninstalled and not production-approved  
-**Last updated:** 2026-09-02
+**Project status:** RP-TURN-019-R4-R4-R1 exact test-only named-pipe readiness diagnostics are implemented pending Project Codex review; RP-TURN-019 remains Partial and the candidate remains unsigned, uninstalled and not production-approved  
+**Last updated:** 2026-09-04
 
 ## Product thesis
 
@@ -82,7 +82,7 @@ NODE-DIAG4 adds a separate future-only durable transport for failures that happe
 
 NODE-DIAG5 later stopped before DIAG4 request persistence and therefore established no protected-destination fact; its exact historical cause is not inferred. NODE-DIAG6 adds a future-only durable raw-argument parent entry before that boundary. It persists the earliest marker before outer-contract import, validates exact mode/repository/evidence/inventory/committed-artifact bindings and creates/reopens the unchanged DIAG4 request. Its `PreflightOnly` path stops before inner transport dispatch, `RunAs`, UAC, elevated-child creation and protected inspection. Forty-one isolated Windows PowerShell 5.1 simulations cover the ordered 13-stage/16-category contract, every committed-artifact hash, failure/tamper/stale/partial/replay/cleanup boundaries and prove zero UAC/elevated children. RP-TURN-019 remains Partial and another host attempt requires separate authorization.
 
-LIVE7 later stopped fail-closed before UAC when the fresh Phase A service-host suite timed out waiting for the synthetic fixture's private-pipe `Ready` message and passed 50/51 tests. R4-R4 keeps the three-second deadline and production drain transport unchanged. A test-only atomic diagnostic sequence records only nonce-bound closed stages/categories, controlled exit code and monotonic elapsed values, while the parent races the unchanged authoritative pipe wait against fixture exit. Missing, malformed, stale, replayed, wrong-nonce, partial, non-atomic or path/reparse-unsafe evidence fails closed and every synthetic success/failure path removes its task directory. The diagnostics regression suite passes 12/12, the affected stream/drain test passes 10/10 separate processes and the expanded 63-test service-host suite passes three consecutive runs. This repository evidence does not authorize another UAC or Live attempt.
+LIVE7 later stopped fail-closed before UAC when the fresh Phase A service-host suite timed out waiting for the synthetic fixture's private-pipe `Ready` message and passed 50/51 tests. R4-R4-R1 keeps the three-second deadline and production drain transport unchanged. Its test-only reader requires every exact property once, binds filenames to sequence and rejects unknown, duplicate, missing, mistyped, negative-elapsed, malformed, stale, replayed, wrong-nonce, non-atomic and path/reparse-unsafe evidence. A bounded observation window distinguishes incomplete publication from invalid evidence while retaining the original timeout, exit or protocol classification; setup observation has its own bound. Cleanup accepts only the flat exact diagnostic layout and refuses unexpected directories or reparse objects. The diagnostics suite passes 26/26, the focused fixture/pipe/drain suite passes 38/38, the affected stream/drain test passes 10/10 separate processes and the expanded 77-test service-host suite passes three consecutive runs. This repository evidence does not authorize another UAC or Live attempt.
 
 Locale routes:
 

@@ -3,7 +3,7 @@
 **Turn:** RP-TURN-019  
 **Host:** confirmed Windows Server 2022 application target  
 **Boundary:** non-public infrastructure rehearsal only  
-**Last updated:** 2026-09-02; R4-R4 deterministic test-only named-pipe readiness diagnostics pending Project Codex review while RP-TURN-019 remains Partial
+**Last updated:** 2026-09-04; R4-R4-R1 exact test-only named-pipe readiness diagnostics pending Project Codex review while RP-TURN-019 remains Partial
 
 ## Authorization boundary
 
@@ -276,9 +276,9 @@ sc.exe qfailure RisePalsProxy
 
 The historical cleanup stops and disables both services, deletes the canary, the exact drain state/lock, only recognized atomic temp files and validated rehearsal children, then fails if a Rise Pals process/listener or drain residue remains. It deliberately retains the protected control directory, verified tools, reviewed releases, `current`, non-secret configuration and bounded logs.
 
-## R4-R4 test-only readiness diagnostic boundary
+## R4-R4-R1 test-only readiness diagnostic boundary
 
-LIVE7 stopped before UAC when its fresh Phase A service-host suite passed 50/51 and the synthetic three-chunk fixture did not complete the private-pipe `Ready` handshake inside the unchanged three-second test deadline. R4-R4 does not change production transport, service lifecycle or the deadline. It adds only nonce/path-bound atomic test evidence and races the genuine readiness task against observed fixture exit. The file evidence distinguishes process/connection/Ready-write/exit/timeout/protocol stages but can never replace the valid private-pipe acknowledgement as success authority. Twelve injected failure/success regressions, 10/10 isolated affected-test runs and three consecutive 63/63 suites pass with zero diagnostic/process/pipe residue. This evidence is repository-only and does not authorize another UAC or Live rehearsal.
+LIVE7 stopped before UAC when its fresh Phase A service-host suite passed 50/51 and the synthetic three-chunk fixture did not complete the private-pipe `Ready` handshake inside the unchanged three-second test deadline. R4-R4-R1 does not change production transport, service lifecycle or the deadline. It adds only nonce/path-bound atomic test evidence and races the genuine readiness task against observed fixture exit. Every property is required exactly once, the filename binds to its sequence and invalid types, negative elapsed values and malformed evidence fail immediately. A bounded diagnostic settlement window distinguishes an exact in-progress atomic publication from invalid evidence but does not restart or extend readiness; the original timeout, process-exit or protocol classification remains primary. Setup timing is observed separately, and cleanup validates a flat exact task directory before deleting attributable files only. The file evidence can never replace the valid private-pipe acknowledgement as success authority. The diagnostics suite passes 26/26, focused fixture/pipe/drain coverage passes 38/38, 10/10 isolated affected-test runs pass and three consecutive 77/77 suites pass with zero diagnostic/process/pipe residue. This evidence is repository-only and does not authorize another UAC or Live rehearsal.
 
 ## Reboot checkpoint and remaining launch blockers
 
