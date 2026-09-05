@@ -416,7 +416,8 @@ function Assert-RisePalsCandidateExactAcl {
   $expected = [ordered]@{
     "S-1-5-18" = [Security.AccessControl.FileSystemRights]::FullControl
     "S-1-5-32-544" = [Security.AccessControl.FileSystemRights]::FullControl
-    $CandidateSid = $CandidateRights
+    # FileSystemAccessRule canonicalizes Allow masks with Synchronize.
+    $CandidateSid = $CandidateRights -bor [Security.AccessControl.FileSystemRights]::Synchronize
   }
   if ($rules.Count -ne 3) {
     throw "A candidate ACL has an unexpected ACE count."
@@ -720,15 +721,16 @@ try {
   $completed += "stage-immutable-inputs"
 
   $failedStage = "apply-exact-acls"
+  $candidateIdentity = [Security.Principal.SecurityIdentifier]::new([string]$contract.candidate.serviceSid)
   $readRules = @(
     @{ Identity = "SYSTEM"; Rights = "FullControl" },
     @{ Identity = "BUILTIN\Administrators"; Rights = "FullControl" },
-    @{ Identity = $script:RisePalsCandidateAccount; Rights = "ReadAndExecute" }
+    @{ Identity = $candidateIdentity; Rights = "ReadAndExecute" }
   )
   $logRules = @(
     @{ Identity = "SYSTEM"; Rights = "FullControl" },
     @{ Identity = "BUILTIN\Administrators"; Rights = "FullControl" },
-    @{ Identity = $script:RisePalsCandidateAccount; Rights = "Modify" }
+    @{ Identity = $candidateIdentity; Rights = "Modify" }
   )
   Set-RisePalsProtectedAcl -Path $stagingTaskRoot -Rules $readRules
   Set-RisePalsProtectedAcl -Path $rehearsalTaskRoot -Rules $readRules

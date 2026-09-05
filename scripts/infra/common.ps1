@@ -129,8 +129,14 @@ function Set-RisePalsProtectedAcl {
   $acl.SetAccessRuleProtection($true, $false)
 
   foreach ($rule in $Rules) {
-    $identity = [Security.Principal.NTAccount]::new([string]$rule.Identity)
-    [void]$identity.Translate([Security.Principal.SecurityIdentifier])
+    $identity = if ($rule.Identity -is [Security.Principal.SecurityIdentifier]) {
+      # A pinned service SID can be used before SCM creates its account name.
+      $rule.Identity
+    } else {
+      ([Security.Principal.NTAccount]::new([string]$rule.Identity)).Translate(
+        [Security.Principal.SecurityIdentifier]
+      )
+    }
     $inheritance = if ($rule.ContainsKey("InheritanceFlags")) {
       [Security.AccessControl.InheritanceFlags]$rule.InheritanceFlags
     } elseif ($acl -is [Security.AccessControl.DirectorySecurity]) {

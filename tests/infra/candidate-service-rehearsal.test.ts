@@ -34,6 +34,26 @@ async function createIncompatibleSecurityModuleRoot(): Promise<string> {
 }
 
 describe("repository-only candidate service rehearsal harness", () => {
+  it("constructs pre-install candidate SID ACLs and rejects broader access in memory", () => {
+    const result = spawnSync(
+      resolve(
+        process.env.SystemRoot ?? "C:/Windows",
+        "System32/WindowsPowerShell/v1.0/powershell.exe",
+      ),
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-File",
+        resolve(repositoryRoot, "scripts/infra/Test-RisePalsCandidateAcl.ps1"),
+      ],
+      { encoding: "utf8", timeout: 30_000, windowsHide: true },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Candidate ACL in-memory PASS: 7/7");
+    expect(result.stdout).toContain("host ACL writes=0; UAC=0; residue=0");
+  }, 35_000);
+
   it("reopens early evidence across distinct parent and child TEMP contexts", () => {
     const result = spawnSync(
       resolve(
