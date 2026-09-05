@@ -1,0 +1,67 @@
+{
+	admin 127.0.0.1:2019
+	persist_config off
+	local_certs
+	storage file_system {
+		root C:\RisePals\shared\cache\caddy
+	}
+	servers {
+		timeouts {
+			read_body 15s
+			read_header 5s
+			write 30s
+			idle 2m
+		}
+		max_header_size 32KB
+	}
+}
+
+http://127.0.0.1:8080 {
+	bind 127.0.0.1
+	redir https://127.0.0.1:8443{uri} 308
+}
+
+https://127.0.0.1:8443 {
+	bind 127.0.0.1
+	tls internal
+
+	@internal path /health/ready
+	respond @internal 404
+
+	request_body {
+		max_size 1MB
+	}
+
+	log {
+		output file C:\RisePals\logs\proxy\access.json {
+			mode 0640
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 168h
+		}
+		format filter {
+			request>headers>Authorization delete
+			request>headers>Cookie delete
+			request>headers>Proxy-Authorization delete
+			request>uri query {
+				replace code REDACTED
+				replace key REDACTED
+				replace secret REDACTED
+				replace token REDACTED
+			}
+			wrap json
+		}
+	}
+
+	reverse_proxy 127.0.0.1:3100 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto https
+		flush_interval -1
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 15s
+			keepalive 30s
+		}
+	}
+}

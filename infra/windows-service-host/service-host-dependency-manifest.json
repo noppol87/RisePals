@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "verificationDate": "2026-08-29",
+  "prototypeOnly": true,
+  "target": {
+    "framework": "net10.0-windows",
+    "runtimeIdentifier": "win-x64",
+    "selfContained": true,
+    "singleFile": true,
+    "trimmed": false
+  },
+  "sdk": {
+    "version": "10.0.400",
+    "runtimeSecurityPatch": "10.0.11",
+    "officialReleaseMetadata": "https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json",
+    "officialArchive": "https://builds.dotnet.microsoft.com/dotnet/Sdk/10.0.400/dotnet-sdk-10.0.400-win-x64.zip",
+    "archiveLength": 300546129,
+    "archiveSha256": "83fbf0699a984d08063579b06edfc8c327af62234b1aaeeadc5d7ae7f5a0514a",
+    "officialMetadataSha512": "9b8b88590e4da131bfd0da7aa089d0fc04d5418d5f8607ec13d55dc5a17b4399afd54d496c12657fa05c6c6546dc5eab930f26ac6c50f2d3a7712c0fb378c366",
+    "extractedDotnetAuthenticode": "Valid",
+    "installation": "portable task-scoped archive only"
+  },
+  "nuget": {
+    "source": "https://api.nuget.org/v3/index.json",
+    "signaturePolicy": "require Microsoft author signature SHA-256 fingerprint 566A31882BE208BE4422F7CFD66ED09F5D4524A5994F50CCC8B05EC0528C1353",
+    "lockFiles": [
+      "RisePals.ServiceHost/packages.lock.json",
+      "RisePals.ServiceHost.Tests/packages.lock.json"
+    ],
+    "packages": [
+      {
+        "id": "Microsoft.NET.ILLink.Tasks",
+        "version": "10.0.11",
+        "kind": "auto-referenced-build",
+        "license": "MIT",
+        "purpose": "single-file publication tooling"
+      },
+      {
+        "id": "Microsoft.NET.Test.Sdk",
+        "version": "18.9.0",
+        "kind": "direct-test",
+        "license": "MIT",
+        "purpose": "Microsoft test host SDK"
+      },
+      {
+        "id": "MSTest.TestAdapter",
+        "version": "4.3.3",
+        "kind": "direct-test",
+        "license": "MIT",
+        "purpose": "MSTest adapter"
+      },
+      {
+        "id": "MSTest.TestFramework",
+        "version": "4.3.3",
+        "kind": "direct-test",
+        "license": "MIT",
+        "purpose": "MSTest assertions and attributes"
+      },
+      {
+        "id": "Microsoft.ApplicationInsights",
+        "version": "2.23.0",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "Microsoft Testing Platform dependency; not application telemetry"
+      },
+      {
+        "id": "Microsoft.CodeCoverage",
+        "version": "18.9.0",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "Microsoft.NET.Test.Sdk dependency"
+      },
+      {
+        "id": "Microsoft.Testing.Extensions.Telemetry",
+        "version": "2.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest platform dependency; CLI telemetry is disabled during verification"
+      },
+      {
+        "id": "Microsoft.Testing.Extensions.TrxReport.Abstractions",
+        "version": "2.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest reporting abstraction"
+      },
+      {
+        "id": "Microsoft.Testing.Extensions.VSTestBridge",
+        "version": "2.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest VSTest bridge"
+      },
+      {
+        "id": "Microsoft.Testing.Platform",
+        "version": "2.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest execution platform"
+      },
+      {
+        "id": "Microsoft.Testing.Platform.MSBuild",
+        "version": "2.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest MSBuild integration"
+      },
+      {
+        "id": "Microsoft.TestPlatform.ObjectModel",
+        "version": "18.9.0",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "VSTest object model"
+      },
+      {
+        "id": "Microsoft.TestPlatform.TestHost",
+        "version": "18.9.0",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "VSTest host"
+      },
+      {
+        "id": "MSTest.Analyzers",
+        "version": "4.3.3",
+        "kind": "transitive-test",
+        "license": "MIT",
+        "purpose": "MSTest compile-time analyzers"
+      }
+    ]
+  },
+  "artifactIdentity": {
+    "version": "0.1.0-rp19-prototype",
+    "assemblyVersion": "0.1.0.0",
+    "fileVersion": "0.1.0.0",
+    "informationalVersion": "0.1.0-rp19-prototype",
+    "includeSourceRevisionInInformationalVersion": false,
+    "serviceHostProductionSourceTree": "125eb5a7765c58cbc7cee094fbe82207642fd2a5",
+    "volatileOuterRepositoryCommitMetadataExcluded": true
+  },
+  "publish": {
+    "command": "dotnet publish RisePals.ServiceHost/RisePals.ServiceHost.csproj --configuration Release --no-restore --output <fresh-task-temp>",
+    "contextCount": 3,
+    "contexts": [
+      "git-aware",
+      "git-archive-file-only",
+      "second-file-only-distinct-path-and-timestamps"
+    ],
+    "byteIdentical": true,
+    "files": [
+      {
+        "name": "RisePals.ServiceHost.exe",
+        "length": 73606961,
+        "sha256": "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
+        "authenticode": "NotSigned"
+      },
+      {
+        "name": "service-host-config.schema.json",
+        "length": 1672,
+        "sha256": "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32"
+      }
+    ]
+  },
+  "productionBlockers": [
+    "The prototype executable is not Authenticode-signed.",
+    "No live SCM, preshutdown, service-identity or host installation proof is authorized or complete.",
+    "No reviewed production configuration, signing workflow, deployment or rollback authorization exists."
+  ]
+}

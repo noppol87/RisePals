@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "rise-pals-windows-tool-manifest-v1",
+  "verifiedAt": "2026-08-24",
+  "tools": [
+    {
+      "name": "node",
+      "version": "24.18.1",
+      "archive": "node-v24.18.1-win-x64.zip",
+      "sourceUrl": "https://nodejs.org/dist/v24.18.1/node-v24.18.1-win-x64.zip",
+      "length": 37177316,
+      "sha256": "ec56b84a7551893ab2324ebdfdc4ab974a63b4781162600b68a1293cc3e53765",
+      "integrityEvidence": "Official Node.js SHASUMS256.txt and valid OpenJS Foundation Authenticode signature on node.exe"
+    },
+    {
+      "name": "caddy",
+      "version": "2.11.4",
+      "archive": "caddy_2.11.4_windows_amd64.zip",
+      "sourceUrl": "https://github.com/caddyserver/caddy/releases/download/v2.11.4/caddy_2.11.4_windows_amd64.zip",
+      "length": 17559418,
+      "sha256": "1708333f79e274c7697285afe6d592ab39314e0b131e9ec6bea08ad27df62ebf",
+      "sha512": "cd5ccfd86a4b40732cf715890d0dca5bf3f63adefec5a7914de85adf240c60ce7e5d2791631b88ef9758e46b23bb1730e020b9c5d696889740b284ffd4788e35",
+      "signatureIdentity": "https://github.com/caddyserver/caddy/.github/workflows/release.yml@refs/tags/v2.11.4",
+      "signatureIssuer": "https://token.actions.githubusercontent.com",
+      "integrityEvidence": "GitHub release asset SHA-256, official checksum SHA-512 and Sigstore Fulcio/Rekor verification"
+    },
+    {
+      "name": "winsw",
+      "version": "2.12.0",
+      "archive": "WinSW-x64.exe",
+      "sourceUrl": "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe",
+      "length": 18243033,
+      "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da",
+      "releaseCommit": "eef5bade59fca0254e387ac73ed7625ba6aa7147",
+      "integrityEvidence": "Official WinSW v2.12.0 GitHub release asset length and computed SHA-256; executable is not Authenticode-signed and the release has no checksum asset"
+    }
+  ]
+}

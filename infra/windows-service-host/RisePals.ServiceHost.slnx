@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="RisePals.ServiceHost/RisePals.ServiceHost.csproj" />
+  <Project Path="RisePals.ServiceHost.Tests/RisePals.ServiceHost.Tests.csproj" />
+</Solution>

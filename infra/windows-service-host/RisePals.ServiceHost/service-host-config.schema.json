@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://risepals.example/schemas/windows-service-host/v1",
+  "title": "Rise Pals Windows service-host configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approvedNodeRoot",
+    "approvedReleaseRoot",
+    "nodeExecutable",
+    "releaseDirectory",
+    "entrypoint",
+    "logDirectory",
+    "arguments",
+    "startTimeoutSeconds",
+    "drainTimeoutSeconds",
+    "exitTimeoutSeconds",
+    "healthyResetSeconds",
+    "restartLimit",
+    "initialRestartDelayMilliseconds",
+    "maximumRestartDelayMilliseconds"
+  ],
+  "properties": {
+    "approvedNodeRoot": { "type": "string", "minLength": 3 },
+    "approvedReleaseRoot": { "type": "string", "minLength": 3 },
+    "nodeExecutable": { "type": "string", "minLength": 3 },
+    "releaseDirectory": { "type": "string", "minLength": 3 },
+    "entrypoint": { "type": "string", "minLength": 3 },
+    "logDirectory": { "type": "string", "minLength": 3 },
+    "arguments": { "type": "array", "items": { "type": "string" }, "maxItems": 16 },
+    "startTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "drainTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 120 },
+    "exitTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 60 },
+    "healthyResetSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+    "restartLimit": { "type": "integer", "minimum": 0, "maximum": 10 },
+    "initialRestartDelayMilliseconds": { "type": "integer", "minimum": 0, "maximum": 60000 },
+    "maximumRestartDelayMilliseconds": { "type": "integer", "minimum": 0, "maximum": 300000 }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "rise-pals-firewall-template-v1",
+  "enabled": false,
+  "rules": [
+    {
+      "displayName": "Rise Pals Proxy HTTPS (future review only)",
+      "service": "RisePalsProxy",
+      "protocol": "TCP",
+      "localPort": 443,
+      "direction": "Inbound",
+      "action": "Allow",
+      "profile": "Domain,Private,Public"
+    },
+    {
+      "displayName": "Rise Pals Proxy HTTP redirect (future review only)",
+      "service": "RisePalsProxy",
+      "protocol": "TCP",
+      "localPort": 80,
+      "direction": "Inbound",
+      "action": "Allow",
+      "profile": "Domain,Private,Public"
+    }
+  ],
+  "prohibitedPublicServices": ["RisePalsApp", "PostgreSQL"],
+  "note": "Inventory/template only. RP-TURN-019 must not create or enable these rules. An external port scan is required before launch."
+}
