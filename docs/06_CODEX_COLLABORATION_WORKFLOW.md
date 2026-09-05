@@ -1,5 +1,24 @@
 # Codex Collaboration Workflow
 
+## Active workflow — Jeff and VS Code Codex
+
+Jeff has ended the two-context review relay and authorized continuous bounded repository work in this context. This section supersedes the historical protocol below. No separate Project Codex acceptance, message envelope or copy block is required.
+
+- Jeff owns product direction, priorities, acceptance and decisions with material cost or risk.
+- Codex plans, implements, inspects the actual diff, tests and reports directly to Jeff. Self-checks are not independent reviews.
+- Continue through ordinary repository-only corrections. Use focused gates during iteration and required full/security gates at integration checkpoints; do not silently skip checks or use retry-until-pass.
+- Keep one factual status: completed work, actual verification, remaining blockers and next action. Progress percentages are scope-specific planning estimates, not measured readiness.
+- Preserve existing work and historical acceptance evidence. Source priority remains Jeff's latest explicit instruction, current bounded scope, actual repository/test evidence, documents, then summaries.
+- Removing the review relay does not override execution-tool policy or permit bypassing access controls.
+- Host/service/ACL/firewall/certificate changes, UAC, real-user data, production resources, external costs and deployment still require explicit scoped authorization. Existing narrow exceptions apply only to their exact targets.
+- Preserve clean-worktree simulation checks, exact-head binding, authorized staging, secret scans and truthful cleanup. Do not merge a Draft PR merely because the review workflow changed.
+- Preserve synthetic-alpha, consent, forced-RLS, publication, scoring-separation and prototype-unvalidated boundaries. RP-TURN-019 remains Partial until its remaining gates are proven.
+- Use `prompts/VS_CODE_HANDOFF_TEMPLATE.md` as a direct-report checklist. Ask Jeff only for missing authority, a material trade-off or a genuine external blocker.
+
+## Historical two-context protocol — no longer active
+
+The following original process is retained for provenance only. Its Project Codex review and copy-block requirements do not govern new work.
+
 ## Purpose
 
 สร้างวิธีทำงานที่ Jeff สามารถควบคุมทิศทางได้ ขณะที่ Codex ใน VS Code ลงมือเขียนโค้ด และ Project Codex ทำหน้าที่ตรวจสอบคุณภาพกับออก brief ของ turn ถัดไป

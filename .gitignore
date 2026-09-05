@@ -42,6 +42,13 @@ playwright/.auth/
 .vercel/
 .turbo/
 
+# .NET repository-owned infrastructure prototype output
+**/bin/
+**/obj/
+**/publish/
+*.user
+*.suo
+
 # Logs
 *.log
 npm-debug.log*
