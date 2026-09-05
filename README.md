@@ -5,7 +5,7 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-019-R4-LAUNCH-DIAG5 future-only closed ErrorRecord launch provenance is implemented pending Project Codex review; RP-TURN-019 remains Partial and the candidate remains unsigned, uninstalled and not production-approved  
+**Project status:** RP-TURN-019 repository-only recovery/launcher stabilization has passed its technical gates under Jeff's direct VS Code Codex workflow; RP-TURN-019 remains Partial because real candidate lifecycle/graceful-stop verification is still outstanding. The candidate remains unsigned and not production-approved; PR #17 stays Draft/unmerged and RP-TURN-020 remains unauthorized  
 **Last updated:** 2026-09-05
 
 ## Product thesis
