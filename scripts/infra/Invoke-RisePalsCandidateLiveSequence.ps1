@@ -1,21 +1,164 @@
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$RepositoryHead,
-  [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{32}$")][string]$InvocationNonce,
-  [Parameter(Mandatory = $true)][ValidatePattern("^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$")]
+  [string]$RepositoryHead,
+  [string]$InvocationNonce,
   [string]$FutureAuthorizationId,
-  [Parameter(Mandatory = $true)][string]$CandidateExecutableSource,
-  [Parameter(Mandatory = $true)][string]$NodeExecutableSource,
-  [Parameter(Mandatory = $true)][string]$StructuredStatePath
+  [string]$CandidateExecutableSource,
+  [string]$NodeExecutableSource,
+  [string]$StructuredStatePath,
+  [switch]$EarlyContractOnly,
+  [ValidateRange(-1, 8)][int]$EarlySimulationStop = -1
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$script:EarlyLiveStages = @("live-process-entry", "raw-arguments-validated", "security-bootstrap-started",
+  "security-bootstrap-complete", "contracts-loaded", "path-plan-validated", "administrator-boundary-validated",
+  "live-state-write-attempted", "live-state-written")
+$script:EarlyLiveSources = @("Invoke-RisePalsCandidateLiveSequence.ps1", "windows-powershell-security-bootstrap.ps1",
+  "common.ps1", "candidate-rehearsal-contract.ps1", "candidate-rehearsal-result.ps1",
+  "Invoke-RisePalsCandidateRehearsalChild.ps1", "Invoke-RisePalsCandidateRehearsal.ps1", "candidate-rehearsal-transport.ps1")
+$script:EarlyLiveKeys = @("schemaVersion", "authorizationId", "invocationNonce", "repositoryHead", "executionMode",
+  "sourceHashes", "sequence", "previousDigest", "stage", "recordedAtUtc", "liveStateDigest", "recordDigest")
+function Get-RisePalsEarlyHash {
+  param([string]$Path, [byte[]]$Bytes)
+  $sha = [Security.Cryptography.SHA256]::Create(); $stream = $null
+  try {
+    if ($Path) {
+      $item = Get-Item -LiteralPath $Path -Force
+      if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Early file boundary rejected." }
+      $stream = [IO.File]::Open($item.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+      $hash = $sha.ComputeHash($stream)
+    } else { $hash = $sha.ComputeHash($Bytes) }
+    return ([BitConverter]::ToString($hash)).Replace("-", "").ToLowerInvariant()
+  } finally { if ($stream) { $stream.Dispose() }; $sha.Dispose() }
+}
+function Assert-RisePalsEarlyDirectory {
+  param([string]$Directory, [string]$Nonce, [string]$ExecutionMode)
+  if ($Nonce -cnotmatch "^[a-f0-9]{32}$" -or $ExecutionMode -cnotin @("Simulation", "Live")) { throw "Early binding rejected." }
+  $expected = if ($ExecutionMode -ceq "Simulation") { Join-Path ([IO.Path]::GetTempPath()) ("diag7-" + $Nonce) }
+    else { Join-Path (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher") ("invocation-" + $Nonce) }
+  $full = [IO.Path]::GetFullPath($Directory)
+  if (-not $full.Equals([IO.Path]::GetFullPath($expected), [StringComparison]::OrdinalIgnoreCase)) { throw "Early directory rejected." }
+  $cursor = $full
+  while ($cursor) {
+    $item = Get-Item -LiteralPath $cursor -Force
+    if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Early directory object rejected." }
+    $cursor = [IO.Path]::GetDirectoryName($cursor)
+  }
+  return $full
+}
+function New-RisePalsEarlyBinding {
+  param([string]$Authorization, [string]$Nonce, [string]$Head, [string]$ExecutionMode)
+  if ($Head -cnotmatch "^[a-f0-9]{40}$" -or $Nonce -cnotmatch "^[a-f0-9]{32}$" -or
+    $ExecutionMode -cnotin @("Live", "Simulation") -or
+    ($ExecutionMode -ceq "Live" -and $Authorization -cnotmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") -or
+    ($ExecutionMode -ceq "Simulation" -and $Authorization -cne "RP-TURN-019-R4-DIAG7-EARLY-SIMULATION")) { throw "Early identity rejected." }
+  $hashes = @($script:EarlyLiveSources | ForEach-Object { Get-RisePalsEarlyHash -Path (Join-Path $PSScriptRoot $_) })
+  return [pscustomobject]@{ authorizationId=$Authorization; invocationNonce=$Nonce; repositoryHead=$Head; executionMode=$ExecutionMode; sourceHashes=$hashes }
+}
+function Get-RisePalsEarlyCanonical {
+  param($Record, [switch]$WithoutDigest)
+  $value = [ordered]@{}
+  foreach ($key in $script:EarlyLiveKeys) { if (-not ($WithoutDigest -and $key -ceq "recordDigest")) { $value[$key]=$Record.$key } }
+  return ConvertTo-Json -InputObject $value -Depth 5 -Compress
+}
+function Get-RisePalsEarlyDigest {
+  param($Record)
+  return Get-RisePalsEarlyHash -Bytes ([Text.UTF8Encoding]::new($false).GetBytes((Get-RisePalsEarlyCanonical $Record -WithoutDigest)))
+}
+function Assert-RisePalsEarlyRecord {
+  param($Record, $Binding, $Previous, [DateTimeOffset]$NotBeforeUtc)
+  if (($Record.PSObject.Properties.Name -join "|") -cne ($script:EarlyLiveKeys -join "|")) { throw "Early exact schema rejected." }
+  foreach ($key in @("authorizationId", "invocationNonce", "repositoryHead", "executionMode")) {
+    if ($Record.$key -isnot [string] -or $Record.$key -cne $Binding.$key) { throw "Early identity mismatch." }
+  }
+  if ($Record.schemaVersion -cne "rise-pals-early-live-v1" -or $Record.sourceHashes -isnot [array] -or
+    $Record.sourceHashes.Count -ne 8 -or ($Record.sourceHashes -join "|") -cne ($Binding.sourceHashes -join "|") -or
+    @($Record.sourceHashes | Where-Object { $_ -isnot [string] -or $_ -cnotmatch "^[a-f0-9]{64}$" }).Count) { throw "Early source binding rejected." }
+  $sequence = if ($null -eq $Previous) { 0 } else { [int]$Previous.sequence + 1 }
+  $previousDigest = if ($null -eq $Previous) { $null } else { $Previous.recordDigest }
+  if ($Record.sequence -isnot [int] -or $Record.sequence -ne $sequence -or $sequence -gt 8 -or
+    $Record.stage -cne $script:EarlyLiveStages[$sequence] -or $Record.previousDigest -cne $previousDigest -or
+    ($sequence -eq 0 -and $null -ne $Record.previousDigest)) { throw "Early sequence rejected." }
+  $instant = [DateTimeOffset]::MinValue
+  if ($Record.recordedAtUtc -isnot [string] -or -not [DateTimeOffset]::TryParseExact($Record.recordedAtUtc, "o",
+    [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$instant) -or
+    $instant.Offset -ne [TimeSpan]::Zero -or $instant -lt $NotBeforeUtc -or $instant -gt [DateTimeOffset]::UtcNow.AddSeconds(30) -or
+    ($null -ne $Previous -and $instant -lt [DateTimeOffset]::Parse($Previous.recordedAtUtc))) { throw "Early timestamp rejected." }
+  if (($sequence -lt 8 -and $null -ne $Record.liveStateDigest) -or
+    ($sequence -eq 8 -and ($Record.liveStateDigest -isnot [string] -or $Record.liveStateDigest -cnotmatch "^[a-f0-9]{64}$")) -or
+    $Record.recordDigest -isnot [string] -or $Record.recordDigest -cne (Get-RisePalsEarlyDigest $Record)) { throw "Early digest rejected." }
+}
+function Read-RisePalsEarlyRecord {
+  param([string]$Path, [string]$Directory, $Binding, $Previous, [DateTimeOffset]$NotBeforeUtc)
+  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $sequence = if ($null -eq $Previous) { 0 } else { [int]$Previous.sequence + 1 }
+  $expected = Join-Path $root ("early-live-{0:d2}.json" -f $sequence)
+  if ([IO.Path]::GetFullPath($Path) -cne $expected) { throw "Early filename rejected." }
+  $item = Get-Item -LiteralPath $Path -Force
+  if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $item.Length -gt 8192 -or $item.Length -lt 2) { throw "Early object rejected." }
+  $bytes = [IO.File]::ReadAllBytes($Path)
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) { throw "Early BOM rejected." }
+  $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+  $record = ConvertFrom-Json -InputObject $text
+  Assert-RisePalsEarlyRecord $record $Binding $Previous $NotBeforeUtc
+  if ($text -cne (Get-RisePalsEarlyCanonical $record)) { throw "Early canonical JSON rejected." }
+  return $record
+}
+function Write-RisePalsEarlyRecord {
+  param([string]$Directory, $Binding, $Previous, [AllowNull()][string]$LiveStateDigest=$null)
+  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $sequence = if ($null -eq $Previous) { 0 } else { [int]$Previous.sequence + 1 }
+  $record = [pscustomobject][ordered]@{ schemaVersion="rise-pals-early-live-v1"; authorizationId=$Binding.authorizationId
+    invocationNonce=$Binding.invocationNonce; repositoryHead=$Binding.repositoryHead; executionMode=$Binding.executionMode
+    sourceHashes=$Binding.sourceHashes; sequence=$sequence; previousDigest=$(if ($Previous) { $Previous.recordDigest } else { $null })
+    stage=$script:EarlyLiveStages[$sequence]; recordedAtUtc=[DateTimeOffset]::UtcNow.ToString("o")
+    liveStateDigest=$(if ($LiveStateDigest) { $LiveStateDigest } else { $null }); recordDigest="" }
+  $record.recordDigest=Get-RisePalsEarlyDigest $record
+  Assert-RisePalsEarlyRecord $record $Binding $Previous ([DateTimeOffset]::UtcNow.AddSeconds(-30))
+  $path=Join-Path $root ("early-live-{0:d2}.json" -f $sequence); $temporary=$path+".tmp"
+  if (Test-Path -LiteralPath $path) { throw "Early replay rejected." }
+  $stream=[IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+  try { $bytes=[Text.UTF8Encoding]::new($false).GetBytes((Get-RisePalsEarlyCanonical $record)); $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) }
+  finally { $stream.Dispose() }
+  [IO.File]::Move($temporary,$path)
+  return Read-RisePalsEarlyRecord $path $root $Binding $Previous ([DateTimeOffset]::UtcNow.AddSeconds(-30))
+}
+function Read-RisePalsEarlyChain {
+  param([string]$Directory, $Binding, [DateTimeOffset]$NotBeforeUtc)
+  $root=Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $items=@(Get-ChildItem -LiteralPath $root -Force | Where-Object { $_.Name.StartsWith("early-live-", [StringComparison]::Ordinal) } | Sort-Object Name)
+  $records=@(); $previous=$null
+  foreach ($item in $items) { $previous=Read-RisePalsEarlyRecord $item.FullName $root $Binding $previous $NotBeforeUtc; $records+=,$previous }
+  return ,$records
+}
+# Exporting only these pure contracts cannot reach imports, administrator checks or host operations.
+if ($EarlyContractOnly) { return }
+if ($PSVersionTable.PSEdition -cne "Desktop" -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw "Early PS5.1 boundary rejected." }
+$earlyMode=if ($EarlySimulationStop -ge 0) { "Simulation" } else { "Live" }
+$earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead $earlyMode
+$earlyDirectory=[IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($StructuredStatePath))
+if ([IO.Path]::GetFileName($StructuredStatePath) -cne "live-state.json") { throw "Early state filename rejected." }
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $null
+if ($earlyMode -ceq "Simulation") {
+  # Test-only branch exits before any repository import or protected-host operation.
+  for ($i=1; $i -le $EarlySimulationStop; $i++) {
+    $digest=if ($i -eq 8) { Get-RisePalsEarlyHash -Bytes ([Text.Encoding]::UTF8.GetBytes("synthetic-not-functional-evidence")) } else { $null }
+    $earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord $digest
+  }
+  return
+}
+if ([string]::IsNullOrWhiteSpace($CandidateExecutableSource) -or [string]::IsNullOrWhiteSpace($NodeExecutableSource)) { throw "Live primitive inputs rejected." }
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
 . (Join-Path $PSScriptRoot "windows-powershell-security-bootstrap.ps1")
 [void](Initialize-RisePalsWindowsPowerShellSecurityModule)
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
 . (Join-Path $PSScriptRoot "common.ps1")
 . (Join-Path $PSScriptRoot "candidate-rehearsal-contract.ps1")
 . (Join-Path $PSScriptRoot "candidate-rehearsal-result.ps1")
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
 
 function Invoke-RisePalsCandidateSc {
   param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -441,7 +584,9 @@ if (-not $stateParent.Equals($expectedStateParent, [StringComparison]::OrdinalIg
   )) {
   throw "The live structured-state path is outside the exact launcher boundary."
 }
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
 Assert-RisePalsAdministrator
+$earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
 if (-not $PSCmdlet.ShouldProcess(
   $script:RisePalsCandidateServiceName,
   ("Run separately authorized candidate rehearsal {0}" -f $FutureAuthorizationId)
@@ -968,10 +1113,12 @@ try {
     -CandidateServiceInstallationBegan $candidateServiceInstallationBegan `
     -CandidateServiceStartReached $candidateServiceStartReached `
     -DirectStopServiceReached $directStopServiceReached
+  $earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord
   Write-RisePalsCandidateLiveState -Path $structuredState -Status $liveStatus `
     -CompletedStages $completed -FailedStage $failedStage -FailureCode $failureCode `
     -CleanupCompleted $cleanupCompleted -LifecycleEvidence $lifecycleEvidence `
     -FinalState $finalState
+  $earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $earlyRecord (Get-RisePalsEarlyHash -Path $structuredState)
 }
 
 if ($sequenceSucceeded -and $cleanupCompleted) {

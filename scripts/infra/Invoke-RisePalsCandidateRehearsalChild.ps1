@@ -111,6 +111,7 @@ $process = Start-Process -FilePath $powerShell -ArgumentList $processArguments `
   -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
   -WindowStyle Hidden -Wait -PassThru
 $exitCode = $process.ExitCode
+$process.Dispose()
 $stdoutObserved = [IO.File]::Exists($stdoutPath) -and (Get-Item -LiteralPath $stdoutPath).Length -gt 0
 $stderrObserved = [IO.File]::Exists($stderrPath) -and (Get-Item -LiteralPath $stderrPath).Length -gt 0
 $status = if ($exitCode -eq 0) { "success" } else { "failure" }
@@ -122,7 +123,20 @@ $lifecycleEvidence = New-RisePalsCandidateLifecycleEvidence
 $cleanupCompleted = $true
 
 if ($Mode -eq "Live") {
-  if (-not [IO.File]::Exists($liveStatePath)) {
+  . (Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1") -EarlyContractOnly `
+    -RepositoryHead $RepositoryHead -InvocationNonce $InvocationNonce -FutureAuthorizationId $FutureAuthorizationId
+  $earlyRecords=@(); $earlyValid=$false
+  try {
+    $earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead Live
+    $earlyRecords=Read-RisePalsEarlyChain $directory $earlyBinding $started
+    $earlyValid=$true
+  } catch { $earlyValid=$false }
+  if (-not $earlyValid -or $earlyRecords.Count -eq 0) {
+    $status="failure"; $exitCode=if ($exitCode -eq 0) { 24 } else { $exitCode }
+    $failedStage=if ($earlyValid) { "early-live-entry" } else { "early-live-validation" }
+    $failureCode=if ($earlyValid) { "live-process-exit-before-entry-evidence" } else { "early-live-evidence-invalid" }
+    $cleanupCompleted=$false
+  } elseif (-not [IO.File]::Exists($liveStatePath)) {
     $status = "failure"
     $exitCode = if ($exitCode -eq 0) { 21 } else { $exitCode }
     $failedStage = "structured-live-state"
@@ -131,6 +145,9 @@ if ($Mode -eq "Live") {
   } else {
     $liveState = $null
     try {
+      if ($earlyRecords.Count -ne 9 -or $earlyRecords[-1].liveStateDigest -cne (Get-RisePalsEarlyHash -Path $liveStatePath)) {
+        throw "Authoritative Live state lacks its completed early binding."
+      }
       $liveState = [Text.UTF8Encoding]::new($false, $true).GetString(
         [IO.File]::ReadAllBytes($liveStatePath)
       ) | ConvertFrom-Json
@@ -156,7 +173,7 @@ if ($Mode -eq "Live") {
   }
 }
 
-foreach ($capture in @($stdoutPath, $stderrPath, $liveStatePath)) {
+foreach ($capture in @($stdoutPath, $stderrPath)) {
   if ([IO.File]::Exists($capture)) {
     [IO.File]::Delete($capture)
   }

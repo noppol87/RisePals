@@ -56,6 +56,11 @@ function Assert-RisePalsLauncherEvidenceDirectory {
   if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
     throw "The launcher evidence directory must not be a reparse point."
   }
+  [void](Assert-RisePalsLauncherPlainDirectory -Path $resolvedDirectory)
+  if (@(Get-ChildItem -LiteralPath $resolvedDirectory -Force).Count -ne 0 -or
+    @(Get-ChildItem -LiteralPath $resolvedRoot -Force).Count -ne 1) {
+    throw "The launcher invocation is not a fresh sole child."
+  }
   return $resolvedDirectory
 }
 
@@ -217,6 +222,7 @@ $nativeProcess = Start-Process -FilePath $powerShell -ArgumentList $nativeArgume
   -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
   -WindowStyle Hidden -Wait -PassThru
 $nativeExitCode = $nativeProcess.ExitCode
+$nativeProcess.Dispose()
 $stdoutBytes = if ([IO.File]::Exists($stdoutPath)) { (Get-Item -LiteralPath $stdoutPath).Length } else { 0 }
 $stderrBytes = if ([IO.File]::Exists($stderrPath)) { (Get-Item -LiteralPath $stderrPath).Length } else { 0 }
 $stages = @("native-process-started", "native-exit-observed", "stdout-captured", "stderr-captured")

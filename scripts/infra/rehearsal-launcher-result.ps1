@@ -66,6 +66,37 @@ $script:RisePalsLauncherLiveCompletionStages = @(
   "raw-captures-removed"
 )
 
+function Assert-RisePalsLauncherPlainDirectory {
+  param([Parameter(Mandatory = $true)][string]$Path)
+
+  $full = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+  $current = $full
+  while ($current) {
+    $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+    if (-not $item.PSIsContainer -or
+      ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw "The launcher directory ancestry is not plain."
+    }
+    $current = [IO.Path]::GetDirectoryName($current)
+  }
+  return $full
+}
+
+function Assert-RisePalsSimulationReviewDirectory {
+  param([Parameter(Mandatory = $true)][string]$Path, [switch]$RequireEmpty)
+
+  $full = Assert-RisePalsLauncherPlainDirectory -Path $Path
+  if (-not [IO.Path]::GetDirectoryName($full).Equals(
+      [IO.Path]::GetTempPath().TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($full) -cnotmatch '^risepals-launcher-review-[a-f0-9]{32}$') {
+    throw "The simulation review directory is outside its exact temporary boundary."
+  }
+  if ($RequireEmpty -and @(Get-ChildItem -LiteralPath $full -Force).Count -ne 0) {
+    throw "The simulation review directory is not fresh."
+  }
+  return $full
+}
+
 function Assert-RisePalsLauncherExactPropertySet {
   param(
     [Parameter(Mandatory = $true)][object]$Value,

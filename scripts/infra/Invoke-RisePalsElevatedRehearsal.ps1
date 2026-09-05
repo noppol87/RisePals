@@ -18,12 +18,24 @@ param(
     "Privacy"
   )][string]$SimulationScenario = "NativeSuccess",
   [string]$RepositoryRoot = "",
-  [string]$EvidenceRoot = ""
+  [string]$EvidenceRoot = "",
+  [string]$SimulationResultDirectory = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "rehearsal-launcher-result.ps1")
+
+# Optional test evidence reuses the existing result schema; Live cannot export it.
+$reviewDirectory = $null
+if ($SimulationResultDirectory) {
+  if ($Mode -ne "Simulation" -or
+    ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+      [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "Simulation review evidence requires non-elevated Simulation."
+  }
+  $reviewDirectory = Assert-RisePalsSimulationReviewDirectory -Path $SimulationResultDirectory -RequireEmpty
+}
 
 function ConvertTo-RisePalsStructuredProcessArgument {
   param([Parameter(Mandatory = $true)][string]$Value)
@@ -115,6 +127,10 @@ $rootItem = Get-Item -LiteralPath $resolvedEvidenceRoot -Force
 if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
   throw "The launcher evidence root must not be a reparse point."
 }
+[void](Assert-RisePalsLauncherPlainDirectory -Path $resolvedEvidenceRoot)
+if (@(Get-ChildItem -LiteralPath $resolvedEvidenceRoot -Force).Count -ne 0) {
+  throw "The launcher evidence root contains a pre-existing object."
+}
 
 $nonce = [guid]::NewGuid().ToString("D")
 $invocationDirectory = Join-Path $resolvedEvidenceRoot ("invocation-" + $nonce)
@@ -132,6 +148,7 @@ $processExitCode = 86
 $finalExitCode = 86
 $validatedResult = $null
 $validationSucceeded = $false
+$process = $null
 
 try {
   $child = Join-Path $PSScriptRoot "Invoke-RisePalsElevatedRehearsalChild.ps1"
@@ -181,12 +198,33 @@ try {
   [void](Assert-RisePalsLauncherResult -Result $validatedResult `
     -ExpectedInvocationNonce $nonce -ExpectedRepositoryHead $ExpectedRepositoryHead `
     -ObservedChildExitCode $processExitCode -InvocationStartedAtUtc $invocationStartedAt)
+  if ($reviewDirectory) {
+    [void](Assert-RisePalsSimulationReviewDirectory -Path $reviewDirectory -RequireEmpty)
+    $reviewPath = Join-Path $reviewDirectory ("result-" + $nonce + ".json")
+    Write-RisePalsLauncherResultAtomic -Result $validatedResult -ResultPath $reviewPath `
+      -TemporaryResultPath ($reviewPath + ".tmp")
+    $review = $strictUtf8.GetString([IO.File]::ReadAllBytes($reviewPath)) | ConvertFrom-Json
+    [void](Assert-RisePalsLauncherResult -Result $review -ExpectedInvocationNonce $nonce `
+      -ExpectedRepositoryHead $ExpectedRepositoryHead -ObservedChildExitCode $processExitCode `
+      -InvocationStartedAtUtc $invocationStartedAt)
+    if ($review.resultDigest -cne $validatedResult.resultDigest) {
+      throw "Simulation review result differs from the validated child result."
+    }
+  }
   $validationSucceeded = $true
   $finalExitCode = $processExitCode
 } catch {
   $validationSucceeded = $false
   $finalExitCode = 86
 } finally {
+  if ($null -ne $process) { $process.Dispose() }
+  [void](Assert-RisePalsLauncherPlainDirectory -Path $invocationDirectory)
+  $allowedNames = @("result.json", ("result." + $nonce + ".tmp"),
+    "native.stdout.log", "native.stderr.log", "cleanup-residue.test")
+  foreach ($item in @(Get-ChildItem -LiteralPath $invocationDirectory -Force)) {
+    if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+      $item.Name -cnotin $allowedNames) { throw "Unattributable launcher cleanup object." }
+  }
   foreach ($path in @(
     $resultPath,
     $temporaryResultPath,

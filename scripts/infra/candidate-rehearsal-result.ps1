@@ -506,6 +506,8 @@ function Get-RisePalsCandidateFailureCodeMap {
     cleanup = "cleanup-failed"
     "final-read-only-proof" = "final-proof-failed"
     "structured-live-state" = "missing-live-state"
+    "early-live-entry" = "live-process-exit-before-entry-evidence"
+    "early-live-validation" = "early-live-evidence-invalid"
     "child-finalization" = "child-finalization-failed"
     "native-child" = "native-child-exit-nonzero"
   }
@@ -555,7 +557,7 @@ function Assert-RisePalsCandidateCompletedStageSequence {
   }
   $allowedFailures = @($script:RisePalsCandidateFunctionalStageOrder) + @(
     "cleanup", "final-read-only-proof", "structured-live-state",
-    "child-finalization", "native-child"
+    "child-finalization", "native-child", "early-live-entry", "early-live-validation"
   )
   if (-not [string]::IsNullOrWhiteSpace($FailedStage) -and
     $FailedStage -notin $allowedFailures) {

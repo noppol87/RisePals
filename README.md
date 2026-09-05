@@ -201,12 +201,9 @@ The exact install, verification results and Windows notes are recorded in [Local
 
 ## วิธีทำงานของโปรเจกต์
 
-โปรเจกต์นี้ใช้ Codex สองบริบทที่มีหน้าที่ต่างกัน:
+Jeff directs work and accepts outcomes directly in VS Code Codex. Codex plans bounded changes, implements them, inspects the diff and runs relevant tests here. A separate Project Codex review and cross-context copy blocks are no longer required. Historical acceptance records remain historical evidence, not a claim of new independent review.
 
-- **Project Codex:** ช่วย Jeff คิด product strategy, แตกงาน, review, comment, audit และออกคำสั่งสำหรับ turn ถัดไป
-- **VS Code Codex:** ลงมือแก้ repository ตาม brief ทีละ turn พร้อมทดสอบและส่ง handoff กลับมา
-
-ทุก turn ต้องจบด้วย handoff ที่ตรวจสอบได้ จากนั้น Project Codex จะอ่านไฟล์และ diff จริงก่อนออก brief รอบถัดไป รายละเอียดอยู่ใน [Codex Collaboration Workflow](docs/06_CODEX_COLLABORATION_WORKFLOW.md)
+Reports identify completed work, actual verification, remaining blockers and the next action. Host/service changes, real-user data, external costs and deployment still require explicit Jeff authorization. Details are in [Codex Collaboration Workflow](docs/06_CODEX_COLLABORATION_WORKFLOW.md).
 
 ## Current boundary
 

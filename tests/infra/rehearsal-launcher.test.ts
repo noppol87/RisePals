@@ -19,6 +19,20 @@ const productionLauncherScripts = [
 ];
 
 describe("versioned elevated-rehearsal launcher", () => {
+  it("reopens simulation evidence without parsing console streams or weakening the clean-head gate", async () => {
+    const parent = await text("scripts/infra/Invoke-RisePalsElevatedRehearsal.ps1");
+    const suite = await text("scripts/infra/Test-RisePalsElevatedRehearsalLauncher.ps1");
+    expect(parent).toContain("$worktree.Count -ne 0");
+    expect(parent).toContain('if ($Mode -ne "Simulation" -or');
+    expect(parent).toContain("Assert-RisePalsSimulationReviewDirectory");
+    expect(parent).toContain("pre-existing object");
+    expect(suite).toContain("[IO.File]::ReadAllBytes($file.FullName)");
+    expect(suite).toContain("Assert-RisePalsLauncherResult -Result $result");
+    expect(suite).toContain("$process.Dispose()");
+    expect(suite).not.toContain("RISE_PALS_LAUNCHER_RESULT=");
+    expect(suite).not.toContain("Get-Content");
+    expect(suite).not.toContain("$invalid.stderr");
+  });
   it("keeps the parent elevation boundary free of stream capture", async () => {
     const parent = await text("scripts/infra/Invoke-RisePalsElevatedRehearsal.ps1");
     const child = await text("scripts/infra/Invoke-RisePalsElevatedRehearsalChild.ps1");

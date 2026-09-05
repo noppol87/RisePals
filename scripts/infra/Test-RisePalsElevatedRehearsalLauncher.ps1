@@ -1,11 +1,20 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][ValidatePattern("^[a-f0-9]{40}$")][string]$ExpectedRepositoryHead,
-  [string]$RepositoryRoot = ""
+  [string]$RepositoryRoot = "",
+  [switch]$NativeSuccessOnly,
+  [ValidateRange(1, 10)][int]$Repetitions = 1
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "rehearsal-launcher-result.ps1")
+if ($PSVersionTable.PSEdition -cne "Desktop" -or $PSVersionTable.PSVersion.Major -ne 5 -or
+  $PSVersionTable.PSVersion.Minor -ne 1 -or
+  ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)) {
+  throw "Launcher simulations require non-elevated Windows PowerShell 5.1."
+}
 
 function ConvertTo-RisePalsStructuredProcessArgument {
   param([Parameter(Mandatory = $true)][string]$Value)
@@ -25,71 +34,85 @@ function Invoke-RisePalsLauncherSimulation {
     [Parameter(Mandatory = $true)][string]$SuiteDirectory
   )
 
-  $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-  $launcher = Join-Path $PSScriptRoot "Invoke-RisePalsElevatedRehearsal.ps1"
-  $stdoutPath = Join-Path $SuiteDirectory ($Scenario + ".stdout.log")
-  $stderrPath = Join-Path $SuiteDirectory ($Scenario + ".stderr.log")
-  foreach ($path in @($stdoutPath, $stderrPath)) {
-    if ([IO.File]::Exists($path)) {
-      [IO.File]::Delete($path)
-    }
-  }
-  $arguments = @(
-    "-NoLogo",
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    (ConvertTo-RisePalsStructuredProcessArgument -Value $launcher),
-    "-ExpectedRepositoryHead",
-    $ExpectedHead,
-    "-Mode",
-    "Simulation",
-    "-SimulationScenario",
-    $Scenario,
-    "-RepositoryRoot",
-    (ConvertTo-RisePalsStructuredProcessArgument -Value $Repository)
+  # Each process receives a fresh directory for the existing sanitized schema.
+  # Native and outer stdout/stderr are never parsed or retained by this test.
+  $reviewRoot = Join-Path ([IO.Path]::GetTempPath()) (
+    "risepals-launcher-review-" + [guid]::NewGuid().ToString("N")
   )
-  $process = Start-Process -FilePath $powerShell -ArgumentList $arguments `
-    -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath `
-    -WindowStyle Hidden -Wait -PassThru
-  $stdout = if ([IO.File]::Exists($stdoutPath)) {
-    Get-Content -LiteralPath $stdoutPath -Raw -Encoding UTF8
-  } else {
-    ""
-  }
-  $stderr = if ([IO.File]::Exists($stderrPath)) {
-    Get-Content -LiteralPath $stderrPath -Raw -Encoding UTF8
-  } else {
-    ""
-  }
-  foreach ($path in @($stdoutPath, $stderrPath)) {
-    if ([IO.File]::Exists($path)) {
-      [IO.File]::Delete($path)
+  if (Test-Path -LiteralPath $reviewRoot) { throw "Review directory collision." }
+  [void][IO.Directory]::CreateDirectory($reviewRoot)
+  $process = $null
+  $exited = $false
+  $started = [DateTimeOffset]::UtcNow
+  try {
+    [void](Assert-RisePalsSimulationReviewDirectory -Path $reviewRoot -RequireEmpty)
+    $arguments = @("-NoLogo", "-NoProfile", "-NonInteractive", "-File",
+      (ConvertTo-RisePalsStructuredProcessArgument (Join-Path $PSScriptRoot "Invoke-RisePalsElevatedRehearsal.ps1")),
+      "-ExpectedRepositoryHead", $ExpectedHead, "-Mode", "Simulation",
+      "-SimulationScenario", $Scenario, "-RepositoryRoot",
+      (ConvertTo-RisePalsStructuredProcessArgument $Repository),
+      "-SimulationResultDirectory", (ConvertTo-RisePalsStructuredProcessArgument $reviewRoot))
+    $info = [Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = Join-Path $PSHOME "powershell.exe"
+    $info.Arguments = $arguments -join " "
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $info
+    if (-not $process.Start()) { throw "Simulation process creation failed." }
+    $outTask = $process.StandardOutput.BaseStream.CopyToAsync([IO.Stream]::Null)
+    $errTask = $process.StandardError.BaseStream.CopyToAsync([IO.Stream]::Null)
+    if (-not $process.WaitForExit(60000)) { throw "Simulation process exit unproven." }
+    $exited = $true
+    [void]$outTask.GetAwaiter().GetResult()
+    [void]$errTask.GetAwaiter().GetResult()
+    $observedExit = $process.ExitCode
+    [void](Assert-RisePalsSimulationReviewDirectory -Path $reviewRoot)
+    $files = @(Get-ChildItem -LiteralPath $reviewRoot -Force)
+    if ($files.Count -gt 1) { throw "Ambiguous simulation result inventory." }
+    $result = $null
+    foreach ($file in $files) {
+      if ($file.PSIsContainer -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        $file.Name -cnotmatch '^result-([a-f0-9-]{36})\.json$' -or $file.Length -gt 16384) {
+        throw "Invalid simulation result object."
+      }
+      $nonce = $Matches[1]
+      $result = [Text.UTF8Encoding]::new($false, $true).GetString(
+        [IO.File]::ReadAllBytes($file.FullName)) | ConvertFrom-Json
+      [void](Assert-RisePalsLauncherResult -Result $result -ExpectedInvocationNonce $nonce `
+        -ExpectedRepositoryHead $ExpectedHead -ObservedChildExitCode $observedExit `
+        -InvocationStartedAtUtc $started)
+      if ($result.executionMode -cne "simulation") { throw "Not simulation evidence." }
     }
-  }
-  if ($process.ExitCode -ne $ExpectedExitCode) {
-    throw "$Scenario returned exit code $($process.ExitCode), expected $ExpectedExitCode."
-  }
-  $resultLine = @($stdout -split "`r?`n" | Where-Object {
-    $_.StartsWith("RISE_PALS_LAUNCHER_RESULT=", [StringComparison]::Ordinal)
-  })
-  $result = $null
-  if ($resultLine.Count -eq 1) {
-    $json = $resultLine[0].Substring("RISE_PALS_LAUNCHER_RESULT=".Length)
-    $result = $json | ConvertFrom-Json
-  } elseif ($resultLine.Count -gt 1) {
-    throw "$Scenario emitted multiple structured launcher results."
-  }
-  return [pscustomobject]@{
-    scenario = $Scenario
-    exitCode = $process.ExitCode
-    stdout = $stdout
-    stderr = $stderr
-    result = $result
+    if ($observedExit -ne $ExpectedExitCode) {
+      throw "$Scenario returned exit code $observedExit, expected $ExpectedExitCode."
+    }
+    $root = Join-Path ([IO.Path]::GetTempPath()) "risepals-elevated-rehearsal"
+    if (Test-Path -LiteralPath $root) {
+      [void](Assert-RisePalsLauncherPlainDirectory -Path $root)
+      if (@(Get-ChildItem -LiteralPath $root -Force).Count -ne 0) {
+        throw "Launcher invocation residue remains."
+      }
+    }
+    return [pscustomobject]@{ scenario = $Scenario; exitCode = $observedExit; result = $result }
+  } finally {
+    if ($null -ne $process) { $process.Dispose() }
+    if (-not $exited) { throw "Simulation exit unproven; review cleanup withheld." }
+    [void](Assert-RisePalsSimulationReviewDirectory -Path $reviewRoot)
+    $items = @(Get-ChildItem -LiteralPath $reviewRoot -Force)
+    foreach ($item in $items) {
+      if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or
+        $item.Name -cnotmatch '^result-[a-f0-9-]{36}\.json(\.tmp)?$') {
+        throw "Unattributable simulation review cleanup object."
+      }
+    }
+    foreach ($item in $items) { [IO.File]::Delete($item.FullName) }
+    [IO.Directory]::Delete($reviewRoot, $false)
+    if (Test-Path -LiteralPath $reviewRoot) { throw "Simulation review residue remains." }
   }
 }
-
 $repository = if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
   [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
 } else {
@@ -102,6 +125,26 @@ $suiteRoot = Join-Path ([IO.Path]::GetTempPath()) (
 $evidenceRoot = Join-Path ([IO.Path]::GetTempPath()) "risepals-elevated-rehearsal"
 
 try {
+  if ($NativeSuccessOnly) {
+    $nonces = @()
+    for ($iteration = 1; $iteration -le $Repetitions; $iteration++) {
+      $item = Invoke-RisePalsLauncherSimulation -Scenario "NativeSuccess" -ExpectedExitCode 0 `
+        -Repository $repository -ExpectedHead $ExpectedRepositoryHead -SuiteDirectory $suiteRoot
+      if ($null -eq $item.result -or $item.result.status -cne "success" -or
+        -not $item.result.cleanupCompleted -or $item.result.streamEvidence.stdoutBytes -le 0 -or
+        $item.result.streamEvidence.stderrBytes -le 0 -or
+        -not $item.result.streamEvidence.streamsSeparated -or
+        $item.result.invocationNonce -cin $nonces) { throw "NativeSuccess evidence incomplete." }
+      foreach ($property in $script:RisePalsLauncherResourceCountProperties) {
+        if ($item.result.finalResourceCounts.$property -ne 0) { throw "NativeSuccess residue." }
+      }
+      $nonces += $item.result.invocationNonce
+      Write-Output ("NativeSuccess {0}/{1} PASS; exit=0; native-stages=complete; result=reopened/validated; stdoutBytes={2}; stderrBytes={3}; resultDigest={4}; residue=0" -f
+        $iteration, $Repetitions, $item.result.streamEvidence.stdoutBytes,
+        $item.result.streamEvidence.stderrBytes, $item.result.resultDigest)
+    }
+    return
+  }
   $success = Invoke-RisePalsLauncherSimulation -Scenario "NativeSuccess" `
     -ExpectedExitCode 0 -Repository $repository -ExpectedHead $ExpectedRepositoryHead `
     -SuiteDirectory $suiteRoot
@@ -144,8 +187,7 @@ try {
     $invalid = Invoke-RisePalsLauncherSimulation -Scenario $scenario `
       -ExpectedExitCode 86 -Repository $repository -ExpectedHead $ExpectedRepositoryHead `
       -SuiteDirectory $suiteRoot
-    if ($null -ne $invalid.result -or
-      $invalid.stderr -notmatch "failed closed \(child exit code [0-9]+\)") {
+    if ($null -ne $invalid.result) {
       throw "$scenario did not fail closed through the generic launcher boundary."
     }
     Write-Output ($scenario + " rejection PASS")
@@ -155,8 +197,7 @@ try {
     -ExpectedExitCode 13 -Repository $repository -ExpectedHead $ExpectedRepositoryHead `
     -SuiteDirectory $suiteRoot
   if ($null -eq $cleanupFailure.result -or $cleanupFailure.result.cleanupCompleted -or
-    $cleanupFailure.result.finalResourceCounts.rawCaptureFiles -ne 1 -or
-    $cleanupFailure.stderr -notmatch "controlled capture residue count 1") {
+    $cleanupFailure.result.finalResourceCounts.rawCaptureFiles -ne 1) {
     throw "CleanupFailure did not report the controlled residue count."
   }
   Write-Output "Raw capture cleanup failure PASS"
@@ -198,6 +239,9 @@ try {
     if (($suiteItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
       throw "The simulation suite cleanup target is a reparse point."
     }
-    [IO.Directory]::Delete($suiteRoot, $true)
+    if (@(Get-ChildItem -LiteralPath $suiteRoot -Force).Count -ne 0) {
+      throw "Unexpected suite residue; cleanup refused."
+    }
+    [IO.Directory]::Delete($suiteRoot, $false)
   }
 }

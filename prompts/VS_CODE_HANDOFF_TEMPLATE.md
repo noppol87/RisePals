@@ -1,8 +1,16 @@
 # VS Code Handoff Template
 
+## Active direct-report checklist
+
+Jeff now directs and accepts work directly in VS Code Codex. The old envelope and copy-block template below is historical and is not required for current work.
+
+Report concisely: outcome/status, changed files and commit when applicable, actual commands/results, remaining work, necessary Jeff decisions and task cleanup/safety state. Distinguish retained evidence from new verification. Do not claim independent review, acceptance, clean state, live readiness or deployment without evidence. Ordinary repository-only failures are progress updates; continue within the authorized scope.
+
+## Historical template — superseded
+
 Codex ใน VS Code ต้องใช้รูปแบบนี้เมื่อจบ turn ที่ได้รับอนุมัติและส่งให้ Project Codex review อย่างเป็นทางการ Status report, repository orientation, explanation และ advice ต้องใช้ message type ตามจริงและห้ามใช้ handoff template
 
-````text
+```text
 SOURCE: VS CODE CODEX
 DESTINATION: PROJECT CODEX
 MESSAGE TYPE: TURN HANDOFF
@@ -63,7 +71,7 @@ Known issues or decisions needed:
 
 Please return one of: Accepted, Revision required, or Decision required. Then provide the single next copy block for VS Code Codex.
 ---
-````
+```
 
 Protocol requirements:
 

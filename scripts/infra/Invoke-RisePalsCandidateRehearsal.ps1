@@ -419,6 +419,24 @@ try {
           -ExpectedTransportScriptSha256 $transportHash `
           -ExpectedChildScriptSha256 $childHash -ObservedExitCode $processExitCode `
           -InvocationStartedAtUtc $startedAt -ConsumedNonces @{})
+        if ($Mode -eq "Live") {
+          . (Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1") -EarlyContractOnly `
+            -RepositoryHead $head -InvocationNonce $nonce -FutureAuthorizationId $authorizationId
+          $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live
+          $earlyRecords=Read-RisePalsEarlyChain $invocationDirectory $earlyBinding $startedAt
+          $hasFunctional=@($validated.completedStages | Where-Object { $_ -in $script:RisePalsCandidateFunctionalStageOrder }).Count -gt 0
+          if ($hasFunctional -or $validated.status -eq "success" -or $validated.cleanupCompleted) {
+            $statePath=Join-Path $invocationDirectory "live-state.json"
+            if ($earlyRecords.Count -ne 9 -or $earlyRecords[-1].liveStateDigest -cne (Get-RisePalsEarlyHash -Path $statePath)) {
+              throw "Parent rejected unbound authoritative Live evidence."
+            }
+            $state=Read-RisePalsCandidateTransportJson -Path $statePath -InvocationDirectory $invocationDirectory -ExpectedName "live-state.json"
+            [void](Assert-RisePalsCandidateLiveState -State $state)
+            if (($state.completedStages -join "|") -cne (($validated.completedStages | Where-Object {
+                $_ -notin @("child-started", "child-exit-observed", "streams-separated", "raw-output-removed") }) -join "|") -or
+              $state.cleanupCompleted -ne $validated.cleanupCompleted) { throw "Parent Live state equivalence rejected." }
+          }
+        }
         $finalStatus = [string]$validated.status
         $childDiagnostic = New-RisePalsCandidateChildDiagnostic -Result $validated `
           -ExecutionMode $Mode -CleanupResponsibilityTransferredToParent $true
@@ -429,6 +447,29 @@ try {
       $evidenceInvalid = $true
     }
   }
+  if ($Mode -eq "Live" -and $liveStarted) {
+    # Preserve only independently validated early records; no functional assertion is derived here.
+    . (Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1") -EarlyContractOnly `
+      -RepositoryHead $head -InvocationNonce $nonce -FutureAuthorizationId $authorizationId
+    $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live
+    $earlyRecords=Read-RisePalsEarlyChain $invocationDirectory $earlyBinding $startedAt
+    $earlySummary=[ordered]@{ schemaVersion="rise-pals-early-live-bundle-v1"; authorizationId=$authorizationId
+      invocationNonce=$nonce; repositoryHead=$head; childResultDigest=$(if ($finalValidated) { $validated.resultDigest } else { $null })
+      classification=$(if ($earlyRecords.Count -eq 0) { "live-process-exit-before-entry-evidence" }
+        elseif (-not [IO.File]::Exists((Join-Path $invocationDirectory "live-state.json"))) { "missing-live-state" } else { "early-evidence-only" })
+      lastCompletedStage=$(if ($earlyRecords.Count) { $earlyRecords[-1].stage } else { $null })
+      functionalAuthority=$false; records=$earlyRecords }
+    $summaryJson=ConvertTo-Json -InputObject $earlySummary -Depth 7 -Compress
+    $summaryDigest=Get-RisePalsEarlyHash -Bytes ([Text.UTF8Encoding]::new($false).GetBytes($summaryJson))
+    $bundle=[ordered]@{ evidence=$earlySummary; bundleDigest=$summaryDigest }
+    $bundlePath=Join-Path $durableEvidenceDirectory ($nonce+".early-live.json")
+    Write-RisePalsCandidateJsonAtomic -Value $bundle -ResultPath $bundlePath -TemporaryPath ($bundlePath+".tmp")
+    $bundleItem=Get-Item -LiteralPath $bundlePath -Force
+    if ($bundleItem.PSIsContainer -or ($bundleItem.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Early bundle object rejected." }
+    $reopenedBundle=ConvertFrom-Json -InputObject ([Text.UTF8Encoding]::new($false,$true).GetString([IO.File]::ReadAllBytes($bundlePath)))
+    $reopenedJson=ConvertTo-Json -InputObject $reopenedBundle.evidence -Depth 7 -Compress
+    if ($reopenedJson -cne $summaryJson -or $reopenedBundle.bundleDigest -cne $summaryDigest) { throw "Early bundle reopen rejected." }
+  }
   $preParentAllowed = @(
     "bootstrap-started.json",
     "child-launch-attempted.json",
@@ -436,8 +477,10 @@ try {
     "live-started.json",
     "bootstrap-failure.json",
     "result.json",
-    "probe-result.json"
+    "probe-result.json",
+    "live-state.json"
   )
+  if ($Mode -eq "Live") { $preParentAllowed+=@(0..8 | ForEach-Object { "early-live-{0:d2}.json" -f $_ }) }
   if (@(Get-ChildItem -LiteralPath $invocationDirectory -Force | Where-Object {
     $_.PSIsContainer -or $_.Name -notin $preParentAllowed
   }).Count -ne 0) {
@@ -558,6 +601,9 @@ if ($durableCheckpointValidated -and $directoryInitialized) {
     "stdout.log",
     "stderr.log"
   )
+  if ($Mode -eq "Live") {
+    foreach ($i in 0..8) { $allowedNames+=("early-live-{0:d2}.json" -f $i); $allowedNames+=("early-live-{0:d2}.json.tmp" -f $i) }
+  }
   try {
     if ($Mode -eq "Simulation" -and
       $SimulationScenario -eq "TransientCleanupFailure") {

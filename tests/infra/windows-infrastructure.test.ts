@@ -1,5 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = process.cwd();
@@ -190,6 +191,9 @@ describe("Windows infrastructure contract", () => {
         name !== "candidate-rehearsal-result.ps1" &&
         name !== "candidate-rehearsal-transport.ps1" &&
         name !== "windows-powershell-security-bootstrap.ps1" &&
+        // These are declaration-only imports, checked by the AST regression below.
+        name !== "recovery-diagnostic-contract.ps1" &&
+        name !== "recovery-decline-fixture-receipt.ps1" &&
         name !== "Invoke-RisePalsLauncherFixture.ps1" &&
         name !== "Invoke-RisePalsNodeDestinationDiagnosticChild.ps1" &&
         name !== "Invoke-RisePalsNodeDestinationDiagnosticParent.ps1" &&
@@ -199,7 +203,7 @@ describe("Windows infrastructure contract", () => {
     expect(names.length).toBeGreaterThanOrEqual(6);
     for (const name of names) {
       const script = await readFile(join(directory, name), "utf8");
-      expect(script).toContain("SupportsShouldProcess = $true");
+      expect(script, name).toContain("SupportsShouldProcess = $true");
       expect(script).toContain("Set-StrictMode -Version Latest");
       expect(script).toContain('$ErrorActionPreference = "Stop"');
       if (
@@ -213,6 +217,42 @@ describe("Windows infrastructure contract", () => {
         /Write-(Output|Host).*\$(bytes|secret(Value|Content)|canary(Value|Content))/i,
       );
     }
+  });
+
+  it("keeps recovery contract imports declaration-only at the PowerShell AST boundary", () => {
+    const result = spawnSync(
+      join(
+        process.env.SystemRoot ?? "C:/Windows",
+        "System32/WindowsPowerShell/v1.0/powershell.exe",
+      ),
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `
+$ErrorActionPreference='Stop'
+foreach($name in @('recovery-diagnostic-contract.ps1','recovery-decline-fixture-receipt.ps1')){
+  $tokens=$null;$errors=$null
+  $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path '${repositoryRoot.replace(/'/g, "''")}' ('scripts/infra/'+$name)),[ref]$tokens,[ref]$errors)
+  if($errors.Count){throw 'Contract parse rejected'}
+  foreach($statement in $ast.EndBlock.Statements){
+    if($statement -is [Management.Automation.Language.FunctionDefinitionAst]){continue}
+    if($statement -isnot [Management.Automation.Language.AssignmentStatementAst] -and
+      $statement -isnot [Management.Automation.Language.PipelineAst]){throw 'Executable contract statement rejected'}
+    foreach($call in $statement.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -or $node -is [Management.Automation.Language.InvokeMemberExpressionAst]},$true)){
+      if($call -isnot [Management.Automation.Language.CommandAst] -or $call.GetCommandName() -cne 'Set-StrictMode'){throw 'Executable contract call rejected'}
+    }
+  }
+}
+'Recovery declaration-only imports PASS'
+`,
+      ],
+      { encoding: "utf8", timeout: 15_000, windowsHide: true },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Recovery declaration-only imports PASS");
   });
 
   it("deletes validated staging trees without traversing reparse-point targets", async () => {
