@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RisePals.ServiceHost;
 
@@ -35,6 +36,57 @@ public sealed class ConfigurationAndSecurityTests
         var configuration = CreatePhysicalConfiguration();
         ConfigurationValidator.Validate(configuration);
     }
+
+    [TestMethod]
+    public void CanonicalCamelCaseJsonConfigurationResolves()
+    {
+        var configuration = CreatePhysicalConfiguration();
+        var document = CreateJsonDocument(configuration);
+        var path = Path.Combine(_root, "config.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(document));
+        var resolved = new JsonReleaseConfigurationResolver(path).Resolve();
+        Assert.AreEqual(configuration.NodeExecutable, resolved.NodeExecutable);
+        Assert.AreEqual(configuration.ReleaseDirectory, resolved.ReleaseDirectory);
+        Assert.AreEqual(configuration.StartTimeout, resolved.StartTimeout);
+        Assert.AreEqual(configuration.RestartLimit, resolved.RestartLimit);
+        CollectionAssert.AreEqual(configuration.Arguments.ToArray(), resolved.Arguments.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("ApprovedNodeRoot")]
+    [DataRow("approvednoderoot")]
+    [DataRow("unexpectedProperty")]
+    public void NonCanonicalJsonPropertyNamesRemainRejected(string unexpectedName)
+    {
+        var document = CreateJsonDocument(CreatePhysicalConfiguration());
+        var value = document["approvedNodeRoot"];
+        if (unexpectedName != "unexpectedProperty")
+        {
+            document.Remove("approvedNodeRoot");
+        }
+        document.Add(unexpectedName, value);
+        var path = Path.Combine(_root, "invalid-config.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(document));
+        Assert.ThrowsExactly<JsonException>(() => new JsonReleaseConfigurationResolver(path).Resolve());
+    }
+
+    private static Dictionary<string, object> CreateJsonDocument(ReleaseConfiguration configuration) => new()
+    {
+        ["approvedNodeRoot"] = configuration.ApprovedNodeRoot,
+        ["approvedReleaseRoot"] = configuration.ApprovedReleaseRoot,
+        ["nodeExecutable"] = configuration.NodeExecutable,
+        ["releaseDirectory"] = configuration.ReleaseDirectory,
+        ["entrypoint"] = configuration.Entrypoint,
+        ["logDirectory"] = configuration.LogDirectory,
+        ["arguments"] = configuration.Arguments.ToArray(),
+        ["startTimeoutSeconds"] = (int)configuration.StartTimeout.TotalSeconds,
+        ["drainTimeoutSeconds"] = (int)configuration.DrainTimeout.TotalSeconds,
+        ["exitTimeoutSeconds"] = (int)configuration.ExitTimeout.TotalSeconds,
+        ["healthyResetSeconds"] = (int)configuration.HealthyResetInterval.TotalSeconds,
+        ["restartLimit"] = configuration.RestartLimit,
+        ["initialRestartDelayMilliseconds"] = (int)configuration.InitialRestartDelay.TotalMilliseconds,
+        ["maximumRestartDelayMilliseconds"] = (int)configuration.MaximumRestartDelay.TotalMilliseconds,
+    };
 
     [TestMethod]
     public void NodeOutsideApprovedRootIsRejected()

@@ -193,7 +193,7 @@ function Assert-RisePalsCandidateContract {
   }
   if ($Contract.prototype.executableLength -ne 73606961 -or
     $Contract.prototype.executableSha256 -ne
-      "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c" -or
+      "f353a61f5a91751602dc37f7dbe6b0dbad9ab4ce5a59f84d8a3ff1cfd70a27bb" -or
     $Contract.prototype.authenticode -ne "NotSigned") {
     throw "The accepted unsigned prototype pin changed."
   }
@@ -204,7 +204,7 @@ function Assert-RisePalsCandidateContract {
     $artifactIdentity.informationalVersion -cne "0.1.0-rp19-prototype" -or
     [bool]$artifactIdentity.includeSourceRevisionInInformationalVersion -or
     $artifactIdentity.serviceHostProductionSourceTree -cne
-      "125eb5a7765c58cbc7cee094fbe82207642fd2a5" -or
+      "775a10c75fb70aa121350707ee1240c9d1739fa2" -or
     -not [bool]$artifactIdentity.volatileOuterRepositoryCommitMetadataExcluded) {
     throw "The context-independent service-host artifact identity policy changed."
   }

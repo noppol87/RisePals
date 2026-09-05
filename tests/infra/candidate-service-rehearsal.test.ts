@@ -160,7 +160,7 @@ describe("repository-only candidate service rehearsal harness", () => {
     });
     expect(contract.prototype).toMatchObject({
       executableLength: 73_606_961,
-      executableSha256: "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
+      executableSha256: "f353a61f5a91751602dc37f7dbe6b0dbad9ab4ce5a59f84d8a3ff1cfd70a27bb",
       authenticode: "NotSigned",
       artifactIdentity: {
         version: "0.1.0-rp19-prototype",
@@ -168,13 +168,13 @@ describe("repository-only candidate service rehearsal harness", () => {
         fileVersion: "0.1.0.0",
         informationalVersion: "0.1.0-rp19-prototype",
         includeSourceRevisionInInformationalVersion: false,
-        serviceHostProductionSourceTree: "125eb5a7765c58cbc7cee094fbe82207642fd2a5",
+        serviceHostProductionSourceTree: "775a10c75fb70aa121350707ee1240c9d1739fa2",
         volatileOuterRepositoryCommitMetadataExcluded: true,
       },
       schemaLength: 1_672,
       schemaSha256: "64cd256addecd8489228f3ecfa6658d43eef897681326ffcd3bfd53c832a2b32",
-      dependencyManifestLength: 5_629,
-      dependencyManifestSha256: "b5abd30d2afe52c7685717561432ba5208482073e4957e8e0eef538982e8f60e",
+      dependencyManifestLength: 5_646,
+      dependencyManifestSha256: "8de6a91c02db3676ac648ad8caede01f7980d0af3e474170e935c105706528c3",
     });
     expect(dependencyManifest.artifactIdentity).toEqual(contract.prototype.artifactIdentity);
     expect(dependencyManifest.publish).toMatchObject({
@@ -189,7 +189,7 @@ describe("repository-only candidate service rehearsal harness", () => {
         {
           name: "RisePals.ServiceHost.exe",
           length: 73_606_961,
-          sha256: "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
+          sha256: "f353a61f5a91751602dc37f7dbe6b0dbad9ab4ce5a59f84d8a3ff1cfd70a27bb",
           authenticode: "NotSigned",
         },
         {

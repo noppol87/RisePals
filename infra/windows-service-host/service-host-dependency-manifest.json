@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "verificationDate": "2026-08-29",
+  "verificationDate": "2026-09-05",
   "prototypeOnly": true,
   "target": {
     "framework": "net10.0-windows",
@@ -134,7 +134,7 @@
     "fileVersion": "0.1.0.0",
     "informationalVersion": "0.1.0-rp19-prototype",
     "includeSourceRevisionInInformationalVersion": false,
-    "serviceHostProductionSourceTree": "125eb5a7765c58cbc7cee094fbe82207642fd2a5",
+    "serviceHostProductionSourceTree": "775a10c75fb70aa121350707ee1240c9d1739fa2",
     "volatileOuterRepositoryCommitMetadataExcluded": true
   },
   "publish": {
@@ -150,7 +150,7 @@
       {
         "name": "RisePals.ServiceHost.exe",
         "length": 73606961,
-        "sha256": "d86c4e4afcc8c1f6d8e77694b5de163185326c460fea1be50e5533d29aca0e8c",
+        "sha256": "f353a61f5a91751602dc37f7dbe6b0dbad9ab4ce5a59f84d8a3ff1cfd70a27bb",
         "authenticode": "NotSigned"
       },
       {
@@ -162,7 +162,7 @@
   },
   "productionBlockers": [
     "The prototype executable is not Authenticode-signed.",
-    "No live SCM, preshutdown, service-identity or host installation proof is authorized or complete.",
+    "Live candidate verification remains incomplete; no production host installation or service operation is approved.",
     "No reviewed production configuration, signing workflow, deployment or rollback authorization exists."
   ]
 }
