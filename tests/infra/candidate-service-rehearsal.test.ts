@@ -34,6 +34,31 @@ async function createIncompatibleSecurityModuleRoot(): Promise<string> {
 }
 
 describe("repository-only candidate service rehearsal harness", () => {
+  it("reopens early evidence across distinct parent and child TEMP contexts", () => {
+    const result = spawnSync(
+      resolve(
+        process.env.SystemRoot ?? "C:/Windows",
+        "System32/WindowsPowerShell/v1.0/powershell.exe",
+      ),
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        resolve(repositoryRoot, "scripts/infra/Test-RisePalsEarlyLiveEvidence.ps1"),
+      ],
+      { encoding: "utf8", timeout: 90_000, windowsHide: true },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Early Live boundary PASS: 22/22");
+    expect(result.stdout).toContain("cross-TEMP write/reopen=PASS; invalid-root cases=6");
+    expect(result.stdout).toContain(
+      "UAC=0; elevated=0; protected-access=0; raw-captures=0; residue=0",
+    );
+  }, 95_000);
+
   it("validates closed ErrorRecord launch provenance in non-elevated PowerShell 5.1", () => {
     const result = spawnSync(
       resolve(

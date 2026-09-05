@@ -422,7 +422,7 @@ try {
         if ($Mode -eq "Live") {
           . (Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1") -EarlyContractOnly `
             -RepositoryHead $head -InvocationNonce $nonce -FutureAuthorizationId $authorizationId
-          $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live
+          $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live $transientRoot
           $earlyRecords=Read-RisePalsEarlyChain $invocationDirectory $earlyBinding $startedAt
           $hasFunctional=@($validated.completedStages | Where-Object { $_ -in $script:RisePalsCandidateFunctionalStageOrder }).Count -gt 0
           if ($hasFunctional -or $validated.status -eq "success" -or $validated.cleanupCompleted) {
@@ -451,7 +451,7 @@ try {
     # Preserve only independently validated early records; no functional assertion is derived here.
     . (Join-Path $PSScriptRoot "Invoke-RisePalsCandidateLiveSequence.ps1") -EarlyContractOnly `
       -RepositoryHead $head -InvocationNonce $nonce -FutureAuthorizationId $authorizationId
-    $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live
+    $earlyBinding=New-RisePalsEarlyBinding $authorizationId $nonce $head Live $transientRoot
     $earlyRecords=Read-RisePalsEarlyChain $invocationDirectory $earlyBinding $startedAt
     $earlySummary=[ordered]@{ schemaVersion="rise-pals-early-live-bundle-v1"; authorizationId=$authorizationId
       invocationNonce=$nonce; repositoryHead=$head; childResultDigest=$(if ($finalValidated) { $validated.resultDigest } else { $null })

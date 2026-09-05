@@ -92,7 +92,9 @@ if ($Mode -eq "Simulation") {
     "-NodeExecutableSource",
     ('"' + $NodeExecutableSource + '"'),
     "-StructuredStatePath",
-    ('"' + $liveStatePath + '"')
+    ('"' + $liveStatePath + '"'),
+    "-LauncherResultRoot",
+    ('"' + $ResultRoot + '"')
   )
 }
 
@@ -127,7 +129,7 @@ if ($Mode -eq "Live") {
     -RepositoryHead $RepositoryHead -InvocationNonce $InvocationNonce -FutureAuthorizationId $FutureAuthorizationId
   $earlyRecords=@(); $earlyValid=$false
   try {
-    $earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead Live
+    $earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead Live $ResultRoot
     $earlyRecords=Read-RisePalsEarlyChain $directory $earlyBinding $started
     $earlyValid=$true
   } catch { $earlyValid=$false }

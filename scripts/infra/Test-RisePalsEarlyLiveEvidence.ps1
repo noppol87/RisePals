@@ -89,4 +89,56 @@ foreach ($case in $cases) {
     if (Test-Path -LiteralPath $root) { throw "Early fixture residue." }
   }
 }
-Write-Output ("Early Live boundary PASS: {0}/{1}; nine separate processes; UAC=0; elevated=0; protected-access=0; raw-captures=0; residue=0." -f $passed,$cases.Count)
+# Contract-only regression: a receiving process has a different TEMP than its
+# caller. Never enter Live execution or create protected-host resources.
+$nonce=[guid]::NewGuid().ToString("N")
+$sandbox=Join-Path ([IO.Path]::GetTempPath()) ("diag7-root-"+$nonce)
+$boundRoot=Join-Path $sandbox "risepals-candidate-launcher"
+$invocation=Join-Path $boundRoot ("invocation-"+$nonce)
+$alternate=Join-Path $sandbox "receiving-process-temp"
+$savedTemp=$env:TEMP; $savedTmp=$env:TMP
+if (Test-Path -LiteralPath $sandbox) { throw "Root regression collision." }
+[void][IO.Directory]::CreateDirectory($invocation)
+[void][IO.Directory]::CreateDirectory($alternate)
+try {
+  $started=[DateTimeOffset]::UtcNow
+  $binding=New-RisePalsEarlyBinding "RP-TURN-019-R4-LIVE-6F3A91D2" $nonce ("c"*40) Live $boundRoot
+  $env:TEMP=$alternate; $env:TMP=$alternate
+  if ([IO.Path]::GetTempPath().TrimEnd('\') -cne $alternate) { throw "Mixed temporary context setup failed." }
+  $record=Write-RisePalsEarlyRecord $invocation $binding $null
+  $records=Read-RisePalsEarlyChain $invocation $binding $started
+  if ($records.Count -ne 1 -or $records[0].recordDigest -cne $record.recordDigest) { throw "Receiving-context reopening failed." }
+  foreach ($badRoot in @("", "risepals-candidate-launcher", $alternate, (Join-Path $alternate "risepals-candidate-launcher"),
+    (Join-Path $sandbox 'other\..\risepals-candidate-launcher'))) {
+    $rejected=$false
+    try { [void](Assert-RisePalsEarlyDirectory $invocation $nonce Live $badRoot) } catch { $rejected=$true }
+    if (-not $rejected) { throw "Unbound root accepted." }
+  }
+  $rejected=$false
+  try { [void](Assert-RisePalsEarlyDirectory $invocation ("f"*32) Live $boundRoot) } catch { $rejected=$true }
+  if (-not $rejected) { throw "Wrong invocation accepted." }
+  $env:TEMP=$savedTemp; $env:TMP=$savedTmp
+  $reopened=Read-RisePalsEarlyChain $invocation $binding $started
+  if ($reopened.Count -ne 1 -or $reopened[0].recordDigest -cne $record.recordDigest) { throw "Original-context reopening failed." }
+} finally {
+  $env:TEMP=$savedTemp; $env:TMP=$savedTmp
+  [void](Assert-RisePalsEarlyDirectory $invocation $nonce Live $boundRoot)
+  # Validate the complete flat fixture layout before removing any object.
+  foreach ($directory in @($sandbox,$boundRoot,$invocation,$alternate)) {
+    $item=Get-Item -LiteralPath $directory -Force
+    if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Root regression cleanup object rejected." }
+  }
+  if (@(Get-ChildItem -LiteralPath $sandbox -Force).Count -ne 2 -or
+    @(Get-ChildItem -LiteralPath $boundRoot -Force).Count -ne 1 -or
+    @(Get-ChildItem -LiteralPath $alternate -Force).Count -ne 0) { throw "Root regression cleanup layout rejected." }
+  $files=@(Get-ChildItem -LiteralPath $invocation -Force)
+  if ($files.Count -gt 1) { throw "Root regression extra file rejected." }
+  foreach ($file in $files) {
+    if ($file.Name -cne "early-live-00.json" -or $file.PSIsContainer -or
+      ($file.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Root regression cleanup file rejected." }
+  }
+  foreach ($file in $files) { [IO.File]::Delete($file.FullName) }
+  foreach ($directory in @($invocation,$boundRoot,$alternate,$sandbox)) { [IO.Directory]::Delete($directory,$false) }
+  if (Test-Path -LiteralPath $sandbox) { throw "Root regression residue." }
+}
+Write-Output ("Early Live boundary PASS: {0}/{1}; cross-TEMP write/reopen=PASS; invalid-root cases=6; nine separate processes; UAC=0; elevated=0; protected-access=0; raw-captures=0; residue=0." -f $passed,$cases.Count)

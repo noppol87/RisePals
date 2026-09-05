@@ -6,6 +6,7 @@ param(
   [string]$CandidateExecutableSource,
   [string]$NodeExecutableSource,
   [string]$StructuredStatePath,
+  [string]$LauncherResultRoot,
   [switch]$EarlyContractOnly,
   [ValidateRange(-1, 8)][int]$EarlySimulationStop = -1
 )
@@ -34,10 +35,16 @@ function Get-RisePalsEarlyHash {
   } finally { if ($stream) { $stream.Dispose() }; $sha.Dispose() }
 }
 function Assert-RisePalsEarlyDirectory {
-  param([string]$Directory, [string]$Nonce, [string]$ExecutionMode)
+  param([string]$Directory, [string]$Nonce, [string]$ExecutionMode, [string]$BoundaryRoot)
   if ($Nonce -cnotmatch "^[a-f0-9]{32}$" -or $ExecutionMode -cnotin @("Simulation", "Live")) { throw "Early binding rejected." }
+  # The parent owns this exact root. Elevation can change TEMP; never derive a
+  # second authority from the receiving process's ambient temporary directory.
+  if ($ExecutionMode -ceq "Live" -and ([string]::IsNullOrWhiteSpace($BoundaryRoot) -or
+    -not [IO.Path]::IsPathRooted($BoundaryRoot) -or
+    [IO.Path]::GetFullPath($BoundaryRoot) -cne $BoundaryRoot -or
+    [IO.Path]::GetFileName($BoundaryRoot) -cne "risepals-candidate-launcher")) { throw "Early root binding rejected." }
   $expected = if ($ExecutionMode -ceq "Simulation") { Join-Path ([IO.Path]::GetTempPath()) ("diag7-" + $Nonce) }
-    else { Join-Path (Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher") ("invocation-" + $Nonce) }
+    else { Join-Path $BoundaryRoot ("invocation-" + $Nonce) }
   $full = [IO.Path]::GetFullPath($Directory)
   if (-not $full.Equals([IO.Path]::GetFullPath($expected), [StringComparison]::OrdinalIgnoreCase)) { throw "Early directory rejected." }
   $cursor = $full
@@ -49,13 +56,13 @@ function Assert-RisePalsEarlyDirectory {
   return $full
 }
 function New-RisePalsEarlyBinding {
-  param([string]$Authorization, [string]$Nonce, [string]$Head, [string]$ExecutionMode)
+  param([string]$Authorization, [string]$Nonce, [string]$Head, [string]$ExecutionMode, [string]$BoundaryRoot)
   if ($Head -cnotmatch "^[a-f0-9]{40}$" -or $Nonce -cnotmatch "^[a-f0-9]{32}$" -or
     $ExecutionMode -cnotin @("Live", "Simulation") -or
     ($ExecutionMode -ceq "Live" -and $Authorization -cnotmatch "^RP-TURN-019-R4-LIVE-[A-F0-9]{8}$") -or
     ($ExecutionMode -ceq "Simulation" -and $Authorization -cne "RP-TURN-019-R4-DIAG7-EARLY-SIMULATION")) { throw "Early identity rejected." }
   $hashes = @($script:EarlyLiveSources | ForEach-Object { Get-RisePalsEarlyHash -Path (Join-Path $PSScriptRoot $_) })
-  return [pscustomobject]@{ authorizationId=$Authorization; invocationNonce=$Nonce; repositoryHead=$Head; executionMode=$ExecutionMode; sourceHashes=$hashes }
+  return [pscustomobject]@{ authorizationId=$Authorization; invocationNonce=$Nonce; repositoryHead=$Head; executionMode=$ExecutionMode; sourceHashes=$hashes; boundaryRoot=$BoundaryRoot }
 }
 function Get-RisePalsEarlyCanonical {
   param($Record, [switch]$WithoutDigest)
@@ -92,7 +99,7 @@ function Assert-RisePalsEarlyRecord {
 }
 function Read-RisePalsEarlyRecord {
   param([string]$Path, [string]$Directory, $Binding, $Previous, [DateTimeOffset]$NotBeforeUtc)
-  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode $Binding.boundaryRoot
   $sequence = if ($null -eq $Previous) { 0 } else { [int]$Previous.sequence + 1 }
   $expected = Join-Path $root ("early-live-{0:d2}.json" -f $sequence)
   if ([IO.Path]::GetFullPath($Path) -cne $expected) { throw "Early filename rejected." }
@@ -108,7 +115,7 @@ function Read-RisePalsEarlyRecord {
 }
 function Write-RisePalsEarlyRecord {
   param([string]$Directory, $Binding, $Previous, [AllowNull()][string]$LiveStateDigest=$null)
-  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $root = Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode $Binding.boundaryRoot
   $sequence = if ($null -eq $Previous) { 0 } else { [int]$Previous.sequence + 1 }
   $record = [pscustomobject][ordered]@{ schemaVersion="rise-pals-early-live-v1"; authorizationId=$Binding.authorizationId
     invocationNonce=$Binding.invocationNonce; repositoryHead=$Binding.repositoryHead; executionMode=$Binding.executionMode
@@ -127,7 +134,7 @@ function Write-RisePalsEarlyRecord {
 }
 function Read-RisePalsEarlyChain {
   param([string]$Directory, $Binding, [DateTimeOffset]$NotBeforeUtc)
-  $root=Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode
+  $root=Assert-RisePalsEarlyDirectory $Directory $Binding.invocationNonce $Binding.executionMode $Binding.boundaryRoot
   $items=@(Get-ChildItem -LiteralPath $root -Force | Where-Object { $_.Name.StartsWith("early-live-", [StringComparison]::Ordinal) } | Sort-Object Name)
   $records=@(); $previous=$null
   foreach ($item in $items) { $previous=Read-RisePalsEarlyRecord $item.FullName $root $Binding $previous $NotBeforeUtc; $records+=,$previous }
@@ -137,7 +144,7 @@ function Read-RisePalsEarlyChain {
 if ($EarlyContractOnly) { return }
 if ($PSVersionTable.PSEdition -cne "Desktop" -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw "Early PS5.1 boundary rejected." }
 $earlyMode=if ($EarlySimulationStop -ge 0) { "Simulation" } else { "Live" }
-$earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead $earlyMode
+$earlyBinding=New-RisePalsEarlyBinding $FutureAuthorizationId $InvocationNonce $RepositoryHead $earlyMode $LauncherResultRoot
 $earlyDirectory=[IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($StructuredStatePath))
 if ([IO.Path]::GetFileName($StructuredStatePath) -cne "live-state.json") { throw "Early state filename rejected." }
 $earlyRecord=Write-RisePalsEarlyRecord $earlyDirectory $earlyBinding $null
@@ -573,9 +580,7 @@ $powerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powersh
 $paths = New-RisePalsCandidatePathPlan -Contract $contract -Nonce $InvocationNonce
 $structuredState = [IO.Path]::GetFullPath($StructuredStatePath)
 $stateParent = [IO.Path]::GetDirectoryName($structuredState)
-$expectedStateParent = [IO.Path]::GetFullPath((Join-Path (
-  Join-Path ([IO.Path]::GetTempPath()) "risepals-candidate-launcher"
-) ("invocation-" + $InvocationNonce)))
+$expectedStateParent = Assert-RisePalsEarlyDirectory $stateParent $InvocationNonce Live $LauncherResultRoot
 if (-not $stateParent.Equals($expectedStateParent, [StringComparison]::OrdinalIgnoreCase) -or
   -not [IO.Directory]::Exists($stateParent) -or
   -not [IO.Path]::GetFileName($structuredState).Equals(
