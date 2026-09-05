@@ -8,6 +8,12 @@ $script:RisePalsCandidateMarkerSchema = "rise-pals-candidate-transport-marker-v1
 $script:RisePalsCandidateParentCheckpointSchema = "rise-pals-candidate-parent-checkpoint-v4"
 $script:RisePalsCandidateParentResultSchema = "rise-pals-candidate-parent-result-v6"
 $script:RisePalsCandidateLaunchDiagnosticSchema = "rise-pals-candidate-launch-diagnostic-v1"
+$script:RisePalsCandidateLaunchDiagnosticSchemaV2 = "rise-pals-candidate-launch-diagnostic-v2"
+$script:RisePalsCandidateLaunchProvenanceProperties = @(
+  "errorRecordPresent", "exceptionTypeDisposition", "errorCategoryDisposition",
+  "errorReasonDisposition", "fullyQualifiedErrorDisposition", "nativeCodeSource",
+  "hResultSource", "examinedExceptionCount", "provenanceDigest"
+)
 $script:RisePalsCandidateProbeDiagnosticSchema = "rise-pals-candidate-elevation-probe-diagnostic-v1"
 $script:RisePalsCandidateMarkerTypes = @(
   "bootstrap-started",
@@ -356,7 +362,7 @@ function New-RisePalsCandidateCanonicalLaunchRequest {
 function ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic {
   param([Parameter(Mandatory = $true)][object]$Diagnostic)
 
-  return [pscustomobject][ordered]@{
+  $canonical = [ordered]@{
     schemaVersion = [string]$Diagnostic.schemaVersion
     launchAttempted = [bool]$Diagnostic.launchAttempted
     processCreated = [bool]$Diagnostic.processCreated
@@ -378,6 +384,10 @@ function ConvertTo-RisePalsCandidateCanonicalLaunchDiagnostic {
     waitRequested = [bool]$Diagnostic.waitRequested
     hiddenWindowRequested = [bool]$Diagnostic.hiddenWindowRequested
   }
+  if ($Diagnostic.schemaVersion -ceq $script:RisePalsCandidateLaunchDiagnosticSchemaV2) {
+    $canonical.provenance = $Diagnostic.provenance
+  }
+  return [pscustomobject]$canonical
 }
 
 function Get-RisePalsCandidateLaunchDiagnosticDigest {
@@ -409,42 +419,153 @@ function Get-RisePalsCandidateLauncherSignatureStatus {
 }
 
 function Get-RisePalsCandidateLaunchExceptionEvidence {
-  param([AllowNull()][Exception]$Exception)
+  param(
+    [AllowNull()][object]$Exception,
+    [AllowNull()][object]$ErrorRecord
+  )
 
   $nativeCodes = @()
   $hResult = $null
+  $hResultSource = "unavailable"
   $depth = 0
-  $cursor = $Exception
+  $recordPresent = $null -ne $ErrorRecord
+  $cursor = if ($recordPresent) {
+    Get-RisePalsCandidateOptionalProperty -Value $ErrorRecord -Name "Exception"
+  } else { $Exception }
+  $typeDisposition = Get-RisePalsCandidateExceptionTypeDisposition -Value $cursor
   while ($null -ne $cursor -and $depth -lt 4) {
+    $source = if ($recordPresent) {
+      if ($depth -eq 0) { "error-record-exception" } else { "error-record-inner-exception" }
+    } else {
+      if ($depth -eq 0) { "top-level-exception" } else { "inner-exception" }
+    }
     $depth++
-    $nativeProperty = $cursor.PSObject.Properties["NativeErrorCode"]
-    if ($null -ne $nativeProperty -and $null -ne $nativeProperty.Value) {
-      try {
-        $nativeCodes += [int]$nativeProperty.Value
-      } catch {
-        # Non-integral values are ignored and never persisted.
-      }
+    $nativeValue = Get-RisePalsCandidateOptionalProperty -Value $cursor -Name "NativeErrorCode"
+    if ((Test-RisePalsCandidateIntegralValue -Value $nativeValue) -and
+      $nativeValue -ge [int]::MinValue -and $nativeValue -le [int]::MaxValue) {
+      $nativeCodes += [pscustomobject]@{ code = [int]$nativeValue; source = $source }
     }
     if ($null -eq $hResult) {
-      try {
-        $hResult = [int]$cursor.HResult
-      } catch {
-        $hResult = $null
+      $hResultValue = Get-RisePalsCandidateOptionalProperty -Value $cursor -Name "HResult"
+      if ((Test-RisePalsCandidateIntegralValue -Value $hResultValue) -and
+        $hResultValue -ge [int]::MinValue -and $hResultValue -le [int]::MaxValue) {
+        $hResult = [int]$hResultValue
+        $hResultSource = $source
       }
     }
-    $cursor = $cursor.InnerException
+    $cursor = Get-RisePalsCandidateOptionalProperty -Value $cursor -Name "InnerException"
   }
-  $nativeErrorCode = if ($nativeCodes -contains 1223) {
-    1223
-  } elseif ($nativeCodes.Count -gt 0) {
-    [int]$nativeCodes[0]
-  } else {
-    $null
+  $selected = $null
+  foreach ($entry in $nativeCodes) {
+    if ($null -eq $selected) { $selected = $entry }
+    if ($entry.code -eq 1223) { $selected = $entry; break }
   }
+  $category = Get-RisePalsCandidateOptionalProperty -Value $ErrorRecord -Name "CategoryInfo"
+  $categoryValue = Get-RisePalsCandidateOptionalProperty -Value $category -Name "Category"
+  $reason = Get-RisePalsCandidateOptionalProperty -Value $category -Name "Reason"
+  $errorId = Get-RisePalsCandidateOptionalProperty -Value $ErrorRecord -Name "FullyQualifiedErrorId"
+  $categoryDisposition = if ($null -eq $categoryValue) { "unavailable" } else {
+    switch -CaseSensitive ([string]$categoryValue) {
+      "OperationStopped" { "operation-stopped" }
+      "InvalidOperation" { "invalid-operation" }
+      "PermissionDenied" { "permission-denied" }
+      "ResourceUnavailable" { "resource-unavailable" }
+      "NotSpecified" { "not-specified" }
+      default { "other-controlled" }
+    }
+  }
+  $idDisposition = if ($null -eq $errorId -or $errorId -ceq "") { "unavailable" } else {
+    switch -CaseSensitive ($errorId) {
+      "InvalidOperationException,Microsoft.PowerShell.Commands.StartProcessCommand" { "start-process-failed" }
+      "NativeCommandFailed" { "native-command-failed" }
+      default { "other-controlled" }
+    }
+  }
+  $provenance = [pscustomobject][ordered]@{
+    errorRecordPresent = $recordPresent
+    exceptionTypeDisposition = $typeDisposition
+    errorCategoryDisposition = $categoryDisposition
+    errorReasonDisposition = Get-RisePalsCandidateExceptionTypeDisposition -TypeBasename $reason
+    fullyQualifiedErrorDisposition = $idDisposition
+    nativeCodeSource = if ($null -eq $selected) { "unavailable" } else { $selected.source }
+    hResultSource = $hResultSource
+    examinedExceptionCount = $depth
+    provenanceDigest = ""
+  }
+  $provenance.provenanceDigest = Get-RisePalsCandidateLaunchProvenanceDigest -Provenance $provenance
   return [pscustomobject][ordered]@{
-    nativeErrorCode = $nativeErrorCode
+    nativeErrorCode = if ($null -eq $selected) { $null } else { $selected.code }
     hResult = $hResult
     exceptionDepth = $depth
+    provenance = $provenance
+  }
+}
+
+function Get-RisePalsCandidateOptionalProperty {
+  param([AllowNull()][object]$Value, [string]$Name)
+  if ($null -eq $Value) { return $null }
+  $property = $Value.PSObject.Properties[$Name]
+  if ($null -eq $property) { return $null }
+  return $property.Value
+}
+
+function Get-RisePalsCandidateExceptionTypeDisposition {
+  param([AllowNull()][object]$Value, [AllowNull()][object]$TypeBasename)
+  if ($Value -is [Exception]) { $TypeBasename = $Value.GetType().Name }
+  if ($null -eq $TypeBasename -or $TypeBasename -ceq "") { return "unavailable" }
+  switch -CaseSensitive ($TypeBasename) {
+    "Win32Exception" { return "win32-exception" }
+    "InvalidOperationException" { return "invalid-operation-exception" }
+    "RuntimeException" { return "runtime-exception" }
+    default { return "other-controlled" }
+  }
+}
+
+function Get-RisePalsCandidateLaunchProvenanceDigest {
+  param([Parameter(Mandatory = $true)][object]$Provenance)
+  $canonical = [ordered]@{}
+  foreach ($name in $script:RisePalsCandidateLaunchProvenanceProperties) {
+    if ($name -cne "provenanceDigest") { $canonical[$name] = $Provenance.$name }
+  }
+  return Get-RisePalsCandidateObjectDigest -Canonical ([pscustomobject]$canonical)
+}
+
+function Assert-RisePalsCandidateLaunchProvenance {
+  param([Parameter(Mandatory = $true)][object]$Diagnostic)
+  $p = $Diagnostic.provenance
+  Assert-RisePalsCandidateTransportExactPropertySet -Value $p `
+    -Expected $script:RisePalsCandidateLaunchProvenanceProperties -Label "Launch provenance"
+  $types = @("win32-exception", "invalid-operation-exception", "runtime-exception", "other-controlled", "unavailable")
+  $sources = @("top-level-exception", "inner-exception", "error-record-exception", "error-record-inner-exception", "unavailable")
+  foreach ($name in $script:RisePalsCandidateLaunchProvenanceProperties) {
+    if ($name -notin @("errorRecordPresent", "examinedExceptionCount") -and $p.$name -isnot [string]) {
+      throw "Launch provenance has a non-string disposition."
+    }
+  }
+  if ($p.errorRecordPresent -isnot [bool] -or
+    -not (Test-RisePalsCandidateIntegralValue -Value $p.examinedExceptionCount) -or
+    $p.examinedExceptionCount -lt 0 -or $p.examinedExceptionCount -gt 4 -or
+    $p.examinedExceptionCount -ne $Diagnostic.exceptionDepth -or
+    $p.exceptionTypeDisposition -cnotin $types -or $p.errorReasonDisposition -cnotin $types -or
+    $p.errorCategoryDisposition -cnotin @("operation-stopped", "invalid-operation", "permission-denied", "resource-unavailable", "not-specified", "other-controlled", "unavailable") -or
+    $p.fullyQualifiedErrorDisposition -cnotin @("start-process-failed", "native-command-failed", "other-controlled", "unavailable") -or
+    $p.nativeCodeSource -cnotin $sources -or $p.hResultSource -cnotin $sources -or
+    $p.provenanceDigest -cne (Get-RisePalsCandidateLaunchProvenanceDigest -Provenance $p)) {
+    throw "Launch provenance schema or digest is invalid."
+  }
+  foreach ($pair in @(@("nativeErrorCode", "nativeCodeSource"), @("hResult", "hResultSource"))) {
+    $source = $p.($pair[1])
+    if (($null -eq $Diagnostic.($pair[0])) -ne ($source -ceq "unavailable") -or
+      ($source -cne "unavailable" -and ($p.examinedExceptionCount -lt 1 -or
+        ($source.StartsWith("error-record-")) -ne $p.errorRecordPresent)) -or
+      ($source -in @("inner-exception", "error-record-inner-exception") -and $p.examinedExceptionCount -lt 2)) {
+      throw "Launch provenance numeric source is inconsistent."
+    }
+  }
+  if ((-not $p.errorRecordPresent -and ($p.errorCategoryDisposition -cne "unavailable" -or
+      $p.errorReasonDisposition -cne "unavailable" -or $p.fullyQualifiedErrorDisposition -cne "unavailable")) -or
+    ($p.examinedExceptionCount -eq 0 -and $p.exceptionTypeDisposition -cne "unavailable")) {
+    throw "Launch provenance record presence is inconsistent."
   }
 }
 
@@ -496,7 +617,8 @@ function New-RisePalsCandidateLaunchDiagnostic {
     [Parameter(Mandatory = $true)][int]$ArgumentCount,
     [Parameter(Mandatory = $true)][string]$CanonicalArgumentDigest,
     [bool]$WaitRequested = $true,
-    [bool]$HiddenWindowRequested = $true
+    [bool]$HiddenWindowRequested = $true,
+    [AllowNull()][object]$Provenance
   )
 
   $diagnostic = [ordered]@{
@@ -518,6 +640,10 @@ function New-RisePalsCandidateLaunchDiagnostic {
     hiddenWindowRequested = $HiddenWindowRequested
     diagnosticDigest = ""
   }
+  if ($null -ne $Provenance) {
+    $diagnostic.schemaVersion = $script:RisePalsCandidateLaunchDiagnosticSchemaV2
+    $diagnostic.provenance = $Provenance
+  }
   $diagnostic.diagnosticDigest = Get-RisePalsCandidateLaunchDiagnosticDigest `
     -Diagnostic $diagnostic
   return [pscustomobject]$diagnostic
@@ -526,9 +652,21 @@ function New-RisePalsCandidateLaunchDiagnostic {
 function Assert-RisePalsCandidateLaunchDiagnostic {
   param([Parameter(Mandatory = $true)][object]$Diagnostic)
 
+  $properties = $script:RisePalsCandidateLaunchDiagnosticProperties
+  if ($Diagnostic.schemaVersion -ceq $script:RisePalsCandidateLaunchDiagnosticSchemaV2) {
+    $properties = @($properties) + @("provenance")
+  }
   Assert-RisePalsCandidateTransportExactPropertySet -Value $Diagnostic `
-    -Expected $script:RisePalsCandidateLaunchDiagnosticProperties `
+    -Expected $properties `
     -Label "Candidate launch diagnostic"
+  if ($Diagnostic.schemaVersion -ceq $script:RisePalsCandidateLaunchDiagnosticSchemaV2) {
+    Assert-RisePalsCandidateLaunchProvenance -Diagnostic $Diagnostic
+    foreach ($name in @("schemaVersion", "launchDisposition", "sanitizedLaunchFailureCode",
+      "launcherExecutableBasename", "launcherSignatureStatus", "launchVerb",
+      "canonicalArgumentDigest", "diagnosticDigest")) {
+      if ($Diagnostic.$name -isnot [string]) { throw "A launch diagnostic string is mistyped." }
+    }
+  }
   $failureCodes = @(
     "none", "uac-cancelled", "launcher-target-not-found",
     "launcher-access-denied", "shell-execute-failed", "malformed-launch-request",
@@ -548,7 +686,7 @@ function Assert-RisePalsCandidateLaunchDiagnostic {
   } else {
     Get-RisePalsCandidateSanitizedLaunchFailureCode -NativeErrorCode $nativeCode
   }
-  $basicInvalid = $Diagnostic.schemaVersion -ne $script:RisePalsCandidateLaunchDiagnosticSchema -or
+  $basicInvalid = $Diagnostic.schemaVersion -cnotin @($script:RisePalsCandidateLaunchDiagnosticSchema, $script:RisePalsCandidateLaunchDiagnosticSchemaV2) -or
     $Diagnostic.launchAttempted -isnot [bool] -or
     $Diagnostic.processCreated -isnot [bool] -or
     $Diagnostic.launcherExecutableExists -isnot [bool] -or
@@ -634,7 +772,9 @@ function Assert-RisePalsCandidateLaunchDiagnostic {
           $Diagnostic.launcherSignatureStatus -ne "valid"
         )) -or
         ([bool]$Diagnostic.launchAttempted -and [int]$Diagnostic.exceptionDepth -eq 0 -and (
-          $Diagnostic.sanitizedLaunchFailureCode -ne "process-start-failed" -or
+          ($Diagnostic.sanitizedLaunchFailureCode -ne "process-start-failed" -and
+            -not ($Diagnostic.schemaVersion -ceq $script:RisePalsCandidateLaunchDiagnosticSchemaV2 -and
+              $Diagnostic.sanitizedLaunchFailureCode -ceq "launcher-exception-unknown")) -or
           $null -ne $Diagnostic.nativeErrorCode -or $null -ne $Diagnostic.hResult
         )) -or $preflightInconsistent) {
         throw "The failed launch diagnostic preflight or exception boundary is inconsistent."
@@ -1180,6 +1320,39 @@ function Assert-RisePalsCandidateEvidenceFileAcl {
   }
 }
 
+function ConvertFrom-RisePalsCandidateUniqueJson {
+  param([Parameter(Mandatory = $true)][string]$Json)
+
+  # Syntax belongs to the JSON parser; reject duplicate decoded keys before its
+  # object conversion can discard them. Strings are tokenized, never searched
+  # as raw field-name substrings. This adds no transport or launch behavior.
+  $parsed = $Json | ConvertFrom-Json
+  $tokens = [regex]::Matches($Json, '"(?:[^"\\]|\\.)*"|[{}\[\]:]')
+  $stack = [Collections.Generic.Stack[object]]::new()
+  for ($index = 0; $index -lt $tokens.Count; $index++) {
+    $token = $tokens[$index].Value
+    if ($token -eq "{" -or $token -eq "[") {
+      $stack.Push([pscustomobject]@{ kind = $token; keys = @{} })
+    } elseif ($token -eq "}" -or $token -eq "]") {
+      if ($stack.Count -eq 0) { throw "Candidate JSON nesting is invalid." }
+      [void]$stack.Pop()
+    } elseif ($token.StartsWith('"') -and $index + 1 -lt $tokens.Count -and
+      $tokens[$index + 1].Value -eq ":") {
+      if ($stack.Count -eq 0 -or $stack.Peek().kind -ne "{") {
+        throw "Candidate JSON property nesting is invalid."
+      }
+      $decoded = ('[' + $token + ']') | ConvertFrom-Json
+      $key = [string]$decoded[0]
+      if ($stack.Peek().keys.ContainsKey($key)) {
+        throw "Candidate JSON contains a duplicate property."
+      }
+      $stack.Peek().keys[$key] = $true
+    }
+  }
+  if ($stack.Count -ne 0) { throw "Candidate JSON nesting is incomplete." }
+  return $parsed
+}
+
 function Read-RisePalsCandidateDurableEvidenceRecord {
   param(
     [Parameter(Mandatory = $true)][string]$Path,
@@ -1215,7 +1388,9 @@ function Read-RisePalsCandidateDurableEvidenceRecord {
   if ($bytes.Length -eq 0 -or $bytes.Length -gt 32768) {
     throw "The durable parent evidence record has an invalid byte length."
   }
-  return ([Text.UTF8Encoding]::new($false, $true).GetString($bytes) | ConvertFrom-Json)
+  return ConvertFrom-RisePalsCandidateUniqueJson -Json (
+    [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+  )
 }
 
 function Read-RisePalsCandidateDurableParentCheckpoint {

@@ -34,6 +34,32 @@ async function createIncompatibleSecurityModuleRoot(): Promise<string> {
 }
 
 describe("repository-only candidate service rehearsal harness", () => {
+  it("validates closed ErrorRecord launch provenance in non-elevated PowerShell 5.1", () => {
+    const result = spawnSync(
+      resolve(
+        process.env.SystemRoot ?? "C:/Windows",
+        "System32/WindowsPowerShell/v1.0/powershell.exe",
+      ),
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        resolve(repositoryRoot, "scripts/infra/Test-RisePalsCandidateLaunchProvenance.ps1"),
+        "-RepositoryRoot",
+        repositoryRoot,
+      ],
+      { encoding: "utf8", timeout: 30_000, windowsHide: true },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("Launch provenance synthetic suite PASS");
+    expect(result.stdout).toContain(
+      "UAC=0; elevatedChildren=0; hostMutation=0; temporaryObjects=0",
+    );
+  }, 35_000);
+
   it("pins the accepted candidate identity, executable, schema and dependency manifest", async () => {
     const executableProject = await text(
       "infra/windows-service-host/RisePals.ServiceHost/RisePals.ServiceHost.csproj",

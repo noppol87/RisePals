@@ -431,10 +431,16 @@ foreach ($tamper in @("missing-property", "extra-property", "argument-digest", "
   }
 }
 
+$recordFailure = [Management.Automation.ErrorRecord]::new(
+  [ComponentModel.Win32Exception]::new(5), "synthetic-unknown-id",
+  [Management.Automation.ErrorCategory]::PermissionDenied, $null
+)
+$recordFailureEvidence = Get-RisePalsCandidateLaunchExceptionEvidence -ErrorRecord $recordFailure
 $failureLaunchDiagnostic = New-RisePalsCandidateLaunchDiagnostic `
   -LaunchAttempted $true -ProcessCreated $false -LaunchDisposition launch-failure `
   -SanitizedLaunchFailureCode launcher-access-denied `
-  -NativeErrorCode 5 -HResult -2147467259 -ExceptionDepth 1 `
+  -NativeErrorCode 5 -HResult $recordFailureEvidence.hResult -ExceptionDepth 1 `
+  -Provenance $recordFailureEvidence.provenance `
   -LauncherExecutableExists $true -LauncherSignatureStatus valid `
   -LaunchVerb RunAs -ArgumentCount $launchArguments.Count `
   -CanonicalArgumentDigest (Get-RisePalsCandidateCanonicalArgumentDigest `

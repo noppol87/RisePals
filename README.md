@@ -5,8 +5,8 @@ Rise Pals คือแพลตฟอร์มพัฒนาความพร�
 **Brand:** Rise Pals  
 **Digital wordmark:** `risepals`  
 **Primary domain:** `risepals.com`  
-**Project status:** RP-TURN-019-R4-R4-R1 exact test-only named-pipe readiness diagnostics are implemented pending Project Codex review; RP-TURN-019 remains Partial and the candidate remains unsigned, uninstalled and not production-approved  
-**Last updated:** 2026-09-04
+**Project status:** RP-TURN-019-R4-LAUNCH-DIAG5 future-only closed ErrorRecord launch provenance is implemented pending Project Codex review; RP-TURN-019 remains Partial and the candidate remains unsigned, uninstalled and not production-approved  
+**Last updated:** 2026-09-05
 
 ## Product thesis
 

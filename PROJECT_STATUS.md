@@ -1,8 +1,10 @@
 # Rise Pals — Project Status
 
-**Status date:** 2026-09-04  
+**Status date:** 2026-09-05  
 **Current phase:** RP-TURN-019 Windows VPS Infrastructure Readiness  
-**Current turn:** RP-TURN-019-R4-R4-R1 bounded readiness-diagnostic corrections are implemented pending Project Codex review; RP-TURN-019 remains Partial, PR #17 remains Draft/unmerged and no UAC, protected inspection, LiveReadOnly, Live rehearsal, reboot or deployment is authorized
+**Current turn:** RP-TURN-019-R4-LAUNCH-DIAG5 future-only ErrorRecord launch provenance is implemented pending Project Codex review; RP-TURN-019 remains Partial, PR #17 remains Draft/unmerged and no UAC, protected inspection, LiveReadOnly, Live rehearsal, reboot or deployment is authorized
+
+LIVE10 stopped before elevated process creation. Its validated historical records retain `launcher-exception-unknown`, null native code and HRESULT `-2146233079`; no underlying RunAs cause or cancellation is inferred. LAUNCH-DIAG5 does not replay LIVE10. Its exact workspace cleanup stopped before deletion because the archive contains `source/src/modules/evidence`, conflicting with the literal no-evidence-directory predicate; the task workspace is retained pending clarification, separately from the unchanged durable LIVE10 evidence. The certificate retention decision remains unchanged, with attribution and usage outside the accepted inspection unknown; no certificate access is part of this revision.
 
 ## Locked decisions
 

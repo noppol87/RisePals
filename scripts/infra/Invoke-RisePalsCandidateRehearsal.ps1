@@ -306,7 +306,7 @@ try {
           }
         } catch {
           $exceptionEvidence = Get-RisePalsCandidateLaunchExceptionEvidence `
-            -Exception $_.Exception
+            -ErrorRecord $_
           $failureCode = Get-RisePalsCandidateSanitizedLaunchFailureCode `
             -NativeErrorCode $exceptionEvidence.nativeErrorCode
           $launchDisposition = if ($exceptionEvidence.nativeErrorCode -eq 1223) {
@@ -321,6 +321,7 @@ try {
             -NativeErrorCode $exceptionEvidence.nativeErrorCode `
             -HResult $exceptionEvidence.hResult `
             -ExceptionDepth $exceptionEvidence.exceptionDepth `
+            -Provenance $exceptionEvidence.provenance `
             -LauncherExecutableExists $true `
             -LauncherSignatureStatus $launcherSignatureStatus -LaunchVerb $launchVerb `
             -ArgumentCount $arguments.Count -CanonicalArgumentDigest $argumentDigest
