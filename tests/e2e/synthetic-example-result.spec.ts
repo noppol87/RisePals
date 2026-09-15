@@ -20,15 +20,13 @@ for (const locale of ["th", "en"] as const) {
 
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      locale === "th" ? "แผนที่สัญญาณทักษะ" : "skill-signal map",
+      locale === "th" ? "เห็นทักษะ แล้วลองฝึกต่อ" : "See the skills. Try a next step.",
     );
     await expect(
-      page.getByText(
-        locale === "th"
-          ? "ตัวอย่างเท่านั้น — ไม่ใช่ผลของคุณ"
-          : "Example only — this is not your result",
-      ),
+      page.getByText(locale === "th" ? "ตัวอย่างเท่านั้น" : "Example only"),
     ).toBeVisible();
+    await page.locator(".example-result__section.experience-disclosure > summary").click();
+    await page.locator(".example-practice__trace > summary").click();
     await expect(page.getByText("synthetic-mixed-review").first()).toBeVisible();
     await expect(page.getByRole("figure")).toHaveCount(2);
     await expect(page.locator(".example-signal__segment")).toHaveCount(8);
@@ -47,10 +45,7 @@ for (const locale of ["th", "en"] as const) {
 
     const unassessedSection = page
       .getByRole("heading", {
-        name:
-          locale === "th"
-            ? "ทักษะหลักอีก 6 ด้านที่ยังไม่มีหลักฐาน"
-            : "6 core competencies with no evidence in this fixture",
+        name: locale === "th" ? "ทักษะที่ยังไม่ได้ดู" : "Skills not covered",
       })
       .locator("xpath=../..");
     await expect(unassessedSection.getByRole("listitem")).toHaveCount(6);
@@ -68,16 +63,13 @@ for (const locale of ["th", "en"] as const) {
     await expect(
       page.getByText(
         locale === "th"
-          ? "ต้นแบบพร้อมให้ทดลอง — ยังไม่ใช่เนื้อหาที่เผยแพร่หรือผ่านการตรวจสอบผลการเรียนรู้"
-          : "Prototype available — not published or externally validated learning content",
+          ? "บทเรียนเดโม · ยังไม่ผ่านการตรวจสอบผลการเรียนรู้"
+          : "Lesson demo · learning outcomes not externally validated",
       ),
     ).toBeVisible();
     await expect(
       page.getByRole("link", {
-        name:
-          locale === "th"
-            ? "เปิดบทเรียนต้นแบบการตรวจสอบแหล่งข้อมูล"
-            : "Open the source-verification lesson prototype",
+        name: locale === "th" ? "ลองบทเรียนนี้" : "Try this lesson",
       }),
     ).toHaveAttribute("href", `/${locale}/lessons/source-verification-practice`);
     await expect(page.locator("output, [data-score], [data-result]")).toHaveCount(0);
@@ -109,6 +101,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 
     await expectNoHorizontalOverflow(page);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.locator(".example-practice__trace > summary").click();
     await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
     for (const link of await page.locator("main").getByRole("link").all()) {
       const box = await link.boundingBox();

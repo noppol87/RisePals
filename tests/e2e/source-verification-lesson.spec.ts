@@ -13,7 +13,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 async function answerAll(page: Page, correct = true) {
-  for (const group of await page.getByRole("group").all()) {
+  for (const group of await page.locator("fieldset").all()) {
     const radios = group.getByRole("radio");
     await radios.nth(correct ? 0 : 1).check();
   }
@@ -25,23 +25,28 @@ for (const locale of ["th", "en"] as const) {
   }) => {
     await page.goto(`/${locale}${lessonPath}`);
 
+    for (const summary of await page.locator("details > summary").all()) await summary.click();
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
     await expect(page.getByText("1.0.0")).toBeVisible();
     await expect(page.getByText("published", { exact: true })).toBeVisible();
     await expect(page.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
-    await expect(page.getByText("Practicing")).toBeVisible();
-    await expect(page.getByText("Intelligent Risk & Governance")).toBeVisible();
-    await expect(page.getByText("Bright River Operations")).toBeVisible();
-    await expect(page.getByRole("group")).toHaveCount(3);
+    await expect(page.getByText(locale === "th" ? "ลองใช้จริง" : "Practising")).toBeVisible();
+    await expect(
+      page.getByText(locale === "th" ? "รู้ทันความเสี่ยงและรับผิดชอบ" : "Risk and responsibility"),
+    ).toBeVisible();
+    await expect(
+      page.getByText(locale === "th" ? "ทีมปฏิบัติการไบรต์ริเวอร์" : "Bright River Operations"),
+    ).toBeVisible();
+    await expect(page.locator("fieldset")).toHaveCount(3);
     await expect(page.getByRole("radio")).toHaveCount(9);
     await expect(page.locator('input[type="file"], textarea, input[type="text"]')).toHaveCount(0);
     await expect(page.getByText(/20 XP/)).toHaveCount(1);
     await expect(page.locator(".lesson-feedback")).toHaveCount(0);
     await expect(page.locator(".lesson-proof")).toContainText(
       locale === "th"
-        ? "ไม่มีช่องข้อความ การอัปโหลด การสร้างไฟล์ หรือการจัดเก็บหลักฐาน"
-        : "no text field, upload, artifact creation, or storage",
+        ? "ยังพิมพ์ข้อความ อัปโหลด หรือบันทึกไฟล์ไม่ได้"
+        : "No text entry, uploads or saved files.",
     );
   });
 }
@@ -51,11 +56,9 @@ test("the result-to-lesson link is locale matched and explicitly non-personalize
 }) => {
   await page.goto("/en/assessment/example-result");
   await expect(
-    page.getByText(
-      "The result above remains a fixed synthetic example. This lesson is a prototype, and the link is not a personalized recommendation.",
-    ),
+    page.getByText("An example lesson, not a recommendation based on your choices."),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Open the source-verification lesson prototype" }).click();
+  await page.getByRole("link", { name: "Try this lesson" }).click();
   await expect(page).toHaveURL(`/en${lessonPath}`);
 
   await page.getByRole("link", { name: "ไทย" }).click();
@@ -72,39 +75,37 @@ test("keyboard flow focuses incomplete and criterion feedback, then retry and re
   await page.keyboard.press("Enter");
   await expect(page.locator("main")).toBeFocused();
 
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   const error = page.locator("#lesson-practice-error");
   await expect(error).toBeFocused();
   await expect(error).toContainText("Choose one response for all three criteria");
 
-  const groups = page.getByRole("group");
+  const groups = page.locator("fieldset");
   await groups.nth(0).getByRole("radio").nth(0).check();
   await groups.nth(1).getByRole("radio").nth(1).check();
   await groups.nth(2).getByRole("radio").nth(0).check();
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   await expect(
     page.getByRole("heading", { name: "Review at least one criterion before using the summary" }),
   ).toBeFocused();
   await expect(page.getByText("XP rule preview: 0 XP")).toBeVisible();
 
-  await page.getByRole("button", { name: "Revise choices and try again" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Choose the safest verification response" }),
-  ).toBeFocused();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(page.getByRole("heading", { name: "What would you do?" })).toBeFocused();
   await answerAll(page);
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   await expect(
     page.getByRole("heading", { name: "All three criteria are met in this synthetic practice" }),
   ).toBeFocused();
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
   await expect(page.getByText(/not saved.*never accumulates/i)).toBeVisible();
 
-  await page.getByRole("button", { name: "Revise choices and try again" }).click();
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
   await expect(page.getByText(/40 XP/)).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Clear choices on this page" }).click();
+  await page.getByRole("button", { name: "Clear answers" }).click();
   await expect(page.getByRole("radio").first()).not.toBeChecked();
   await expect(page.locator(".lesson-feedback")).toHaveCount(0);
 });
@@ -112,7 +113,7 @@ test("keyboard flow focuses incomplete and criterion feedback, then retry and re
 test("refresh discards every in-memory practice choice and feedback state", async ({ page }) => {
   await page.goto(`/en${lessonPath}`);
   await answerAll(page);
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
 
   await page.reload();
@@ -155,7 +156,7 @@ test("lesson practice never uses storage, cookies, logs, URLs or network request
 
   await page.goto(`/en${lessonPath}`);
   await answerAll(page);
-  await page.getByRole("button", { name: "Review rubric feedback" }).click();
+  await page.getByRole("button", { name: "See how you did" }).click();
   await page.waitForLoadState("networkidle");
 
   const operations = await page.evaluate(

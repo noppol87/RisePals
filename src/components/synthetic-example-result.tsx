@@ -29,9 +29,14 @@ export function SyntheticExampleResult({
         <p className="example-result__boundary">{messages.userChoicesBoundary}</p>
       </header>
 
-      <section className="example-result__section" aria-labelledby="example-provenance-heading">
-        <header className="example-result__section-heading">
+      <details className="experience-disclosure example-result__section">
+        <summary>
           <h2 id="example-provenance-heading">{messages.fixtureHeading}</h2>
+          <span className="disclosure-plus" aria-hidden="true">
+            +
+          </span>
+        </summary>
+        <header className="example-result__section-heading">
           <p>{view.overviewExplanation.body}</p>
         </header>
         <dl className="example-result__provenance">
@@ -48,7 +53,7 @@ export function SyntheticExampleResult({
             </dd>
           </div>
         </dl>
-      </section>
+      </details>
 
       <section className="example-result__section" aria-labelledby="example-coverage-heading">
         <header className="example-result__section-heading">
@@ -162,8 +167,14 @@ export function SyntheticExampleResult({
           <p>{messages.practiceAction}</p>
         </div>
 
-        <section className="example-practice__trace" aria-labelledby="example-trace-heading">
-          <h3 id="example-trace-heading">{messages.traceHeading}</h3>
+        <details className="experience-disclosure example-practice__trace">
+          <summary>
+            <h2 id="example-trace-heading">{messages.traceHeading}</h2>
+            <span className="disclosure-plus" aria-hidden="true">
+              +
+            </span>
+          </summary>
+
           <p>{messages.traceIntroduction}</p>
           <dl>
             <div>
@@ -214,16 +225,21 @@ export function SyntheticExampleResult({
               </dd>
             </div>
           </dl>
-        </section>
+        </details>
         <div className="example-practice__lesson-link">
           <p>{messages.lessonLinkBoundary}</p>
           <TextLink href={lessonHref}>{messages.lessonLinkLabel}</TextLink>
         </div>
       </section>
 
-      <section className="example-limitations" aria-labelledby="example-limitations-heading">
-        <header className="example-result__section-heading">
+      <details className="experience-disclosure example-limitations">
+        <summary>
           <h2 id="example-limitations-heading">{messages.limitationsHeading}</h2>
+          <span className="disclosure-plus" aria-hidden="true">
+            +
+          </span>
+        </summary>
+        <header className="example-result__section-heading">
           <p>{messages.limitationsIntroduction}</p>
         </header>
         <ul>
@@ -231,7 +247,7 @@ export function SyntheticExampleResult({
             <li key={limitation.code}>{limitation.body}</li>
           ))}
         </ul>
-      </section>
+      </details>
 
       <nav className="example-result__actions" aria-label={messages.heading}>
         <TextLink href={assessmentHref}>{messages.backToAssessmentLabel}</TextLink>
@@ -246,10 +262,10 @@ function TraceItemKeys({
   label,
 }: Readonly<{ itemKeys: readonly string[]; label: string }>) {
   return (
-    <div className="example-item-trace">
-      <p>{label}</p>
+    <details className="example-item-trace">
+      <summary>{label}</summary>
       <ItemKeyList itemKeys={itemKeys} />
-    </div>
+    </details>
   );
 }
 

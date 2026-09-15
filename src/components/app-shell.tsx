@@ -48,20 +48,18 @@ export function AppShell({ children, locale, messages }: AppShellProps) {
                 <BrandMark />
                 <span>risepals.</span>
               </div>
-              <p>
-                {locale === "th"
-                  ? "เพื่อนร่วมทาง สู่โลกงานที่คุณพร้อมกว่าเดิม"
-                  : "Your companion for a changing world of work."}
-              </p>
+              <p>{locale === "th" ? "ค่อย ๆ เก่งขึ้นไปด้วยกัน" : "Grow at your own pace."}</p>
             </div>
             <a href={`${homePath}#skill-framework`} className="footer-explore">
-              {locale === "th" ? "รู้จักกรอบทักษะ 8+2" : "Discover the 8+2 framework"}
+              {locale === "th" ? "รู้จักทักษะ 8+2" : "Explore the 8+2 skills"}
               <ArrowIcon diagonal />
             </a>
           </div>
           <div className="footer-bottom">
             <span>© 2026 Rise Pals</span>
-            <span>Level up. Stay ready.</span>
+            <span>
+              {locale === "th" ? "เริ่มเล็ก ๆ ไปได้อีกไกล" : "Small steps. Keep growing."}
+            </span>
             <span>{locale === "th" ? "ต้นแบบเพื่อการเรียนรู้" : "A learning prototype"}</span>
           </div>
         </PageContainer>

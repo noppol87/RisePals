@@ -19,8 +19,8 @@ export function SkillOrbit({
     >
       <div className="skill-explorer__top">
         <span className="status-dot" />
-        <span>{locale === "th" ? "เริ่มจากความเป็นไปได้ของคุณ" : "A world of possibility"}</span>
-        <span className="skill-explorer__edition">01 / EXPLORE</span>
+        <span>{locale === "th" ? "วันนี้อยากฝึกอะไร?" : "What would you like to build?"}</span>
+        <span className="skill-explorer__edition">{locale === "th" ? "ลองแตะดู" : "EXPLORE"}</span>
       </div>
       <div className="skill-orbit">
         <svg viewBox="0 0 400 400" className="skill-orbit__lines" aria-hidden="true">
@@ -45,7 +45,7 @@ export function SkillOrbit({
           <span>
             8<span>+2</span>
           </span>
-          <small>HUMAN SKILLS</small>
+          <small>{locale === "th" ? "ทักษะ + นิสัย" : "SKILLS + HABITS"}</small>
         </div>
         {coreCompetencies.map((key, index) => {
           const angle = ((index * 45 - 90) * Math.PI) / 180;
@@ -73,7 +73,7 @@ export function SkillOrbit({
           );
         })}
         <span className="skill-orbit__hint">
-          {locale === "th" ? "แตะไอคอน แล้วลองสำรวจ" : "Pick a skill. See what opens up."}
+          {locale === "th" ? "แตะทักษะที่สนใจ" : "Pick a skill."}
         </span>
       </div>
       <div
@@ -92,8 +92,8 @@ export function SkillOrbit({
       </div>
       <p className="skill-explorer__boundary">
         {locale === "th"
-          ? "แผนที่กรอบทักษะ · ไม่ใช่ผลประเมินของคุณ"
-          : "A framework to explore · not your assessment result"}
+          ? "สำรวจทักษะ · ไม่ใช่ผลประเมิน"
+          : "Explore the framework · no personal score"}
       </p>
     </div>
   );

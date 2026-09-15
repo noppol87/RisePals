@@ -1,5 +1,28 @@
 # Rise Pals — Project Status
 
+## Current concise experience — 2026-09-15
+
+Jeff requested less text, conversational Thai, equally concise English and more
+visual interaction. Initial home text is now 82% shorter in Thai and 83% shorter
+in English, measured as visible main-text characters with optional details closed.
+Framework definitions, source qualifications and method details remain available
+through native expandable sections. Lesson, assessment, example-result and
+test-account copy is also shorter. SVG connection tracing and brief control
+motion respect reduced-motion preferences.
+
+The available image tool cannot select or confirm GPT Image 2.5, so this pass
+uses Jeff’s suggested SVG/motion alternative. No raster images were generated.
+Versioned lesson definitions, assessment logic, storage and consent notices are
+unchanged. Actual screenshots and the changed-file map are recorded in
+`docs/15_CONCISE_EXPERIENCE.md`.
+
+Fresh checks: format, lint, both typechecks, 416 unit/component tests and Netlify
+offline build pass. All 88 browser cases pass across the initial run (75) and
+the targeted rerun (13) after updating stale copy selectors. Six expanded-page
+accessibility scans found no serious or critical violations. Six additional
+desktop/mobile/reduced-motion alpha checks pass. Hosted setup is
+still pending; no deployment or DNS changes occurred.
+
 ## Current experience design — 2026-09-15
 
 Jeff requested a more beautiful, engaging UI/UX across the website. Implemented

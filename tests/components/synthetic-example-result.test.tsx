@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { SyntheticExampleResult } from "@/components/synthetic-example-result";
 import { catalogs } from "@/lib/i18n/catalogs";
@@ -16,6 +16,7 @@ function renderExample(locale: "th" | "en") {
       view={view}
     />,
   );
+  for (const summary of container.querySelectorAll("details > summary")) fireEvent.click(summary);
   return { container, messages, view };
 }
 
@@ -108,7 +109,7 @@ describe("synthetic example result", () => {
     const { messages, view } = renderExample(locale);
     const limitations = screen
       .getByRole("heading", { name: messages.limitationsHeading })
-      .closest("section")!;
+      .closest("details")!;
 
     expect(view.limitations).toHaveLength(7);
     expect(within(limitations).getAllByRole("listitem")).toHaveLength(7);

@@ -82,7 +82,7 @@ for (const locale of ["th", "en"] as const) {
 test("temporary prototype links honestly without copying browser state", async ({ page }) => {
   await page.goto("/en/assessment");
   await page.evaluate(() => sessionStorage.setItem("turn-12-boundary-sentinel", "unchanged"));
-  await page.getByRole("link", { name: /Open the persisted path/ }).click();
+  await page.getByRole("link", { name: /Try saved responses/ }).click();
   await expect(page).toHaveURL(/\/en\/assessment\/attempt$/);
   await expect(page.getByText(/never copies temporary answers/)).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem("turn-12-boundary-sentinel"))).toBe(

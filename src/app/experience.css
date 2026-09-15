@@ -1381,3 +1381,164 @@ html[lang="en"] .landing-hero h1 {
     scroll-behavior: auto !important;
   }
 }
+
+/* Progressive disclosure keeps the first visit focused on a small next step. */
+.experience-disclosure {
+  border: 1px solid var(--color-border, #d5dfd5);
+  border-radius: 24px;
+  padding: 0 28px;
+  background: #fffef9;
+  color: #193d35;
+}
+.experience-disclosure > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  min-height: 76px;
+  padding: 22px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.experience-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.experience-disclosure > summary h2 {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  line-height: 1.5;
+}
+.experience-disclosure > summary .section-heading__eyebrow {
+  display: block;
+  margin-bottom: 4px;
+}
+.disclosure-plus {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8eddf;
+  font-size: 24px;
+  transition: transform 180ms ease;
+}
+.experience-disclosure[open] > summary .disclosure-plus {
+  transform: rotate(45deg);
+}
+.experience-disclosure[open] {
+  padding-bottom: 28px;
+}
+.experience-disclosure > summary:focus-visible {
+  outline: 3px solid #456a18;
+  outline-offset: 5px;
+  border-radius: 6px;
+}
+.landing-page {
+  gap: 54px;
+}
+.landing-page .framework-section,
+.landing-page .evidence-section {
+  padding: 0;
+}
+.landing-page .framework-section + .evidence-section {
+  margin-top: -34px;
+}
+.landing-page .closing-invitation {
+  padding-block: 52px;
+}
+.closing-invitation h2 {
+  font-size: clamp(1.8rem, 3.6vw, 3rem);
+}
+.landing-hero__supporting {
+  max-width: 46ch;
+}
+.response-section {
+  padding-block: 36px;
+}
+.response-section .section-heading {
+  margin-bottom: 24px;
+}
+.response-section .section-heading h2 {
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+}
+.product-loop li {
+  min-height: 0;
+}
+.product-loop__number {
+  font-size: 1.25rem;
+}
+.product-loop li p {
+  font-size: 0.9rem;
+}
+.assessment-boundary > summary {
+  font-weight: 600;
+}
+.lesson-prototype > details.lesson-panel {
+  margin: 0;
+}
+.lesson-prototype > details.lesson-panel:not([open]) {
+  padding-block: 0;
+}
+.example-item-trace > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.skill-orbit__lines .is-active {
+  stroke-dasharray: 150;
+  animation: trace-skill 420ms ease-out both;
+}
+.source-stack__check svg {
+  stroke-dasharray: 100;
+}
+.first-mission.is-revealed .source-stack__check svg {
+  animation: trace-skill 1.2s ease-out both;
+}
+@keyframes trace-skill {
+  from {
+    stroke-dashoffset: 150;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@media (max-width: 600px) {
+  .landing-page {
+    gap: 32px;
+  }
+  .experience-disclosure {
+    padding-inline: 18px;
+    border-radius: 18px;
+  }
+  .landing-page .framework-section + .evidence-section {
+    margin-top: -14px;
+  }
+  .product-loop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .product-loop li {
+    padding: 16px 12px;
+  }
+  .response-section {
+    padding: 26px 18px;
+  }
+  .product-loop li h3 {
+    font-size: 1rem;
+  }
+  .skill-explorer__edition {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skill-orbit__lines .is-active,
+  .first-mission.is-revealed .source-stack__check svg {
+    animation: none;
+  }
+  .disclosure-plus {
+    transition: none;
+  }
+}

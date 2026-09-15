@@ -1,11 +1,14 @@
 # Rise Pals
 
-## Current experience: visual and UX redesign
+## Current experience: shorter copy, more interaction
 
-The Thai/English experience now includes an interactive skill map, a direct
-practice entry, improved assessment controls, lesson shortcuts and a shared
-responsive design. See [the design and verification record](docs/14_EXPERIENCE_DESIGN.md)
-and the actual interface captures in `docs/design/`.
+The Thai/English interface now leads with a small action and an interactive skill
+map. Conversational Thai and concise English reduce initial landing text by
+82–83%; optional details keep the full framework and sources available. The
+assessment, lesson, example result and test-account surfaces use shorter copy.
+See [the latest changes and verification](docs/15_CONCISE_EXPERIENCE.md),
+[the original visual design](docs/14_EXPERIENCE_DESIGN.md) and actual screenshots
+in `docs/design/`.
 
 ## Current work: Supabase + Netlify migration (15 September 2026)
 

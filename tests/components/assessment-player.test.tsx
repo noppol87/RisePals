@@ -62,6 +62,7 @@ describe("assessment player", () => {
     expect(
       screen.getByRole("heading", { name: catalogs[locale].assessment.heading }),
     ).toBeVisible();
+    fireEvent.click(screen.getByText(catalogs[locale].assessment.boundariesHeading));
     for (const boundary of catalogs[locale].assessment.boundaries) {
       expect(screen.getByText(boundary)).toBeVisible();
     }
@@ -132,7 +133,7 @@ describe("assessment player", () => {
     expect(screen.getByRole("link", { name: "Return home" })).toHaveAttribute("href", "/en");
     expect(
       screen.getByRole("link", {
-        name: "View a synthetic example result (your choices are not used)",
+        name: "See an example result",
       }),
     ).toHaveAttribute("href", "/en/assessment/example-result");
     expect(screen.getByText(catalogs.en.assessment.exampleResultBody)).toBeVisible();

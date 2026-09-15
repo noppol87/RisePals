@@ -21,7 +21,7 @@ for (const locale of ["th", "en"] as const) {
     await page.goto(`/${locale}/learning`);
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      locale === "th" ? "ความคืบหน้าการเรียนรู้" : "Learning progress",
+      locale === "th" ? "ฝึกไปถึงไหนแล้ว?" : "Your progress",
     );
     await expect(page.locator("form, input")).toHaveCount(0);
     await page.goto(`/${locale}/lessons/source-verification-practice/attempt`);

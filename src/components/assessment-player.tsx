@@ -175,14 +175,19 @@ export function AssessmentPlayer({
             <TextLink href={homeHref}>{messages.homeLabel}</TextLink>
           </div>
 
-          <div className="assessment-boundary" aria-labelledby="assessment-boundary-heading">
-            <h2 id="assessment-boundary-heading">{messages.boundariesHeading}</h2>
+          <details className="experience-disclosure assessment-boundary">
+            <summary>
+              {messages.boundariesHeading}
+              <span className="disclosure-plus" aria-hidden="true">
+                +
+              </span>
+            </summary>
             <ul>
               {messages.boundaries.map((boundary) => (
                 <li key={boundary}>{boundary}</li>
               ))}
             </ul>
-          </div>
+          </details>
 
           <div className="assessment-storage-notice" aria-labelledby="storage-notice-heading">
             <h2 id="storage-notice-heading">{messages.storageHeading}</h2>
