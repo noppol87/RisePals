@@ -66,7 +66,7 @@ const copy: Record<
     tryMission: "เริ่มภารกิจแรก",
     tryNearby: "ลองภารกิจที่มีตอนนี้",
     back: "ย้อนกลับ",
-    reset: "เลือกใหม่",
+    reset: "เปลี่ยนคำตอบก่อนหน้า",
     privacy: "สิ่งที่เลือกอยู่แค่ในหน้านี้ · ไม่ใช่ผลประเมิน",
     goals: {
       flow: {
@@ -143,7 +143,7 @@ const copy: Record<
     tryMission: "Start your first mission",
     tryNearby: "Try the available mission",
     back: "Back",
-    reset: "Choose again",
+    reset: "Change earlier answers",
     privacy: "Your choices stay on this page · This is not an assessment result",
     goals: {
       flow: {
@@ -292,7 +292,10 @@ export function FirstVisitJourney({ locale }: Readonly<{ locale: Locale }>) {
               <h2>{goal.path}</h2>
               <p>{goal.available ? messages.honestAvailable : messages.honestComing}</p>
             </div>
-            <TextLink className="narrative-cta" href={sourceVerificationLessonPath(locale)}>
+            <TextLink
+              className="narrative-cta first-visit__primary-action"
+              href={sourceVerificationLessonPath(locale)}
+            >
               {goal.available ? messages.tryMission : messages.tryNearby}
               <ArrowIcon />
             </TextLink>

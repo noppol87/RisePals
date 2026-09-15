@@ -14,6 +14,10 @@ directly above its choices. The selected goal appears as a compact context label
 while the left panel only explains the current stage. This removes the need to
 scan across columns before understanding what the choices answer.
 
+The result action was also clarified after Jeff spotted an ambiguous floating
+arrow. The forward action is now a high-contrast contained button, and changing
+earlier answers is a separate secondary text action beneath it.
+
 Critical source verification has an available fictional mission. Systematic
 thinking and strategic storytelling paths are labelled as still in development
 and offer the existing mission only as a nearby example. The cases remain design

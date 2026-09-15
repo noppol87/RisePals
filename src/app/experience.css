@@ -1639,6 +1639,11 @@ html[lang="en"] .first-visit__intro h1 {
   font-weight: 750;
   letter-spacing: 0.1em;
 }
+.first-visit__result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
 .first-visit__summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -1675,8 +1680,22 @@ html[lang="en"] .first-visit__intro h1 {
   font-size: 0.82rem;
   line-height: 1.7;
 }
-.first-visit__result .narrative-cta {
-  margin-top: 20px;
+.first-visit__result .first-visit__primary-action {
+  width: fit-content;
+  margin-top: 22px;
+  border: 1px solid #d9e994;
+  background: #d9e994;
+  color: #173d32;
+  box-shadow: 0 12px 28px -18px #000;
+}
+.first-visit__result .first-visit__primary-action:hover {
+  background: #e5f2a8;
+  color: #102f28;
+}
+.first-visit__result > .first-visit__back {
+  margin-top: 10px;
+  color: #b9c9c0;
+  font-weight: 500;
 }
 .first-visit__privacy {
   position: absolute;

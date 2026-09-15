@@ -23,6 +23,10 @@ The chosen goal is a compact context label above the question. The left panel
 states what the journey is trying to find and shows progress, so the right panel
 can be understood without cross-column reading.
 
+On the result state, the forward action uses a contained high-contrast button so
+its arrow cannot appear to point toward the reset control. The reset copy now
+says “change earlier answers” and sits separately below as a secondary action.
+
 ## Evidence boundary
 
 This is an experience hypothesis, not completed user research. The result is
