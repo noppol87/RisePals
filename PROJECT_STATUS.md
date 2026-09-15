@@ -1,5 +1,35 @@
 # Rise Pals — Project Status
 
+## Current migration — 2026-09-15
+
+Jeff requested continuing with Supabase, Netlify and GitHub in Codex desktop.
+Work is on `codex/supabase-netlify`, based on main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`,
+in a fresh checkout at `/Users/jeffsoon/Codex/RisePals/app`. The old working copy
+and Windows branch remain preserved.
+
+Implemented: server-side Supabase email-code authentication, verified identity
+mapping, private session refresh, localized sign-in/up/out, a versioned Supabase
+consent notice, owner-scoped identity migration, a one-time empty-project
+initializer, and Netlify build configuration. Historical Clerk identities remain
+separate and are never linked by matching email. Runtime DB pool is capped at
+one connection per warm instance. Public demo routes remain independent of auth.
+
+Security maintenance: Next.js / eslint-config-next 16.3.5, Sharp override 0.35.4,
+Vitest 4.1.11, @types/node 24.13.4 and patched transitive js-yaml. Supabase packages
+are exactly pinned to @supabase/ssr 0.12.7 and @supabase/supabase-js 2.116.0.
+
+Verified locally: formatting, lint, both typechecks, 416 unit/component tests,
+80 browser tests, 6 responsive/reduced-motion alpha checks, isolated PostgreSQL
+baseline and Supabase migration tests, and safe empty-project initialization.
+Netlify CLI 27.6.0 offline build packaged both server and edge functions with
+Next.js Runtime 5.15.13. Production dependency audit reports 0 vulnerabilities.
+
+No hosted Supabase project, deployment or DNS change has been made. Organization
+selection and the subsequent cost confirmation remain pending. Live email-code
+delivery, hosted database permissions and deployed session behavior still need
+verification. Details and changed-file map: `docs/13_SUPABASE_NETLIFY_MIGRATION.md`.
+The records below are historical, not fresh test or deployment evidence.
+
 **Status date:** 2026-08-24  
 **Current phase:** RP-TURN-018 Alpha Hardening and Recovery Accepted by Project Codex  
 **Current turn:** RP-TURN-018 is Accepted; RP-TURN-019 is recommended only, unstarted and unauthorized

@@ -23,7 +23,8 @@ Rise Pals เป็น AI-era career resilience and upskilling platform สำ�
 - ห้ามเริ่ม feature ของ turn ถัดไปเอง แม้จะเห็นว่าเกี่ยวข้องกัน
 - ตรวจไฟล์เดิมก่อนแก้ และรักษางานของผู้ใช้หรือ agent อื่น
 - หากมีสมมติฐานที่ไม่กระทบทิศทางหลัก ให้เดินหน้าต่อและบันทึกไว้ใน handoff
-- หากการตัดสินใจจะเปลี่ยน product scope, architecture, data model หรือสร้าง external cost ให้หยุดและขอคำตัดสิน
+- ทิศทาง Supabase + Netlify + GitHub ได้รับคำสั่งจาก Jeff ในแชตแล้ว ดำเนินงานย้ายระบบและทดสอบภายในขอบเขตนี้ได้
+- สำหรับการขยายผลิตภัณฑ์หรือค่าใช้จ่ายใหม่ที่ยังไม่ได้รับอนุมัติ ให้ขอคำตัดสินหลังเตรียมงานที่ตรวจทานได้
 - ห้าม deploy, ซื้อบริการ, สร้าง production resource หรือเปลี่ยน external account หาก brief ไม่ได้อนุญาตชัดเจน
 
 ## Engineering quality
@@ -61,7 +62,7 @@ Rise Pals เป็น AI-era career resilience and upskilling platform สำ�
 - คำสั่งทดสอบและผลจริง
 - assumptions / decisions / known issues
 - สิ่งที่ยังไม่ได้ทำ
-- copy block สำหรับส่งให้ Project Codex review
+- สรุปข้อเท็จจริงให้ Jeff ใน Codex โดยตรง ไม่ต้องมี copy block หรือส่งต่อไป Project Codex
 
 อัปเดต `PROJECT_STATUS.md` เฉพาะข้อเท็จจริงที่เปลี่ยนใน turn นั้น
 

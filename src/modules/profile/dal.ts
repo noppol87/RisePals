@@ -1,6 +1,6 @@
 import "server-only";
 import type { IdentityProvider } from "@/modules/identity/contract";
-import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
+import { createIdentityProvider } from "@/modules/identity/providers/supabase/server";
 import {
   withAuthorizedUserTransaction,
   type AuthorizationFailureReason,
@@ -63,7 +63,7 @@ function clientSafeProfile(row: ProfileRow): ClientSafeProfile {
 }
 
 export async function loadProfilePageState(
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ProfilePageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client) => {
     const [profileResult, consentResult, measurementConsentResult] = await Promise.all([
@@ -122,7 +122,7 @@ export async function loadProfilePageState(
 export async function appendMeasurementConsentReceipt(
   decision: ConsentDecision,
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ) {
   if (!isConsentDecision(decision) || !isLocale(locale)) {
     throw new Error("Measurement consent input is invalid.");
@@ -151,7 +151,7 @@ export async function appendMeasurementConsentReceipt(
 export async function appendConsentReceipt(
   decision: ConsentDecision,
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ) {
   if (!isConsentDecision(decision) || !isLocale(locale)) {
     throw new Error("Consent input is invalid.");
@@ -180,7 +180,7 @@ export async function appendConsentReceipt(
 
 export async function saveProfile(
   rawInput: FormData | Readonly<Record<string, unknown>>,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ) {
   const input: ProfileInput = parseProfileInput(rawInput);
 

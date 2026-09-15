@@ -12,8 +12,8 @@ vi.mock("@/modules/account/authorization", () => ({
     operation: (client: PoolClient, userId: string) => Promise<unknown>,
   ) => authorization.run(provider, operation),
 }));
-vi.mock("@/modules/identity/providers/clerk/server", () => ({
-  createClerkDevelopmentIdentityProvider: vi.fn(),
+vi.mock("@/modules/identity/providers/supabase/server", () => ({
+  createIdentityProvider: vi.fn(),
 }));
 
 import {

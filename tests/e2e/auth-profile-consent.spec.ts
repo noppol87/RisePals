@@ -10,7 +10,9 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} sign-in explains the synthetic Clerk boundary without keys`, async ({ page }) => {
+  test(`${locale} sign-in explains the synthetic Supabase boundary without keys`, async ({
+    page,
+  }) => {
     const unexpectedOrigins = new Set<string>();
     page.on("request", (request) => {
       const url = new URL(request.url());
@@ -21,9 +23,8 @@ for (const locale of ["th", "en"] as const) {
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(
-      page.getByText(locale === "th" ? /ข้อมูลบุคคลจริง/ : /Real personal data/),
+      page.getByText(locale === "th" ? /ห้ามใช้ข้อมูลบุคคลจริง/ : /Real personal data/),
     ).toBeVisible();
-    await expect(page.getByText(locale === "th" ? /สหรัฐอเมริกา/ : /United States/)).toBeVisible();
     await expect(page.getByRole("heading", { level: 2 })).toContainText(
       locale === "th" ? "ยังไม่ได้เชื่อมต่อ" : "not connected",
     );
@@ -46,7 +47,7 @@ for (const locale of ["th", "en"] as const) {
       locale === "th" ? "สร้างบัญชีอัลฟา" : "Create an alpha account",
     );
     await expect(
-      page.getByText(locale === "th" ? /ข้อมูลบุคคลจริง/ : /Real personal data/),
+      page.getByText(locale === "th" ? /ห้ามใช้ข้อมูลบุคคลจริง/ : /Real personal data/),
     ).toBeVisible();
     await expect(page.getByRole("heading", { level: 2 })).toContainText(
       locale === "th" ? "ยังไม่ได้เชื่อมต่อ" : "not connected",
@@ -55,7 +56,7 @@ for (const locale of ["th", "en"] as const) {
     expect([...unexpectedOrigins]).toEqual([]);
   });
 
-  test(`${locale} protected profile fails closed before database access when Clerk is unavailable`, async ({
+  test(`${locale} protected profile fails closed before database access when Supabase is unavailable`, async ({
     page,
   }) => {
     await page.goto(`/${locale}/profile`);

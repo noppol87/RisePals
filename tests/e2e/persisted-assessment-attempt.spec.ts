@@ -10,7 +10,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} persisted attempt is localized and fails closed without Clerk`, async ({
+  test(`${locale} persisted attempt is localized and fails closed without Supabase`, async ({
     page,
   }) => {
     const unexpectedOrigins = new Set<string>();
@@ -53,7 +53,7 @@ for (const locale of ["th", "en"] as const) {
     ).toEqual([]);
   });
 
-  test(`${locale} persisted result fails closed without Clerk and leaks no result data`, async ({
+  test(`${locale} persisted result fails closed without Supabase and leaks no result data`, async ({
     page,
   }) => {
     const unexpectedOrigins = new Set<string>();

@@ -61,15 +61,14 @@ export const profileCopy = {
     save: "บันทึกโปรไฟล์",
     logout: "ออกจากระบบ",
     unavailableHeading: "ยังไม่ได้เชื่อมต่อการยืนยันตัวตนทดลอง",
-    unavailableBody:
-      "หน้านี้พร้อมสำหรับ Clerk Development แต่เครื่องนี้ยังไม่มีคู่กุญแจ Development ที่ Jeff จัดเตรียมไว้ จึงไม่สร้างบัญชีหรือข้อมูลใด ๆ",
+    unavailableBody: "ระบบเข้าสู่ระบบยังไม่พร้อมใช้งาน โปรดลองอีกครั้งภายหลัง",
     signInHeading: "เข้าสู่ระบบอัลฟาด้วยอีเมลโค้ด",
-    signInIntroduction: "ใช้เฉพาะอีเมลทดสอบสังเคราะห์ใน Clerk Development ห้ามใช้ข้อมูลบุคคลจริง",
+    signInIntroduction: "ใช้เฉพาะอีเมลทดสอบสังเคราะห์ใน Supabase Auth ห้ามใช้ข้อมูลบุคคลจริง",
     signUpHeading: "สร้างบัญชีอัลฟาด้วยอีเมลโค้ด",
     signUpIntroduction:
-      "สร้างบัญชีด้วยอีเมลทดสอบสังเคราะห์ใน Clerk Development เท่านั้น ห้ามใช้ข้อมูลบุคคลจริง",
+      "สร้างบัญชีด้วยอีเมลทดสอบสังเคราะห์ใน Supabase Auth เท่านั้น ห้ามใช้ข้อมูลบุคคลจริง",
     syntheticBoundary:
-      "Clerk เก็บข้อมูลตัวตนทดลองในสหรัฐอเมริกา และยังไม่ได้รับอนุมัติสำหรับระบบจริง",
+      "ระบบนี้อยู่ระหว่างทดสอบด้วยข้อมูลสังเคราะห์ ยังไม่เปิดให้ใช้ข้อมูลบุคคลจริง",
     localizationFallback:
       "การแปลส่วนยืนยันตัวตนของ Clerk ยังเป็นฟีเจอร์ทดลอง หากข้อความใดแสดงเป็นอังกฤษ ให้ยึดประกาศภาษาไทยในหน้านี้เป็นหลัก",
     accountStateHeading: "บัญชีนี้ยังใช้งานโปรไฟล์ไม่ได้",
@@ -107,16 +106,15 @@ export const profileCopy = {
     save: "Save profile",
     logout: "Sign out",
     unavailableHeading: "Synthetic authentication is not connected",
-    unavailableBody:
-      "This route is prepared for Clerk Development, but this machine does not have Jeff-supplied Development keys. No account or data was created.",
+    unavailableBody: "Sign-in is not available yet. Please try again later.",
     signInHeading: "Sign in to the alpha with an email code",
     signInIntroduction:
-      "Use synthetic test email identities in Clerk Development only. Real personal data is prohibited.",
+      "Use synthetic test email identities in Supabase Auth only. Real personal data is prohibited.",
     signUpHeading: "Create an alpha account with an email code",
     signUpIntroduction:
-      "Create an account with a synthetic test email in Clerk Development only. Real personal data is prohibited.",
+      "Create an account with a synthetic test email in Supabase Auth only. Real personal data is prohibited.",
     syntheticBoundary:
-      "Clerk hosts synthetic identity data in the United States and is not approved for production.",
+      "This environment is for synthetic testing and is not open for real personal data.",
     localizationFallback:
       "Clerk localization is experimental. If vendor UI copy falls back to English, this page remains the authoritative product boundary.",
     accountStateHeading: "This account cannot access the profile",

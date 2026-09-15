@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import type { Locale } from "@/lib/i18n/config";
 import { mutationExecution, type ServerMutationExecution } from "@/lib/server/mutation-execution";
 import type { IdentityProvider } from "@/modules/identity/contract";
-import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
+import { createIdentityProvider } from "@/modules/identity/providers/supabase/server";
 import {
   withAuthorizedUserTransaction,
   type AuthorizationFailureReason,
@@ -296,7 +296,7 @@ function pageStateFromContext(
 
 export async function loadPersistedAssessmentPageState(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedAssessmentPageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, (client, userId) =>
     loadInternalContext(client, userId, locale),
@@ -308,7 +308,7 @@ export async function loadPersistedAssessmentPageState(
 
 export async function startPersistedAssessment(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedAssessmentPageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     let context = await loadInternalContext(client, userId, locale);
@@ -334,7 +334,7 @@ export async function startPersistedAssessment(
 
 export async function savePersistedAssessmentResponseWithExecution(
   rawInput: SavePersistedResponseInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ServerMutationExecution<SavePersistedResponseResult>> {
   const input = parseSavePersistedResponseInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -426,14 +426,14 @@ export async function savePersistedAssessmentResponseWithExecution(
 
 export async function savePersistedAssessmentResponse(
   rawInput: SavePersistedResponseInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<SavePersistedResponseResult> {
   return (await savePersistedAssessmentResponseWithExecution(rawInput, identityProvider)).result;
 }
 
 export async function submitPersistedAssessment(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<SubmitPersistedAssessmentResult> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     const context = await loadInternalContext(client, userId, locale, true);

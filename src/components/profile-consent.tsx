@@ -2,7 +2,7 @@ import { Stack } from "@/components/primitives/stack";
 import { MeasurementConsentSection } from "@/components/measurement-consent-section";
 import type { Locale } from "@/lib/i18n/config";
 import { privacyNotice } from "@/modules/consent/notice";
-import { ClerkLogoutControl } from "@/modules/identity/providers/clerk/client-boundary";
+import { SupabaseLogoutControl } from "@/modules/identity/providers/supabase/panel";
 import type { ProfilePageState } from "@/modules/profile/dal";
 import { profileCopy } from "@/modules/profile/copy";
 import {
@@ -88,7 +88,7 @@ export function ProfileConsent({
         <h1>{mode === "onboarding" ? copy.onboardingHeading : copy.profileHeading}</h1>
         <p>{copy.introduction}</p>
         <p className="boundary-note">{copy.provisional}</p>
-        <ClerkLogoutControl label={copy.logout} locale={locale} />
+        <SupabaseLogoutControl label={copy.logout} locale={locale} />
       </section>
 
       <section className="surface-card profile-panel" aria-labelledby="privacy-notice-heading">

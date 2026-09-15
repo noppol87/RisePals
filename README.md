@@ -1,5 +1,18 @@
 # Rise Pals
 
+## Current work: Supabase + Netlify migration (15 September 2026)
+
+The active branch `codex/supabase-netlify` uses Supabase Auth for every application
+sign-in and protected operation, Supabase Postgres as the target database, Netlify
+as the hosting target, and this GitHub repository for version history. The legacy
+Clerk adapter and tests remain for compatibility evidence; they are not selected
+by the running application. Existing synthetic-alpha product boundaries still apply.
+
+Start with [the migration and setup guide](docs/13_SUPABASE_NETLIFY_MIGRATION.md).
+The historical sections below describe the previously accepted implementation.
+They do not require continuing the Windows hosting branch or the VS Code review relay.
+
+
 Rise Pals คือแพลตฟอร์มพัฒนาความพร้อมในการทำงานยุค AI สำหรับคนทำงานออฟฟิศไทย ช่วยให้ผู้ใช้รู้ว่าตนเองมีช่องว่างด้านทักษะอะไร ควรพัฒนาอะไรก่อน เรียนผ่านประสบการณ์แบบ gamified และสร้างหลักฐานความสามารถที่ต่อยอดไปสู่โอกาสทางอาชีพได้
 
 **Brand:** Rise Pals  

@@ -28,13 +28,19 @@
     "test:e2e": "node scripts/run-secret-free.mjs e2e --project=chromium",
     "test:e2e:alpha": "node scripts/run-secret-free.mjs e2e --grep=@alpha-hardening --project=chromium --project=chromium-mobile-320 --project=chromium-reduced-motion",
     "test:e2e:install": "playwright install chromium",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "build:netlify": "npm run content:validate && next build",
+    "db:test:local": "node scripts/db/run-local-postgres.mjs",
+    "db:provision": "node scripts/db/provision-supabase.mjs",
+    "db:test:provision": "node scripts/db/run-local-postgres.mjs --provision"
   },
   "dependencies": {
     "@clerk/localizations": "4.14.1",
     "@clerk/nextjs": "7.7.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
     "drizzle-orm": "0.45.2",
-    "next": "16.2.12",
+    "next": "16.3.5",
     "pg": "8.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -47,13 +53,13 @@
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "7.0.0",
     "@testing-library/react": "16.3.2",
-    "@types/node": "24.13.3",
+    "@types/node": "24.13.4",
     "@types/pg": "8.20.3",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.3.5",
     "jsdom": "30.0.1",
     "postcss": "8.5.25",
     "prettier": "3.9.6",
@@ -62,13 +68,13 @@
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "unified": "11.0.5",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "esbuild": "0.25.12",
     "nanoid": "3.3.18",
     "postcss": "8.5.25",
-    "sharp": "0.35.3"
+    "sharp": "0.35.4"
   },
   "allowScripts": {
     "esbuild": true,

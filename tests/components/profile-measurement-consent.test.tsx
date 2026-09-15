@@ -8,15 +8,15 @@ vi.mock("@/app/[locale]/profile/actions", () => ({
   recordMeasurementConsentAction: vi.fn(),
   saveProfileAction: vi.fn(),
 }));
-vi.mock("@/modules/identity/providers/clerk/client-boundary", () => ({
-  ClerkLogoutControl: ({ label }: { label: string }) => <button>{label}</button>,
+vi.mock("@/modules/identity/providers/supabase/panel", () => ({
+  SupabaseLogoutControl: ({ label }: { label: string }) => <button>{label}</button>,
 }));
 
 function state(status: "not-set" | "granted" | "declined" | "withdrawn" | "stale") {
   return {
     state: "ready",
     profile: null,
-    consent: { decision: "granted", noticeVersion: "alpha-privacy-v1" },
+    consent: { decision: "granted", noticeVersion: "alpha-privacy-supabase-v2" },
     measurementConsent: {
       status,
       noticeVersion: "alpha-measurement-monitoring-v1",

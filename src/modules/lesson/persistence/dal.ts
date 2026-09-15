@@ -8,7 +8,7 @@ import {
 } from "@/modules/account/authorization";
 import { PRIVACY_NOTICE_VERSION, SERVICE_DATA_PURPOSE } from "@/modules/consent/notice";
 import type { IdentityProvider } from "@/modules/identity/contract";
-import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
+import { createIdentityProvider } from "@/modules/identity/providers/supabase/server";
 import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
 import { evaluateSourceVerificationPractice } from "@/modules/lesson/source-verification/evaluate";
 import type { SourceVerificationCriterionResult } from "@/modules/lesson/source-verification/types";
@@ -217,7 +217,7 @@ function stateFromPractice(
 
 export async function loadPersistedLessonPageState(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedLessonPageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     if (!(await currentConsent(client, userId))) return { state: "consent-required" } as const;
@@ -239,7 +239,7 @@ export async function loadPersistedLessonPageState(
 export async function startPersistedLesson(
   locale: Locale,
   mutationId: string,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedLessonMutationResult> {
   const parsed = parsePersistedLessonStartInput({ locale, clientMutationId: mutationId });
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -303,7 +303,7 @@ function responsePayload(selections: readonly PersistedPracticeSelection[]) {
 
 export async function mutatePersistedLessonWithExecution(
   rawInput: PersistedLessonMutationInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ServerMutationExecution<PersistedLessonMutationResult>> {
   const input = parsePersistedLessonMutationInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -466,7 +466,7 @@ export async function mutatePersistedLessonWithExecution(
 
 export async function mutatePersistedLesson(
   rawInput: PersistedLessonMutationInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedLessonMutationResult> {
   return (await mutatePersistedLessonWithExecution(rawInput, identityProvider)).result;
 }

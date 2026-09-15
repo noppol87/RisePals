@@ -1,11 +1,15 @@
-import { clerkDevelopmentProxy } from "@/modules/identity/providers/clerk/proxy";
-
-export default clerkDevelopmentProxy;
-
+import { refreshSupabaseSession } from "@/modules/identity/providers/supabase/proxy";
+export default refreshSupabaseSession;
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-    "/__clerk/(.*)",
+    "/:locale/sign-in/:path*",
+    "/:locale/sign-up/:path*",
+    "/:locale/profile/:path*",
+    "/:locale/onboarding/:path*",
+    "/:locale/learning/:path*",
+    "/:locale/evidence/:path*",
+    "/:locale/assessment/attempt/:path*",
+    "/:locale/assessment/result/:path*",
+    "/:locale/lessons/:lesson/attempt/:path*",
   ],
 };

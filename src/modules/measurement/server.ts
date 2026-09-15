@@ -75,10 +75,10 @@ async function defaultAdapter(): Promise<MeasurementMonitoringAdapter> {
   adapterPromise ??= Promise.all([
     import("@/lib/db/server"),
     import("@/modules/account/authorization"),
-    import("@/modules/identity/providers/clerk/server"),
+    import("@/modules/identity/providers/supabase/server"),
     import("./postgresql-adapter"),
   ]).then(([database, authorization, identity, postgres]) => {
-    const provider = identity.createClerkDevelopmentIdentityProvider();
+    const provider = identity.createIdentityProvider();
     const pool = database.createApplicationPool();
     return postgres.createPostgresqlMeasurementMonitoringAdapter({
       transactionRunner: (operation) =>

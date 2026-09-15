@@ -10,7 +10,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} protected learning routes fail closed without Clerk and remain loopback-only`, async ({
+  test(`${locale} protected learning routes fail closed without Supabase and remain loopback-only`, async ({
     page,
   }) => {
     const unexpectedOrigins = new Set<string>();
