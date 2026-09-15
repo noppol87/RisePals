@@ -1,6 +1,6 @@
 {
   "schemaVersion": "rise-pals-guided-mission-v2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "status": "local-prototype",
   "validationStatus": "unvalidated",
   "sourceIdentity": "source-verification-practice@1.0.0",
@@ -10,12 +10,12 @@
       "id": "operations",
       "mode": "coached",
       "title": {
-        "th": "ช่วยเช็กก่อนส่งหัวหน้า",
-        "en": "Check it before you send it"
+        "th": "ช่วยทีมเช็กสรุปก่อนใช้ตัดสินใจ",
+        "en": "Help the team check a summary before a decision"
       },
       "context": {
-        "th": "AI ร่างสรุปให้แล้ว ลองดูว่ามีตรงไหนพูดเกินข้อมูล",
-        "en": "AI drafted a summary. Find the claim that goes too far."
+        "th": "หัวหน้ากำลังจะใช้ร่างนี้ตัดสินใจว่าจะขยายวิธีทำงานไปทีมอื่นไหม คุณมีหน้าที่เช็กว่าข้อสรุปตรงกับข้อมูลก่อนส่ง",
+        "en": "A manager may use this draft to decide whether to expand a new workflow. Check that its claims match the evidence before it is sent."
       },
       "before": {
         "th": "ทดลอง 60 วัน ทีม A ปิดงานเร็วขึ้น 30% ทุกทีมจึงเร็วขึ้น 30%",
@@ -74,8 +74,8 @@
         {
           "id": "claim",
           "prompt": {
-            "th": "แตะข้อความที่ยังสรุปแบบนี้ไม่ได้",
-            "en": "Tap the claim the evidence may not support"
+            "th": "คำตอบ AI ข้อไหนยังไม่มีข้อมูลรองรับ?",
+            "en": "Which part of the AI answer is not supported by the data?"
           },
           "options": [
             {
@@ -85,8 +85,8 @@
                 "en": "A 60-day pilot"
               },
               "reason": {
-                "th": "ระยะเวลาอยู่ในบันทึกแล้ว ลองดูข้อความที่ขยายผลไปทุกทีม",
-                "en": "The pilot record gives the duration. Look for a claim about every team."
+                "th": "ยังไม่ใช่ข้อนี้ บันทึกระบุชัดว่าทดลอง 60 วัน ลองหาข้อความที่เหมารวมผลไปทุกทีม",
+                "en": "Not this one. The record confirms a 60-day pilot. Look for wording that generalizes the result to every team."
               },
               "correct": false
             },
@@ -97,8 +97,8 @@
                 "en": "Team A was 30% faster"
               },
               "reason": {
-                "th": "ข้อมูลทีม A รองรับตัวเลขนี้ แต่บอกผลแทนทีมอื่นไม่ได้",
-                "en": "Team A’s data supports this figure, but cannot speak for other teams."
+                "th": "ยังไม่ใช่ข้อนี้ ตารางรองรับผลของทีม A ที่ 30% แต่ตัวเลขนี้ใช้แทนทีมอื่นไม่ได้",
+                "en": "Not this one. The table supports Team A's 30% result, but that figure cannot represent other teams."
               },
               "correct": false
             },
@@ -109,8 +109,8 @@
                 "en": "So every team was 30% faster"
               },
               "reason": {
-                "th": "ใช่ ผลของทีม A ยังใช้แทนทุกทีมไม่ได้ ลองหาหลักฐานมาเทียบกัน",
-                "en": "Yes. Team A’s result cannot stand for every team. Find the evidence to compare."
+                "th": "ถูกต้อง ข้อมูลมีผลต่างกันในทีม A และ B ส่วนทีม C ยังไม่ครบ จึงสรุปว่า “ทุกทีม 30%” ไม่ได้",
+                "en": "Correct. A and B have different results and C is incomplete, so the evidence cannot support “every team, 30%.”"
               },
               "correct": true
             }
@@ -119,8 +119,8 @@
         {
           "id": "evidence",
           "prompt": {
-            "th": "หลักฐานไหนใช้เช็กคำว่า “ทุกทีม” ได้ตรงที่สุด?",
-            "en": "Which record best checks “every team”?"
+            "th": "หลักฐานชิ้นไหนตอบได้ตรงที่สุดว่าแต่ละทีมได้ผลเหมือนกันหรือไม่?",
+            "en": "Which record best shows whether every team had the same result?"
           },
           "options": [
             {
@@ -164,8 +164,8 @@
         {
           "id": "rewrite",
           "prompt": {
-            "th": "เติมส่วนของทีม C ให้สรุปตรงกับข้อมูล",
-            "en": "Complete the summary for Team C"
+            "th": "ควรเขียนผลของทีม C ว่าอย่างไรจึงจะตรงกับสิ่งที่รู้ตอนนี้?",
+            "en": "How should Team C's result be written based on what is known now?"
           },
           "options": [
             {
@@ -209,8 +209,8 @@
         {
           "id": "action",
           "prompt": {
-            "th": "ก่อนส่งสรุป ควรทำอะไรต่อ?",
-            "en": "What should happen before you send it?"
+            "th": "ถ้าสรุปนี้กำลังจะถูกใช้ตัดสินใจ ทีมควรทำอะไรต่อ?",
+            "en": "If this summary will inform a decision, what should the team do next?"
           },
           "options": [
             {
@@ -257,12 +257,12 @@
       "id": "survey",
       "mode": "independent",
       "title": {
-        "th": "ลองเอง: ทุกคนอยากเรียนตอนเย็นจริงไหม?",
-        "en": "Your turn: does everyone want evening sessions?"
+        "th": "ลองเอง: ควรจัดอบรมช่วงเย็นให้ทุกคนไหม?",
+        "en": "Your turn: should everyone be scheduled for evening training?"
       },
       "context": {
-        "th": "บริษัทถามพนักงาน 100 คน มีคนตอบ 20 คน ลองเช็กสรุปนี้ด้วยหลักเดียวกัน",
-        "en": "A company asked 100 staff. Only 20 replied. Use the same checks on this summary."
+        "th": "ทีมกำลังจะเลือกเวลาอบรมให้พนักงาน 100 คน แต่มีคนตอบแบบสำรวจ 20 คน ลองเช็กว่าสรุปนี้ใช้ตัดสินใจได้แค่ไหน",
+        "en": "A team is choosing a training time for 100 staff, but only 20 answered the survey. Check how far this summary can support the decision."
       },
       "before": {
         "th": "มีคนตอบแบบสำรวจ 20 คน ทุกคนในบริษัทอยากเรียนหลังเลิกงาน โดยมีผู้ตอบเลือกช่วงเย็น 12 คน",
@@ -321,8 +321,8 @@
         {
           "id": "claim",
           "prompt": {
-            "th": "แตะข้อความที่พูดเกินข้อมูล",
-            "en": "Tap the claim that goes beyond the data"
+            "th": "ข้อความไหนสรุปเกินสิ่งที่แบบสำรวจบอกได้?",
+            "en": "Which statement goes beyond what the survey can tell us?"
           },
           "options": [
             {
@@ -366,8 +366,8 @@
         {
           "id": "evidence",
           "prompt": {
-            "th": "จะใช้ข้อมูลไหนตรวจข้อสรุปนี้?",
-            "en": "Which record would you use to check the claim?"
+            "th": "หลักฐานชิ้นไหนแสดงทั้งคำตอบที่ต่างกันและข้อมูลที่ยังขาด?",
+            "en": "Which evidence shows both the different responses and what is still missing?"
           },
           "options": [
             {
@@ -411,8 +411,8 @@
         {
           "id": "rewrite",
           "prompt": {
-            "th": "จะเติมสรุปนี้ว่าอะไร?",
-            "en": "How would you complete this summary?"
+            "th": "ควรเติมข้อจำกัดอะไร เพื่อไม่ให้สรุปแทนคนที่ยังไม่ตอบ?",
+            "en": "What limitation should be added so the summary does not speak for non-respondents?"
           },
           "options": [
             {
@@ -456,8 +456,8 @@
         {
           "id": "action",
           "prompt": {
-            "th": "จะเสนอให้ทีมทำอะไรต่อ?",
-            "en": "What would you suggest next?"
+            "th": "ก่อนเลือกเวลาอบรมให้ทุกคน ทีมควรทำอะไรต่อ?",
+            "en": "Before choosing a time for everyone, what should the team do next?"
           },
           "options": [
             {

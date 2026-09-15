@@ -1,5 +1,25 @@
 # Rise Pals — Project Status
 
+## Decision-first public mission — 2026-09-16
+
+Jeff requested a full rethink after the lesson still felt confusing when read as
+a first-time user. The public source-verification mission now starts from one
+real responsibility: help a team check an AI summary before it informs a
+decision. Its four steps ask the learner to find an overclaim, choose evidence,
+write within the evidence and choose the next action.
+
+The mission goal stays visible throughout. Each question, short instruction and
+set of choices are grouped together; the evidence and AI answer remain visible
+beside them and on mobile. Feedback explains the selected choice, and the final
+state connects the corrected summary to the decision it may support. Thai and
+English content is versioned as local prototype `2.1.0`.
+
+Fresh checks: formatting, lint, both typechecks, 418 unit/component tests,
+content validation, production build, 16 targeted Chromium checks and all 85
+browser checks pass. Visual review covered Thai desktop and 390px mobile task
+states with no horizontal overflow. Scenarios remain fictional and unvalidated
+with real users. Full details are in `docs/21_DECISION_FIRST_MISSION.md`.
+
 ## First-visit journey prototype — 2026-09-16
 
 Jeff approved implementation of the consolidated realignment plan. The public

@@ -38,8 +38,8 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
   const actionChoice = mission.questions[3]!.options.find((o) => o.id === selections.action);
   const copy = (thai: string, english: string) => (th ? thai : english);
   const stepLabels = th
-    ? ["จับจุด", "หาหลักฐาน", "แก้สรุป", "เลือกก้าวต่อไป"]
-    : ["Spot it", "Find evidence", "Rewrite", "Next action"];
+    ? ["หาจุดเกินข้อมูล", "เลือกหลักฐาน", "เขียนให้ตรง", "เลือกก้าวต่อ"]
+    : ["Find the overclaim", "Choose evidence", "Write accurately", "Choose next step"];
 
   useEffect(() => {
     if (initial.current) {
@@ -84,7 +84,9 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
           {caseIndex + 1}
         </span>
       </header>
-      <h1 id="mission-title">{copy("เช็กก่อนเชื่อ", "Check before you trust")}</h1>
+      <h1 id="mission-title">
+        {copy("เช็กสรุปก่อนใช้ตัดสินใจ", "Check a summary before it informs a decision")}
+      </h1>
       <p className="mission-boundary">
         {copy(
           "ข้อมูลสมมติ · ไม่บันทึกผล · ไม่ใช่การรับรองทักษะ",
@@ -123,15 +125,15 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
               className="player-button player-button--primary"
               onClick={() => setStep(0)}
             >
-              {copy("เริ่มเช็กสรุปนี้", "Check this summary")}
+              {copy("เริ่มช่วยทีมเช็กสรุป", "Start checking the summary")}
               <ArrowIcon />
             </button>
             <p className="mission-small">
               {independent
                 ? copy("ดูเฉลยหลังตอบครบทั้ง 4 ขั้น", "Feedback comes after all 4 decisions.")
                 : copy(
-                    "จับจุด → หาหลักฐาน → แก้สรุป",
-                    "Spot the claim → find evidence → fix the summary",
+                    "หาจุดที่เกินข้อมูล → เลือกหลักฐาน → แก้สรุป → เลือกก้าวต่อ",
+                    "Find the overclaim → choose evidence → fix the summary → decide what comes next",
                   )}
             </p>
           </div>
@@ -154,26 +156,29 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
 
       {question && !finished ? (
         <section className="mission-task" key={`${mission.id}-${step}`}>
-          <header className="mission-task__header">
-            <p className="mission-eyebrow">
-              {independent
-                ? copy("ลองใช้กับเรื่องใหม่", "APPLY IT TO A NEW CASE")
-                : copy("ค่อย ๆ เช็กไปด้วยกัน", "LET’S CHECK IT TOGETHER")}{" "}
-              · {step + 1}/4
+          <div className="mission-task__purpose">
+            <span>{copy("เป้าหมายของภารกิจ", "MISSION GOAL")}</span>
+            <p>
+              {caseIndex === 0
+                ? copy(
+                    "ช่วยให้หัวหน้าตัดสินใจจากข้อมูลที่ตรวจสอบได้ โดยไม่เหมารวมผลของทีมหนึ่งไปทุกทีม",
+                    "Help the manager decide from checked evidence without generalizing one team’s result to every team.",
+                  )
+                : copy(
+                    "ช่วยทีมเลือกเวลาอบรมโดยไม่ใช้คำตอบจากคนส่วนน้อยแทนพนักงานทุกคน",
+                    "Help the team choose a training time without treating a minority of responses as everyone’s preference.",
+                  )}
             </p>
-            <h2 id="mission-question" ref={headingRef} tabIndex={-1}>
-              {question.prompt[locale]}
-            </h2>
-          </header>
+          </div>
           <div className="mission-task__grid">
             <aside
               className="mission-evidence"
-              aria-label={copy("ข้อมูลประกอบ", "Evidence at hand")}
+              aria-label={copy("หลักฐานที่ใช้เช็ก", "Evidence to check")}
             >
               <EvidenceStrip mission={mission} locale={locale} />
               {step < 2 ? (
                 <div className="mission-quote-small">
-                  <span>{copy("AI เขียนว่า", "AI wrote")}</span>
+                  <span>{copy("คำตอบ AI ที่กำลังตรวจ", "AI ANSWER BEING CHECKED")}</span>
                   <p>{mission.before[locale]}</p>
                 </div>
               ) : (
@@ -209,12 +214,46 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
               </details>
             </aside>
             <form noValidate onSubmit={advance} className="mission-decisions">
+              <header className="mission-task__header">
+                <p className="mission-eyebrow">
+                  {independent
+                    ? copy("รอบลองเอง", "YOUR TURN")
+                    : copy("รอบฝึกไปด้วยกัน", "GUIDED ROUND")}{" "}
+                  · {stepLabels[step]}
+                </p>
+                <h2 id="mission-question" ref={headingRef} tabIndex={-1}>
+                  {question.prompt[locale]}
+                </h2>
+                <p className="mission-question-help">
+                  {step === 0
+                    ? copy(
+                        "เทียบคำตอบ AI กับหลักฐานด้านซ้าย แล้วเลือก 1 ข้อที่ข้อมูลยังยืนยันไม่ได้",
+                        "Compare the AI answer with the evidence, then choose one statement the data cannot confirm.",
+                      )
+                    : step === 1
+                      ? copy(
+                          "เลือกแหล่งที่ตอบคำถามนี้ได้โดยตรงและเห็นข้อมูลที่ขาดด้วย",
+                          "Choose the source that answers this question directly and shows what is missing.",
+                        )
+                      : step === 2
+                        ? copy(
+                            "เลือกข้อความที่บอกเท่าที่รู้ และไม่เปลี่ยนข้อมูลที่ขาดให้เป็นผลลัพธ์",
+                            "Choose wording that states only what is known and does not turn missing data into a result.",
+                          )
+                        : copy(
+                            "เลือกสิ่งที่ช่วยปิดช่องว่างของข้อมูลก่อนนำสรุปไปใช้จริง",
+                            "Choose the action that closes the evidence gap before the summary is used.",
+                          )}
+                </p>
+              </header>
               <fieldset
                 aria-labelledby="mission-question"
                 aria-describedby={error ? "mission-error" : undefined}
                 aria-invalid={error || undefined}
               >
-                <legend className="visually-hidden">{question.prompt[locale]}</legend>
+                <legend className="mission-choice-label">
+                  {copy("เลือกคำตอบ 1 ข้อ", "Choose one answer")}
+                </legend>
                 <div className={`mission-options mission-options--${question.id}`}>
                   {question.options.map((option, index) => (
                     <label
@@ -250,8 +289,8 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
                 <div className="mission-hint" data-correct={selected.correct} role="status">
                   <strong>
                     {selected.correct
-                      ? copy("ใช่เลย", "That fits")
-                      : copy("ลองดูอีกนิด", "Take another look")}
+                      ? copy("ถูกต้อง เพราะอะไร", "Correct — here’s why")
+                      : copy("ยังไม่ใช่ข้อนี้ เพราะอะไร", "Not this one — here’s why")}
                   </strong>
                   <p>{selected.reason[locale]}</p>
                 </div>
@@ -270,7 +309,7 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
                 </button>
                 <button className="player-button player-button--primary" type="submit">
                   {!independent && !(checked && selected?.correct)
-                    ? copy("เช็กคำตอบ", "Check my choice")
+                    ? copy("ตรวจคำตอบนี้", "Check this answer")
                     : step === 3
                       ? copy("ดูสรุปของฉัน", "See my summary")
                       : copy("ไปต่อ", "Continue")}
@@ -293,7 +332,10 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
             </p>
             <h2 ref={headingRef} tabIndex={-1}>
               {result.allCorrect
-                ? copy("คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary")
+                ? copy(
+                    "สรุปนี้พร้อมใช้ตัดสินใจมากขึ้น",
+                    "This summary is safer to use in a decision",
+                  )
                 : copy("มีจุดที่น่าลองเช็กอีกที", "A few things need another look")}
             </h2>
             <p>
@@ -308,8 +350,8 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
                       "Compare your choices with the evidence below.",
                     )
                 : copy(
-                    "คุณฝึกเช็กหลักฐานและแก้สรุป โดยมีคำแนะนำระหว่างทาง",
-                    "You practised checking and rewriting with guidance along the way.",
+                    "คุณหาจุดที่เกินข้อมูล เลือกหลักฐาน แก้สรุป และเลือกก้าวต่อแล้ว",
+                    "You found the overclaim, chose evidence, fixed the summary, and decided what comes next.",
                   )}
             </p>
           </div>
@@ -365,7 +407,7 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
                 className="player-button player-button--primary"
                 onClick={() => restart(1)}
               >
-                {copy("ลองอีกสถานการณ์", "Try a new situation")}
+                {copy("ลองใช้กับอีกสถานการณ์", "Use this in another situation")}
                 <ArrowIcon />
               </button>
             ) : (
@@ -424,7 +466,7 @@ function EvidenceStrip({ mission, locale }: Readonly<{ mission: MissionCase; loc
   const max = Math.max(...mission.facts.map((fact) => fact.amount ?? 0));
   return (
     <figure className="mission-facts">
-      <figcaption>{locale === "th" ? "ข้อมูลที่มี" : "WHAT WE KNOW"}</figcaption>
+      <figcaption>{locale === "th" ? "หลักฐานที่ใช้เช็ก" : "EVIDENCE TO CHECK"}</figcaption>
       <div className="mission-facts__grid">
         {mission.facts.map((fact) => (
           <div key={fact.id} data-missing={fact.amount === null}>

@@ -8,7 +8,9 @@ type Locale = "th" | "en";
 const label = (locale: Locale, th: string, en: string) => (locale === "th" ? th : en);
 async function begin(page: Page, locale: Locale = "en") {
   await page
-    .getByRole("button", { name: label(locale, "เริ่มเช็กสรุปนี้", "Check this summary") })
+    .getByRole("button", {
+      name: label(locale, "เริ่มช่วยทีมเช็กสรุป", "Start checking the summary"),
+    })
     .click();
 }
 async function answer(
@@ -24,7 +26,7 @@ async function answer(
     await page.getByRole("radio", { name: option.label[locale] }).check();
     if (caseIndex === 0) {
       await page
-        .getByRole("button", { name: label(locale, "เช็กคำตอบ", "Check my choice") })
+        .getByRole("button", { name: label(locale, "ตรวจคำตอบนี้", "Check this answer") })
         .click();
       await expect(page.getByRole("status")).toContainText(option.reason[locale]);
     } else await expect(page.getByRole("status")).toHaveCount(0);
@@ -86,19 +88,29 @@ for (const locale of ["th", "en"] as const) {
     await answer(page, 0, locale, false, true);
     await expect(
       page.getByRole("heading", {
-        name: label(locale, "คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary"),
+        name: label(
+          locale,
+          "สรุปนี้พร้อมใช้ตัดสินใจมากขึ้น",
+          "This summary is safer to use in a decision",
+        ),
       }),
     ).toBeFocused();
     await expect(page.locator(".mission-before-after")).toBeVisible();
     await checkAccess(page);
     await page
-      .getByRole("button", { name: label(locale, "ลองอีกสถานการณ์", "Try a new situation") })
+      .getByRole("button", {
+        name: label(locale, "ลองใช้กับอีกสถานการณ์", "Use this in another situation"),
+      })
       .click();
     await begin(page, locale);
     await answer(page, 1, locale, false, true);
     await expect(
       page.getByRole("heading", {
-        name: label(locale, "คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary"),
+        name: label(
+          locale,
+          "สรุปนี้พร้อมใช้ตัดสินใจมากขึ้น",
+          "This summary is safer to use in a decision",
+        ),
       }),
     ).toBeFocused();
     await checkAccess(page);
@@ -117,15 +129,15 @@ test("coaching validates, blocks an incorrect choice, and preserves Back selecti
   await page.keyboard.press("Enter");
   await expect(page.locator("main")).toBeFocused();
   await begin(page);
-  await page.getByRole("button", { name: "Check my choice" }).click();
+  await page.getByRole("button", { name: "Check this answer" }).click();
   await expect(page.locator("#mission-error")).toBeFocused();
   await page.getByRole("radio").first().check();
-  await page.getByRole("button", { name: "Check my choice" }).click();
-  await expect(page.getByRole("status")).toContainText("Take another look");
+  await page.getByRole("button", { name: "Check this answer" }).click();
+  await expect(page.getByRole("status")).toContainText("Not this one");
   await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
   await page.getByRole("radio").nth(2).focus();
   await page.keyboard.press("Space");
-  await page.getByRole("button", { name: "Check my choice" }).click();
+  await page.getByRole("button", { name: "Check this answer" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByRole("radio").nth(2)).toBeChecked();
@@ -139,7 +151,7 @@ test("same-position guessing fails the independent case, preserves the actual dr
   await page.goto(`/en${path}`);
   await begin(page);
   await answer(page, 0);
-  await page.getByRole("button", { name: "Try a new situation" }).click();
+  await page.getByRole("button", { name: "Use this in another situation" }).click();
   await begin(page);
   await answer(page, 1, "en", true);
   await expect(page.getByRole("heading", { name: "A few things need another look" })).toBeFocused();
@@ -181,7 +193,7 @@ test("practice choices never enter storage, cookies, URLs, logs or network paylo
   await page.goto(`/en${path}`);
   await begin(page);
   await answer(page, 0);
-  await page.getByRole("button", { name: "Try a new situation" }).click();
+  await page.getByRole("button", { name: "Use this in another situation" }).click();
   await begin(page);
   await answer(page, 1);
   await page.waitForLoadState("networkidle");
@@ -206,7 +218,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.emulateMedia({ reducedMotion });
     await page.goto(`/th${path}`);
-    const start = page.getByRole("button", { name: "เริ่มเช็กสรุปนี้" });
+    const start = page.getByRole("button", { name: "เริ่มช่วยทีมเช็กสรุป" });
     await expect(start).toBeInViewport();
     await begin(page, "th");
     for (const [index, q] of cases[0]!.questions.entries()) {
@@ -218,7 +230,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
         expect(box!.x + box!.width).toBeLessThanOrEqual(320);
       }
       await page.getByRole("radio", { name: q.options.find((o) => o.correct)!.label.th }).check();
-      await page.getByRole("button", { name: "เช็กคำตอบ" }).click();
+      await page.getByRole("button", { name: "ตรวจคำตอบนี้" }).click();
       await page.getByRole("button", { name: index === 3 ? "ดูสรุปของฉัน" : "ไปต่อ" }).click();
     }
     await checkAccess(page);

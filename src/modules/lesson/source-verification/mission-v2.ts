@@ -1,4 +1,4 @@
-import content from "../../../../content/missions/source-verification/2.0.0.json";
+import content from "../../../../content/missions/source-verification/2.1.0.json";
 import type { Locale } from "@/lib/i18n/config";
 
 type Copy = Readonly<Record<Locale, string>>;

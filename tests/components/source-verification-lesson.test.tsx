@@ -20,7 +20,7 @@ function renderLesson(locale: "th" | "en" = "en") {
   );
 }
 function begin() {
-  fireEvent.click(screen.getByRole("button", { name: "Check this summary" }));
+  fireEvent.click(screen.getByRole("button", { name: "Start checking the summary" }));
 }
 function finishCoached() {
   begin();
@@ -28,7 +28,7 @@ function finishCoached() {
     fireEvent.click(
       screen.getByRole("radio", { name: question.options.find((o) => o.correct)!.label.en }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
     fireEvent.click(screen.getByRole("button", { name: i === 3 ? "See my summary" : "Continue" }));
   }
 }
@@ -39,7 +39,7 @@ describe("versioned visual mission", () => {
       renderLesson(locale);
       expect(
         screen.getByRole("button", {
-          name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
+          name: locale === "th" ? "เริ่มช่วยทีมเช็กสรุป" : "Start checking the summary",
         }),
       ).toBeVisible();
       expect(screen.getByText(cases[0]!.before[locale])).toBeVisible();
@@ -48,24 +48,24 @@ describe("versioned visual mission", () => {
       fireEvent.click(
         screen.getByText(locale === "th" ? "เกี่ยวกับแบบฝึกนี้" : "About this practice"),
       );
-      expect(screen.getByText(/2.0.0/)).toBeVisible();
+      expect(screen.getByText(/2.1.0/)).toBeVisible();
     },
   );
   it("focuses missing-answer errors, gives specific coaching, and keeps a wrong answer on the same step", async () => {
     renderLesson();
     begin();
-    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
     fireEvent.click(screen.getAllByRole("radio")[0]!);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
     expect(screen.getByRole("status")).toHaveTextContent(
       cases[0]!.questions[0]!.options[0]!.reason.en,
     );
     expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("radio")[2]!);
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     fireEvent.click(screen.getByRole("button", { name: /^Back$/ }));
     expect(screen.getAllByRole("radio")[2]).toBeChecked();
@@ -73,11 +73,15 @@ describe("versioned visual mission", () => {
   it("builds a before/after artifact, labels coaching honestly, and starts a clean independent case", () => {
     renderLesson();
     finishCoached();
-    expect(screen.getByRole("heading", { name: "You fixed this summary" })).toBeVisible();
-    expect(screen.getByText(/with guidance along the way/)).toBeVisible();
+    expect(
+      screen.getByRole("heading", {
+        name: "This summary is safer to use in a decision",
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/decided what comes next/)).toBeVisible();
     expect(screen.getByText(/Team C’s result is still unknown/)).toBeVisible();
     expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Try a new situation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use this in another situation" }));
     begin();
     expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
     for (const [i] of cases[1]!.questions.entries()) {
@@ -89,7 +93,9 @@ describe("versioned visual mission", () => {
     }
     expect(screen.getByRole("heading", { name: "A few things need another look" })).toBeVisible();
     expect(
-      screen.queryByRole("heading", { name: "You fixed this summary" }),
+      screen.queryByRole("heading", {
+        name: "This summary is safer to use in a decision",
+      }),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try this case again" }));
     begin();

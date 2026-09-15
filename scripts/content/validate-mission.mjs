@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const data = JSON.parse(
   await readFile(
-    new URL("../../content/missions/source-verification/2.0.0.json", import.meta.url),
+    new URL("../../content/missions/source-verification/2.1.0.json", import.meta.url),
     "utf8",
   ),
 );
 assert.equal(data.schemaVersion, "rise-pals-guided-mission-v2");
-assert.equal(data.version, "2.0.0");
+assert.equal(data.version, "2.1.0");
 assert.equal(data.status, "local-prototype");
 assert.equal(data.validationStatus, "unvalidated");
 assert.equal(data.sourceIdentity, "source-verification-practice@1.0.0");
@@ -58,5 +58,5 @@ assert.deepEqual(
   [12, 8, 80],
 );
 console.log(
-  "Validated guided mission 2.0.0: two fictional cases, bilingual choices and answer integrity.",
+  "Validated guided mission 2.1.0: two fictional cases, bilingual choices and answer integrity.",
 );

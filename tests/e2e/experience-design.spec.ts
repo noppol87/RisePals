@@ -64,7 +64,7 @@ for (const locale of ["th", "en"] as const) {
       .click();
     await expect(page).toHaveURL(new RegExp(`/${locale}/lessons/source-verification-practice$`));
     const shortcut = page.getByRole("button", {
-      name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
+      name: locale === "th" ? "เริ่มช่วยทีมเช็กสรุป" : "Start checking the summary",
     });
     await shortcut.click();
     const heading = page.locator("#mission-question");

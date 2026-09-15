@@ -2449,10 +2449,32 @@ body:has(.mission-workspace) .primary-nav {
 .mission-task h2 {
   font-size: clamp(1.3rem, 3vw, 2rem);
   line-height: 1.5;
-  margin: 0 0 1.5rem;
+  margin: 0 0 0.55rem;
 }
 .mission-workspace h2 {
   scroll-margin-top: 120px;
+}
+.mission-task__purpose {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.85rem 1rem;
+  border-left: 3px solid #6f9545;
+  background: #edf2e5;
+}
+.mission-task__purpose span {
+  flex: 0 0 auto;
+  color: #536344;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+.mission-task__purpose p {
+  margin: 0;
+  color: #344d40;
+  font-size: 0.82rem;
+  line-height: 1.65;
 }
 .mission-task__grid {
   display: grid;
@@ -2560,11 +2582,32 @@ body:has(.mission-workspace) .primary-nav {
   min-height: 44px;
   padding-block: 0.7rem;
 }
+.mission-task__header {
+  margin-bottom: 1.25rem;
+}
+.mission-task__header .mission-eyebrow {
+  margin-bottom: 0.45rem;
+  color: #5c704c;
+}
+.mission-question-help {
+  margin: 0;
+  color: #526457;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
 .mission-decisions fieldset {
   border: 0;
   padding: 0;
   margin: 0;
   min-width: 0;
+}
+.mission-choice-label {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.65rem;
+  color: #344d40;
+  font-size: 0.76rem;
+  font-weight: 700;
 }
 .mission-options {
   display: grid;
@@ -2788,8 +2831,16 @@ body:has(.mission-workspace) .primary-nav {
     line-height: 1.6;
   }
   .mission-task h2 {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     font-size: 1.4rem;
+  }
+  .mission-task__purpose {
+    display: block;
+    margin-bottom: 1rem;
+  }
+  .mission-task__purpose span {
+    display: block;
+    margin-bottom: 0.25rem;
   }
   .mission-option {
     padding: 0.8rem;
@@ -2807,7 +2858,8 @@ body:has(.mission-workspace) .primary-nav {
     font-size: 1.45rem;
   }
   .mission-quote-small {
-    display: none;
+    margin-top: 0.75rem;
+    padding: 0.85rem;
   }
   .mission-actions {
     align-items: stretch;

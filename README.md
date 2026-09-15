@@ -1,5 +1,16 @@
 # Rise Pals
 
+## Current mission: check before a decision
+
+The public source-verification mission now gives the learner one realistic
+responsibility: check an AI summary before a team uses it to make a decision.
+The mission goal, evidence, AI answer, current question and choices stay visibly
+connected on desktop and mobile. Four short actions lead to a before/after
+summary and a concrete next step. Thai and English use the same concise flow.
+
+The local prototype is versioned as `2.1.0`. See the
+[decision-first mission record](docs/21_DECISION_FIRST_MISSION.md).
+
 ## Current experience: start from the visitor's work
 
 The public home now asks one useful question at a time: what the visitor wants
@@ -14,15 +25,16 @@ See [implementation and checks](docs/20_FIRST_VISIT_JOURNEY.md) and the
 
 ## Interactive mission
 
-The public lesson now guides learners through spotting a claim, choosing evidence,
-completing a summary and choosing a next action. A second fictional case lets
-them try the same checks without hints during the round. The result shows their
-actual before/after summary. The home page leads directly into the mission.
-Both Thai and English are available.
+The public lesson guides learners through finding an overclaim, choosing evidence,
+writing a supported summary and deciding what should happen before it is used.
+A second fictional case lets them try the same checks without hints during the
+round. The result shows their actual before/after summary. The home page leads
+directly into the mission. Both Thai and English are available.
 
-The public mission is versioned separately as local prototype 2.0.0; immutable
+The public mission is versioned separately as local prototype 2.1.0; immutable
 published v1 content and private saved attempts retain their existing identities.
-See [implementation, screenshots and checks](docs/18_INTERACTIVE_MISSION_V2.md).
+See [the current implementation and checks](docs/21_DECISION_FIRST_MISSION.md)
+and the [earlier mission record](docs/18_INTERACTIVE_MISSION_V2.md).
 
 ## Previous guided visual lesson
 

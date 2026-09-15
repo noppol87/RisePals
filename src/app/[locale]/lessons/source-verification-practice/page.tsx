@@ -26,7 +26,9 @@ export async function generateMetadata({
 
   return {
     title:
-      resolved.locale === "th" ? "เช็กก่อนเชื่อ | Rise Pals" : "Check before you trust | Rise Pals",
+      resolved.locale === "th"
+        ? "เช็กสรุปก่อนใช้ตัดสินใจ | Rise Pals"
+        : "Check a summary before a decision | Rise Pals",
     description:
       resolved.locale === "th"
         ? "ลองจับจุด หาหลักฐาน และแก้สรุป AI ผ่านสองสถานการณ์สมมติ ไม่บันทึกผล"
