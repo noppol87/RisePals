@@ -1,5 +1,24 @@
 # Rise Pals — Project Status
 
+## Current experience design — 2026-09-15
+
+Jeff requested a more beautiful, engaging UI/UX across the website. Implemented
+a warm-ivory/deep-green/lime design with local Thai/English fonts, a native
+interactive skill map, practice entry, clear navigation, scenario progress,
+lesson shortcuts, reduced-motion support and a shared footer/control system.
+The working interface is documented with desktop, mobile and assessment captures
+in `docs/design/`. Scope, changed files and fresh checks are in
+`docs/14_EXPERIENCE_DESIGN.md`.
+
+Fresh design checks pass: format, lint, both typechecks, 416 tests, 85 browser
+tests, six desktop/mobile/reduced-motion checks and Netlify offline packaging.
+Production dependency audit reports zero vulnerabilities.
+
+The Supabase organization "Jeff" is now selected. The cost tool returned 10/month;
+the official compute pricing identifies USD. A cost confirmation question is
+pending; no paid project or deployment has been created. The local UI work is
+independent of that decision.
+
 ## Current migration — 2026-09-15
 
 Jeff requested continuing with Supabase, Netlify and GitHub in Codex desktop.
@@ -24,8 +43,8 @@ baseline and Supabase migration tests, and safe empty-project initialization.
 Netlify CLI 27.6.0 offline build packaged both server and edge functions with
 Next.js Runtime 5.15.13. Production dependency audit reports 0 vulnerabilities.
 
-No hosted Supabase project, deployment or DNS change has been made. Organization
-selection and the subsequent cost confirmation remain pending. Live email-code
+No hosted Supabase project, deployment or DNS change has been made. The quoted
+cost confirmation remains pending. Live email-code
 delivery, hosted database permissions and deployed session behavior still need
 verification. Details and changed-file map: `docs/13_SUPABASE_NETLIFY_MIGRATION.md`.
 The records below are historical, not fresh test or deployment evidence.

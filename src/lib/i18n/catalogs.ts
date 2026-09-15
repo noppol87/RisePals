@@ -42,6 +42,7 @@ export type LandingCatalog = Readonly<{
   hero: Readonly<{
     eyebrow: string;
     heading: string;
+    headingAccent: string;
     introduction: string;
     supporting: string;
     ctaLabel: string;
@@ -199,10 +200,11 @@ export const catalogs = {
     },
     landing: {
       hero: {
-        eyebrow: "พร้อมเติบโตไปกับโลกงานที่เปลี่ยน",
-        heading: "งานกำลังเปลี่ยน แต่คุณยังเตรียมตัวและสร้างคุณค่าใหม่ได้",
+        eyebrow: "LEVEL UP. STAY READY.",
+        heading: "งานกำลังเปลี่ยน",
+        headingAccent: "เติบโตในแบบคุณ",
         introduction:
-          "Rise Pals ช่วยให้คนทำงานมองการเปลี่ยนแปลงอย่างมีหลักฐาน เห็นทักษะที่ควรพัฒนา และเปลี่ยนความกังวลให้เป็นการลงมือทำทีละขั้น",
+          "รู้จักทักษะของตัวเอง ฝึกผ่านสถานการณ์จริง และสร้างก้าวต่อไปในโลกงานยุค AI ไปกับ Rise Pals",
         supporting:
           "เราไม่ทำนายว่าใครจะตกงาน และไม่รับประกันการจ้างงาน เป้าหมายคือช่วยให้คุณฝึกวิจารณญาณ เชื่อมงานกับผลลัพธ์ และพิสูจน์สิ่งที่ทำได้จริง",
         ctaLabel: "ทดลอง 6 สถานการณ์จำลอง",
@@ -334,13 +336,13 @@ export const catalogs = {
       boundaries: [
         "สถานการณ์ทั้งหกเป็นข้อมูลจำลอง และชุดนี้ยังไม่ผ่านการตรวจสอบความเที่ยงตรงหรือการสอบเทียบ",
         "คำตอบไม่สามารถทำนายการตกงาน ผลการปฏิบัติงาน ความสามารถในการได้งานหรือรักษางาน หรือคุณสมบัติในการจ้างงาน",
-        "RP-TURN-007 ไม่มีผลคะแนน ระดับความสามารถ ช่องว่างที่ควรพัฒนา หรือคำแนะนำ",
+        "ต้นแบบนี้ไม่มีผลคะแนน ระดับความสามารถ ช่องว่างที่ควรพัฒนา หรือคำแนะนำ",
         "ระบบไม่ขอชื่อ อีเมล นายจ้าง ประสบการณ์ เป้าหมาย โปรไฟล์ความยินยอม หรือข้อความอิสระ",
         "การกดเริ่มเป็นเพียงการเริ่มต้นแบบ ไม่ใช่การให้ความยินยอมทางกฎหมายหรือใบรับความยินยอม",
       ],
       storageHeading: "การเก็บคำตอบชั่วคราวในแท็บนี้",
       storageBody:
-        "ต้นแบบนี้เก็บเฉพาะรหัสสถานการณ์และรหัสตัวเลือกไว้ชั่วคราวใน sessionStorage ของแท็บเบราว์เซอร์นี้ เพื่อกลับมาขั้นเดิมหลังรีเฟรช ข้อมูลไม่ถูกส่งไปยังเซิร์ฟเวอร์ ไม่ใช่การบันทึกถาวร และอาจหายได้เมื่อปิดแท็บหรือเมื่อเบราว์เซอร์จำกัดพื้นที่เก็บข้อมูล คุณล้างข้อมูลนี้ได้ทุกเมื่อ",
+        "ต้นแบบนี้เก็บเฉพาะตัวเลือกของคุณไว้ชั่วคราวในแท็บเบราว์เซอร์นี้ เพื่อกลับมาขั้นเดิมหลังรีเฟรช ข้อมูลไม่ถูกส่งไปยังเซิร์ฟเวอร์ ไม่ใช่การบันทึกถาวร และอาจหายได้เมื่อปิดแท็บหรือเมื่อเบราว์เซอร์จำกัดพื้นที่เก็บข้อมูล คุณล้างข้อมูลนี้ได้ทุกเมื่อ",
       storageUnavailable:
         "เบราว์เซอร์ไม่อนุญาตพื้นที่เก็บข้อมูลชั่วคราว คุณยังทดลองต่อได้ แต่การรีเฟรชอาจทำให้คำตอบหาย",
       storageRestored: "กู้คืนขั้นและตัวเลือกที่บันทึกชั่วคราวในแท็บนี้แล้ว",
@@ -348,7 +350,7 @@ export const catalogs = {
       storageCleared: "ล้างคำตอบชั่วคราวแล้ว",
       persistedAttemptHeading: "ทดลองเส้นทางบันทึกสำหรับบัญชีอัลฟา",
       persistedAttemptBody:
-        "เส้นทางแยกนี้ต้องลงชื่อเข้าใช้และให้ความยินยอมก่อน โดยจะเริ่มเซสชันใหม่ใน PostgreSQL เท่านั้น ระบบจะไม่อ่านหรือนำเข้าคำตอบชั่วคราวจากแท็บนี้",
+        "เส้นทางแยกนี้ต้องลงชื่อเข้าใช้และให้ความยินยอมก่อน โดยจะเริ่มชุดคำตอบใหม่ที่บันทึกในบัญชี ระบบจะไม่อ่านหรือนำเข้าคำตอบชั่วคราวจากแท็บนี้",
       persistedAttemptLinkLabel: "เปิดเส้นทางบันทึก (ไม่คัดลอกคำตอบในแท็บนี้)",
       startLabel: "เริ่มต้นแบบ 6 สถานการณ์",
       questionHeadingTemplate: "สถานการณ์ที่ {current}",
@@ -366,7 +368,7 @@ export const catalogs = {
       completionSummary:
         "ขอบคุณที่ทดลองขั้นตอนทั้งหมด คำตอบยังคงเป็นข้อมูลชั่วคราวในแท็บนี้จนกว่าคุณจะล้างหรือปิดแท็บ",
       completionBoundary:
-        "RP-TURN-007 ไม่คำนวณหรือแสดงคะแนน ระดับความสามารถ ความมั่นใจ รูปแบบพฤติกรรม ช่องว่างที่ควรพัฒนา หรือคำแนะนำใด ๆ",
+        "ต้นแบบนี้ไม่คำนวณหรือแสดงคะแนน ระดับความสามารถ ความมั่นใจ รูปแบบพฤติกรรม ช่องว่างที่ควรพัฒนา หรือคำแนะนำใด ๆ",
       exampleResultHeading: "ดูตัวอย่างผลลัพธ์ที่แยกจากคำตอบของคุณ",
       exampleResultBody:
         "ตัวอย่างถัดไปใช้ชุดคำตอบจำลองที่ทีมกำหนดไว้ล่วงหน้า ระบบไม่อ่าน ไม่ให้คะแนน และไม่นำตัวเลือกที่คุณตอบในแท็บนี้ไปใช้",
@@ -453,8 +455,9 @@ export const catalogs = {
     },
     landing: {
       hero: {
-        eyebrow: "Grow with a changing world of work",
-        heading: "Work is changing. You can still prepare, grow, and create new value.",
+        eyebrow: "LEVEL UP. STAY READY.",
+        heading: "Work is changing.",
+        headingAccent: "Make your next move.",
         introduction:
           "Rise Pals helps people look at change through evidence, see which capabilities matter, and turn uncertainty into practical development one step at a time.",
         supporting:
@@ -594,13 +597,13 @@ export const catalogs = {
       boundaries: [
         "All six scenarios are synthetic, and this set has not been validated or calibrated.",
         "Your choices cannot predict job loss, job performance, employability, or hiring eligibility.",
-        "RP-TURN-007 provides no score, proficiency level, priority gap, result, or recommendation.",
+        "This prototype provides no score, proficiency level, priority gap, result, or recommendation.",
         "The player asks for no name, email, employer, experience, goals, consent profile, or free text.",
         "Starting the prototype begins only this interaction; it is not legal consent or a consent receipt.",
       ],
       storageHeading: "Temporary answer storage in this tab",
       storageBody:
-        "The player keeps only scenario and selected-option IDs in this tab's sessionStorage so a refresh can return to the same step. Nothing is sent to the server, this is not durable persistence, and the data may disappear when you close the tab or when browser storage is restricted. You can clear it at any time.",
+        "The player keeps only your selected choices temporarily in this browser tab so a refresh can return to the same step. Nothing is sent to the server, this is not durable persistence, and the data may disappear when you close the tab or when browser storage is restricted. You can clear it at any time.",
       storageUnavailable:
         "Browser session storage is unavailable. You can continue, but refreshing may remove your selections.",
       storageRestored: "The step and selections saved temporarily in this tab were restored.",
@@ -609,7 +612,7 @@ export const catalogs = {
       storageCleared: "Temporary selections were cleared.",
       persistedAttemptHeading: "Try the signed-in persisted alpha path",
       persistedAttemptBody:
-        "This separate path requires sign-in and current consent, then starts a new PostgreSQL session. It never reads or imports temporary answers from this tab.",
+        "This separate path requires sign-in and current consent, then starts a new set of responses saved to your account. It never reads or imports temporary answers from this tab.",
       persistedAttemptLinkLabel: "Open the persisted path (tab answers are not copied)",
       startLabel: "Start the six-scenario prototype",
       questionHeadingTemplate: "Scenario {current}",
@@ -627,7 +630,7 @@ export const catalogs = {
       completionSummary:
         "Thank you for reviewing the full flow. Your choices remain temporary in this tab until you clear them or close the tab.",
       completionBoundary:
-        "RP-TURN-007 calculates and displays no score, proficiency, confidence, behavioural pattern, priority gap, result, or recommendation.",
+        "This prototype calculates and displays no score, proficiency, confidence, behavioural pattern, priority gap, result, or recommendation.",
       exampleResultHeading: "View an example result that is separate from your choices",
       exampleResultBody:
         "The next page uses a predefined synthetic response fixture. It does not read, score, or use the choices you made in this tab.",

@@ -154,6 +154,27 @@ export function AssessmentPlayer({
           </h1>
           <p className="assessment-player__lead">{messages.introduction}</p>
 
+          <div className="assessment-player__actions">
+            <button
+              className="player-button player-button--primary"
+              disabled={!hydrated}
+              type="button"
+              onClick={() => updateState(startPlayer(state, view))}
+            >
+              {messages.startLabel}
+            </button>
+            {state.selections.length > 0 ? (
+              <button
+                className="player-button player-button--secondary"
+                type="button"
+                onClick={handleClear}
+              >
+                {messages.clearLabel}
+              </button>
+            ) : null}
+            <TextLink href={homeHref}>{messages.homeLabel}</TextLink>
+          </div>
+
           <div className="assessment-boundary" aria-labelledby="assessment-boundary-heading">
             <h2 id="assessment-boundary-heading">{messages.boundariesHeading}</h2>
             <ul>
@@ -181,32 +202,20 @@ export function AssessmentPlayer({
               {storageMessage}
             </p>
           ) : null}
-
-          <div className="assessment-player__actions">
-            <button
-              className="player-button player-button--primary"
-              disabled={!hydrated}
-              type="button"
-              onClick={() => updateState(startPlayer(state, view))}
-            >
-              {messages.startLabel}
-            </button>
-            {state.selections.length > 0 ? (
-              <button
-                className="player-button player-button--secondary"
-                type="button"
-                onClick={handleClear}
-              >
-                {messages.clearLabel}
-              </button>
-            ) : null}
-            <TextLink href={homeHref}>{messages.homeLabel}</TextLink>
-          </div>
         </div>
       ) : null}
 
       {state.phase === "question" && currentItem && progress.currentPosition !== null ? (
         <div className="assessment-player__question">
+          <div className="scenario-rail" aria-hidden="true">
+            {view.items.map((item) => (
+              <span
+                key={item.key}
+                data-current={item.key === currentItem.key}
+                data-complete={state.selections.some((selection) => selection.itemKey === item.key)}
+              />
+            ))}
+          </div>
           <header className="assessment-player__step-heading">
             <p className="section-heading__eyebrow">{messages.eyebrow}</p>
             <h1 id="assessment-player-heading" ref={headingRef} tabIndex={-1}>
@@ -310,6 +319,12 @@ export function AssessmentPlayer({
 
       {state.phase === "complete" ? (
         <div className="assessment-player__completion">
+          <div className="completion-seal" aria-hidden="true">
+            <span>✓</span>
+            <small>
+              {progress.answeredCount} / {progress.totalItems}
+            </small>
+          </div>
           <p className="section-heading__eyebrow">{messages.completionEyebrow}</p>
           <h1 id="assessment-player-heading" ref={headingRef} tabIndex={-1}>
             {messages.completionHeading}

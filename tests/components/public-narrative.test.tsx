@@ -14,9 +14,7 @@ describe("public narrative", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "งานกำลังเปลี่ยน แต่คุณยังเตรียมตัว",
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("งานกำลังเปลี่ยน");
     expect(screen.getByRole("link", { name: catalogs.th.landing.hero.ctaLabel })).toHaveAttribute(
       "href",
       "/th/assessment",
@@ -24,7 +22,7 @@ describe("public narrative", () => {
     expect(screen.getByText(/ยังไม่ใช่แบบประเมินที่ผ่านการตรวจสอบ/)).toBeVisible();
     expect(screen.getByText(/เก็บเฉพาะรหัสตัวเลือกชั่วคราว/)).toBeVisible();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(8);
   });
 
   it("renders exactly two evidence items with visible qualifiers and direct sources", () => {

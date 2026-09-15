@@ -190,9 +190,9 @@ uses the specific introductory sentence and passes all 80 cases.
 
 ## Remaining hosted work
 
-The Organization selection for creating a dedicated RisePals project is pending.
-Before creation, obtain the tool's cost quote for the selected organization and
-confirm it with Jeff. No hosted project, paid resource, live email identity,
+The Organization "Jeff" is selected. The tool quoted 10 USD/month for a dedicated
+RisePals project; explicit approval of that cost is pending. No hosted project,
+paid resource, live email identity,
 deployment, DNS change or migration of existing real-user data is implied by
 local tests. Hosted Auth/email delivery, database privileges/pooling, Netlify
 session continuity and domain TLS require verification in the chosen environment.

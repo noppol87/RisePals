@@ -78,11 +78,29 @@ export function SourceVerificationLesson({
       </p>
 
       <header className="lesson-hero">
-        <p className="section-heading__eyebrow">{view.hero.eyebrow}</p>
+        <p className="section-heading__eyebrow">MISSION 01 · CRITICAL THINKING</p>
         <h1 id="lesson-prototype-heading">{view.hero.heading}</h1>
         <p className="lesson-hero__lead">{view.hero.introduction}</p>
-        <p className="lesson-prototype__badge">{view.hero.prototypeLabel}</p>
+        <p className="lesson-prototype__badge">
+          {view.lesson.locale === "th"
+            ? "บทเรียนตัวอย่าง · ผลการเรียนรู้ยังไม่ผ่านการตรวจสอบจากภายนอก"
+            : "Practice prototype · learning outcomes not externally validated"}
+        </p>
         <p className="lesson-prototype__boundary">{view.hero.boundary}</p>
+        <nav
+          className="lesson-quick-nav"
+          aria-label={view.lesson.locale === "th" ? "ส่วนต่าง ๆ ของบทเรียน" : "In this lesson"}
+        >
+          <a href="#lesson-scenario-heading">
+            {view.lesson.locale === "th" ? "01 อ่านสถานการณ์" : "01 Read the scenario"}
+          </a>
+          <a href="#lesson-concepts-heading">
+            {view.lesson.locale === "th" ? "02 เรียนรู้แนวคิด" : "02 Learn the approach"}
+          </a>
+          <a href="#lesson-practice-heading">
+            {view.lesson.locale === "th" ? "03 ลงมือฝึก" : "03 Put it into practice"}
+          </a>
+        </nav>
       </header>
 
       <section className="lesson-panel" aria-labelledby="lesson-overview-heading">

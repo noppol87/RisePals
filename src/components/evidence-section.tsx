@@ -12,6 +12,7 @@ export function EvidenceSection({ evidence, messages }: EvidenceSectionProps) {
       id="why-now"
       className="narrative-section evidence-section"
       aria-labelledby="why-now-heading"
+      data-reveal
     >
       <header className="section-heading">
         <p className="section-heading__eyebrow">{messages.eyebrow}</p>
@@ -19,12 +20,16 @@ export function EvidenceSection({ evidence, messages }: EvidenceSectionProps) {
         <p>{messages.introduction}</p>
       </header>
       <div className="evidence-grid">
-        {evidence.map((item) => {
+        {evidence.map((item, index) => {
           const headingId = `evidence-${item.id}`;
 
           return (
             <article className="evidence-card" aria-labelledby={headingId} key={item.id}>
               <figure>
+                <div className="evidence-card__masthead">
+                  <span>{index === 0 ? "ILO · NASK" : "WORLD ECONOMIC FORUM"}</span>
+                  <span aria-hidden="true">↗</span>
+                </div>
                 <p className="evidence-card__label">{messages.signalLabel}</p>
                 <h3 id={headingId}>{item.content.claim}</h3>
                 <div className="evidence-card__response">

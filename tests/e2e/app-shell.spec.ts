@@ -23,9 +23,7 @@ test("Thai and English routes use complete intentional narrative content", async
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
   await expect(page.getByRole("navigation", { name: "การนำทางหลัก" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ไทย" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "เตรียมตัวและสร้างคุณค่าใหม่ได้",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("เติบโตในแบบคุณ");
 
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en$/);

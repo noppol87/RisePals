@@ -1,5 +1,12 @@
 # Rise Pals
 
+## Current experience: visual and UX redesign
+
+The Thai/English experience now includes an interactive skill map, a direct
+practice entry, improved assessment controls, lesson shortcuts and a shared
+responsive design. See [the design and verification record](docs/14_EXPERIENCE_DESIGN.md)
+and the actual interface captures in `docs/design/`.
+
 ## Current work: Supabase + Netlify migration (15 September 2026)
 
 The active branch `codex/supabase-netlify` uses Supabase Auth for every application
