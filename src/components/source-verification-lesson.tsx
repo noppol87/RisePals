@@ -1,561 +1,454 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { LessonEvidenceVisual, sourceCaseVisual } from "@/components/lesson-evidence-visual";
-import { SkillIcon, ArrowIcon } from "@/components/brand-mark";
+import { ArrowIcon, SkillIcon } from "@/components/brand-mark";
 import { TextLink } from "@/components/primitives/text-link";
 import type { SourceVerificationLessonView } from "@/modules/lesson/source-verification/types";
 import {
-  createInitialSourceVerificationPracticeState,
-  getSourceVerificationPracticeOutcome,
-  resetSourceVerificationPractice,
-  retrySourceVerificationPractice,
-  selectSourceVerificationOption,
-  submitSourceVerificationPractice,
-} from "@/modules/lesson/source-verification/state";
+  evaluateMission,
+  sourceVerificationMission,
+  type MissionCase,
+} from "@/modules/lesson/source-verification/mission-v2";
+import type { Locale } from "@/lib/i18n/config";
 
-type SourceVerificationLessonProps = Readonly<{
+type Props = Readonly<{
   exampleResultHref: string;
   homeHref: string;
   view: SourceVerificationLessonView;
 }>;
 
-export function SourceVerificationLesson({
-  exampleResultHref,
-  homeHref,
-  view,
-}: SourceVerificationLessonProps) {
-  const th = view.lesson.locale === "th";
-  const [state, setState] = useState(createInitialSourceVerificationPracticeState);
-  const [stage, setStage] = useState(0);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const scenarioHeadingRef = useRef<HTMLHeadingElement>(null);
-  const sourcesHeadingRef = useRef<HTMLHeadingElement>(null);
-  const lastPositionRef = useRef("0:0");
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const practiceHeadingRef = useRef<HTMLHeadingElement>(null);
-  const feedbackHeadingRef = useRef<HTMLHeadingElement>(null);
+export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: Props) {
+  const locale = view.lesson.locale;
+  const th = locale === "th";
+  const [caseIndex, setCaseIndex] = useState(0);
+  const [step, setStep] = useState(-1);
+  const [selections, setSelections] = useState<Record<string, string>>({});
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
-  const outcome = getSourceVerificationPracticeOutcome(state);
-  const feedbackAnnouncement = state.evaluation
-    ? state.evaluation.demonstrated
-      ? view.feedback.demonstratedAnnouncement
-      : view.feedback.partialAnnouncement
-    : "";
+  const initial = useRef(true);
+  const mission: MissionCase = sourceVerificationMission.cases[caseIndex]!;
+  const independent = mission.mode === "independent";
+  const question = mission.questions[step];
+  const selected = question?.options.find((o) => o.id === selections[question.id]);
+  const result = evaluateMission(mission, selections);
+  const finished = step === mission.questions.length && result.complete;
+  const summaryChoice = mission.questions[2]!.options.find((o) => o.id === selections.rewrite);
+  const actionChoice = mission.questions[3]!.options.find((o) => o.id === selections.action);
+  const copy = (thai: string, english: string) => (th ? thai : english);
+  const stepLabels = th
+    ? ["จับจุด", "หาหลักฐาน", "แก้สรุป", "เลือกก้าวต่อไป"]
+    : ["Spot it", "Find evidence", "Rewrite", "Next action"];
 
   useEffect(() => {
-    if (validationError !== null) {
-      errorRef.current?.focus();
+    if (initial.current) {
+      initial.current = false;
+      return;
     }
-  }, [validationError]);
-
+    headingRef.current?.focus();
+    headingRef.current?.scrollIntoView?.({ block: "start" });
+  }, [step, caseIndex]);
   useEffect(() => {
-    if (state.phase === "feedback") {
-      feedbackHeadingRef.current?.focus();
-    }
-  }, [state.phase]);
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
-  useEffect(() => {
-    const position = `${stage}:${questionIndex}`;
-    if (lastPositionRef.current === position) return;
-    lastPositionRef.current = position;
-    const heading =
-      stage === 0
-        ? scenarioHeadingRef.current
-        : stage === 1
-          ? sourcesHeadingRef.current
-          : practiceHeadingRef.current;
-    heading?.focus();
-    heading?.scrollIntoView?.({ block: "start" });
-  }, [stage, questionIndex]);
-
-  function goToStage(next: number) {
-    setValidationError(null);
-    setStage(next);
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+  function advance(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const criterion = view.practice.criteria[questionIndex];
-    if (!criterion) {
-      setValidationError(view.feedback.incompleteError);
+    if (!selected) {
+      setError(true);
       return;
     }
-    if (!state.selections.some((selection) => selection.criterionId === criterion.id)) {
-      setValidationError(th ? "เลือกสักข้อก่อนนะ" : "Choose an answer first.");
+    if (!independent && (!checked || !selected.correct)) {
+      setChecked(true);
       return;
     }
-    if (questionIndex < view.practice.criteria.length - 1) {
-      setValidationError(null);
-      setQuestionIndex(questionIndex + 1);
-      return;
-    }
-    const result = submitSourceVerificationPractice(state, view);
-    if (!result.ok) {
-      setValidationError(view.feedback.incompleteError);
-      return;
-    }
-
-    setValidationError(null);
-    setState(result.state);
+    setChecked(false);
+    setError(false);
+    setStep(step + 1);
   }
-
-  function handleRetry(): void {
-    setQuestionIndex(0);
-    setValidationError(null);
-    setState((current) => retrySourceVerificationPractice(current));
-    queueMicrotask(() => practiceHeadingRef.current?.focus());
-  }
-
-  function handleReset(): void {
-    setQuestionIndex(0);
-    setValidationError(null);
-    setState(resetSourceVerificationPractice());
-    queueMicrotask(() => practiceHeadingRef.current?.focus());
+  function restart(index: number) {
+    setCaseIndex(index);
+    setSelections({});
+    setChecked(false);
+    setError(false);
+    setStep(-1);
   }
 
   return (
-    <article className="lesson-prototype lesson-guided" aria-labelledby="lesson-prototype-heading">
-      <p className="visually-hidden" aria-live="polite" aria-atomic="true">
-        {feedbackAnnouncement}
-      </p>
-      <header className="guided-header">
-        <p className="section-heading__eyebrow">
-          {th ? "ภารกิจ 01 · คิดก่อนเชื่อ" : "MISSION 01 · THINK CRITICALLY"}
-        </p>
-        <h1 id="lesson-prototype-heading">
-          {th ? "AI บอกแบบนี้ เชื่อได้ไหม?" : "The AI said it. Is it true?"}
-        </h1>
-        <p>
-          {th
-            ? "ดูภาพ เช็กข้อมูล แล้วลองตอบทีละข้อ"
-            : "See the story. Check the evidence. Try one question at a time."}
-        </p>
-        <p className="guided-demo-note">
-          {th
-            ? "ข้อมูลสมมติ · ผลฝึกไม่บันทึก · ยังไม่ใช่การรับรองทักษะ"
-            : "Fictional data · progress isn’t saved · no validated skill result"}
-        </p>
+    <article className="mission-workspace" aria-labelledby="mission-title">
+      <header className="mission-topline">
+        <TextLink href={homeHref}>{copy("← กลับหน้าหลัก", "← Home")}</TextLink>
+        <span>
+          {copy("คิดก่อนเชื่อ", "Think critically")} <span aria-hidden="true">/</span> 0
+          {caseIndex + 1}
+        </span>
       </header>
-      <nav className="guided-steps" aria-label={th ? "ขั้นตอนบทเรียน" : "Lesson steps"}>
-        {(th
-          ? ["ดูเรื่องนี้", "เช็กหลักฐาน", "ลองตอบ"]
-          : ["See the story", "Check evidence", "Try it"]
-        ).map((label, index) => (
-          <button
-            key={index}
-            type="button"
-            aria-current={stage === index ? "step" : undefined}
-            onClick={() => goToStage(index)}
-          >
-            <span aria-hidden="true">{index + 1}</span>
-            {label}
-          </button>
-        ))}
-      </nav>
-      <section
-        className="guided-panel guided-story"
-        hidden={stage !== 0}
-        aria-labelledby="lesson-scenario-heading"
-      >
-        <div className="guided-story__copy">
-          <p className="section-heading__eyebrow">{th ? "เริ่มตรงนี้" : "START HERE"}</p>
-          <h2 id="lesson-scenario-heading" ref={scenarioHeadingRef} tabIndex={-1}>
-            {th ? "ก่อนส่งสรุปให้หัวหน้า…" : "Before you send this summary…"}
-          </h2>
-          <p>
-            {th
-              ? "AI สรุปผลให้แล้ว แต่ข้อมูลตรงกันจริงไหม?"
-              : "AI wrote the summary. Does the evidence agree?"}
-          </p>
-          <button
-            className="player-button player-button--primary"
-            type="button"
-            onClick={() => goToStage(1)}
-          >
-            {th ? "เริ่มเช็กสรุปนี้" : "Check this summary"}
-            <ArrowIcon />
-          </button>
-        </div>
-        <div className="claim-illustration">
-          <div className="claim-illustration__top">
-            <SkillIcon index={7} />
-            <span>{th ? "สรุปจาก AI" : "AI SUMMARY"}</span>
-            <span aria-hidden="true">✦</span>
+      <h1 id="mission-title">{copy("เช็กก่อนเชื่อ", "Check before you trust")}</h1>
+      <p className="mission-boundary">
+        {copy(
+          "ข้อมูลสมมติ · ไม่บันทึกผล · ไม่ใช่การรับรองทักษะ",
+          "Fictional data · not saved · no skill certification",
+        )}
+      </p>
+      {step >= 0 && !finished ? (
+        <ol className="mission-steps" aria-label={copy("ขั้นตอน", "Steps")}>
+          {stepLabels.map((label, index) => (
+            <li
+              key={label}
+              aria-current={step === index ? "step" : undefined}
+              data-done={index < step}
+            >
+              <span aria-hidden="true">{index < step ? "✓" : index + 1}</span>
+              <span>{label}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {step === -1 ? (
+        <section className="mission-intro">
+          <div className="mission-intro__copy">
+            <p className="mission-eyebrow">
+              {independent
+                ? copy("รอบนี้ลองเอง", "NOW TRY IT YOURSELF")
+                : copy("ภารกิจแรก · มีคำใบ้ให้", "FIRST MISSION · WITH GUIDANCE")}
+            </p>
+            <h2 ref={headingRef} tabIndex={-1}>
+              {mission.title[locale]}
+            </h2>
+            <p>{mission.context[locale]}</p>
+            <button
+              type="button"
+              className="player-button player-button--primary"
+              onClick={() => setStep(0)}
+            >
+              {copy("เริ่มเช็กสรุปนี้", "Check this summary")}
+              <ArrowIcon />
+            </button>
+            <p className="mission-small">
+              {independent
+                ? copy("ดูเฉลยหลังตอบครบทั้ง 4 ขั้น", "Feedback comes after all 4 decisions.")
+                : copy(
+                    "จับจุด → หาหลักฐาน → แก้สรุป",
+                    "Spot the claim → find evidence → fix the summary",
+                  )}
+            </p>
           </div>
-          <blockquote>
-            <p>{view.scenario.aiSummary}</p>
-          </blockquote>
-          <div
-            className="claim-illustration__teams"
-            aria-hidden="true"
-            hidden={
-              view.lesson.versionId !== sourceCaseVisual.lessonVersionId ||
-              view.lesson.version !== sourceCaseVisual.version
-            }
-          >
-            {["A", "B", "C"].map((team) => (
-              <div key={team}>
-                <span>
-                  {th ? "ทีม" : "TEAM"} {team}
-                </span>
-                <svg viewBox="0 0 60 60">
-                  <path
-                    d="M12 44V28M30 44V20M48 44V10"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <strong>30%</strong>
-              </div>
-            ))}
-          </div>
-          <p className="claim-illustration__caption">
-            {th ? "คำกล่าวอ้างของ AI · ยังไม่ได้ตรวจ" : "The AI’s claim · not yet checked"}
-          </p>
-        </div>
-      </section>
-      <section
-        className="guided-panel guided-sources"
-        hidden={stage !== 1}
-        aria-labelledby="lesson-source-pack-heading"
-      >
-        <header>
-          <p className="section-heading__eyebrow">
-            {th ? "เปิดหลักฐานดู" : "LOOK AT THE EVIDENCE"}
-          </p>
-          <h2 id="lesson-source-pack-heading" ref={sourcesHeadingRef} tabIndex={-1}>
-            {th ? "ทั้ง 3 ทีม ได้ผลเท่ากันจริงไหม?" : "Did all 3 teams get the same result?"}
-          </h2>
-        </header>
-        <LessonEvidenceVisual view={view} />
-        <details className="lesson-source-original">
-          <summary>{th ? "มีวิธีเช็กยังไง?" : "How should I check?"}</summary>
-          <ol className="lesson-concept-list">
-            {view.concepts.items.map((item) => (
-              <li key={item.id}>
-                <h3>{item.heading}</h3>
-                <p>{item.body}</p>
-              </li>
-            ))}
-          </ol>
-        </details>
-        <div className="guided-actions">
-          <button
-            type="button"
-            className="player-button player-button--secondary"
-            onClick={() => goToStage(0)}
-          >
-            {th ? "กลับไปดูสรุป" : "Back to the summary"}
-          </button>
-          <button
-            type="button"
-            className="player-button player-button--primary"
-            onClick={() => goToStage(2)}
-          >
-            {th ? "ลองตอบจากที่เห็น" : "Try a question"}
-            <ArrowIcon />
-          </button>
-        </div>
-      </section>
-      <section
-        className="guided-panel lesson-practice"
-        hidden={stage !== 2}
-        aria-labelledby="lesson-practice-heading"
-      >
-        <h2 id="lesson-practice-heading" ref={practiceHeadingRef} tabIndex={-1}>
-          {th ? "คุณจะเลือกทำยังไง?" : "What would you do?"}
-        </h2>
-        {!state.evaluation ? (
-          <>
-            <div className="guided-question-progress">
-              <p>{th ? `ข้อ ${questionIndex + 1} จาก 3` : `Question ${questionIndex + 1} of 3`}</p>
-              <div aria-hidden="true">
-                {view.practice.criteria.map((item, index) => (
-                  <span
-                    key={item.id}
-                    data-current={index === questionIndex}
-                    data-complete={state.selections.some((s) => s.criterionId === item.id)}
-                  />
-                ))}
-              </div>
+          <div className="mission-ai-note">
+            <div className="mission-note-label">
+              <SkillIcon index={7} />
+              <span>{copy("ฉบับร่างจาก AI", "AI DRAFT")}</span>
+              <span aria-hidden="true">✦</span>
             </div>
-            <details className="lesson-source-original guided-recall">
-              <summary>{th ? "ดูหลักฐานอีกครั้ง" : "Peek at the evidence"}</summary>
-              <LessonEvidenceVisual view={view} />
-            </details>
-            <form className="lesson-practice__form" noValidate onSubmit={handleSubmit}>
-              <p id="lesson-practice-instruction">
-                {th ? "เลือกข้อที่คุณจะทำ" : "Choose what you would do."}
-              </p>
-              {view.practice.criteria.map((criterion, index) => {
-                const selection = state.selections.find((s) => s.criterionId === criterion.id);
-                return (
-                  <fieldset
-                    key={criterion.id}
-                    hidden={index !== questionIndex}
-                    aria-describedby={`lesson-practice-instruction${validationError ? " lesson-practice-error" : ""}`}
-                    aria-invalid={validationError && !selection ? "true" : undefined}
-                  >
-                    <legend>{criterion.prompt}</legend>
-                    <div className="lesson-practice__options">
-                      {criterion.options.map((option) => (
-                        <label className="lesson-practice__option" key={option.id}>
-                          <input
-                            checked={selection?.optionId === option.id}
-                            name={`lesson-practice-${criterion.id}`}
-                            required
-                            type="radio"
-                            value={option.id}
-                            onChange={() => {
-                              setValidationError(null);
-                              setState((current) =>
-                                selectSourceVerificationOption(
-                                  current,
-                                  view,
-                                  criterion.id,
-                                  option.id,
-                                ),
-                              );
-                            }}
-                          />
-                          <span>{option.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                );
-              })}
-              {validationError ? (
-                <p
-                  className="lesson-practice__error"
-                  id="lesson-practice-error"
-                  ref={errorRef}
-                  role="alert"
-                  tabIndex={-1}
+            <blockquote>{mission.before[locale]}</blockquote>
+            <span className="mission-unverified">{copy("ยังไม่ได้ตรวจ", "Not yet checked")}</span>
+            <div className="mission-note-lines" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {question && !finished ? (
+        <section className="mission-task" key={`${mission.id}-${step}`}>
+          <header className="mission-task__header">
+            <p className="mission-eyebrow">
+              {independent
+                ? copy("ลองใช้กับเรื่องใหม่", "APPLY IT TO A NEW CASE")
+                : copy("ค่อย ๆ เช็กไปด้วยกัน", "LET’S CHECK IT TOGETHER")}{" "}
+              · {step + 1}/4
+            </p>
+            <h2 id="mission-question" ref={headingRef} tabIndex={-1}>
+              {question.prompt[locale]}
+            </h2>
+          </header>
+          <div className="mission-task__grid">
+            <aside
+              className="mission-evidence"
+              aria-label={copy("ข้อมูลประกอบ", "Evidence at hand")}
+            >
+              <EvidenceStrip mission={mission} locale={locale} />
+              {step < 2 ? (
+                <div className="mission-quote-small">
+                  <span>{copy("AI เขียนว่า", "AI wrote")}</span>
+                  <p>{mission.before[locale]}</p>
+                </div>
+              ) : (
+                <div
+                  className="mission-live-note"
+                  aria-label={copy("สรุปที่กำลังแก้", "Your draft summary")}
                 >
-                  {validationError}
+                  <span>{copy("สรุปของคุณ", "YOUR SUMMARY")}</span>
+                  <p>{mission.summaryPrefix[locale]}</p>
+                  <p className={summaryChoice ? "mission-inserted" : "mission-blank"}>
+                    {summaryChoice?.label[locale] ??
+                      copy("เติมส่วนที่ยังขาด →", "Complete the missing part →")}
+                  </p>
+                </div>
+              )}
+              <details className="mission-source-details">
+                <summary>{copy("ดูที่มาของข้อมูล", "Source details")}</summary>
+                {caseIndex === 0 ? (
+                  view.scenario.sourceRecords.map((record) => (
+                    <div key={record.id}>
+                      <strong>{record.label}</strong>
+                      <p>{record.detail}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p>
+                    {copy(
+                      "แบบสำรวจสมมติ: ถามพนักงาน 100 คน ตอบ 20 คน เลือกช่วงเย็น 12 คน เวลาอื่น 8 คน ไม่ตอบ 80 คน ไม่มีข้อมูลความต้องการของผู้ไม่ตอบ",
+                      "Fictional survey: 100 staff invited, 20 responses. 12 chose evenings, 8 other times, 80 did not reply. No preference data is available for non-respondents.",
+                    )}
+                  </p>
+                )}
+              </details>
+            </aside>
+            <form noValidate onSubmit={advance} className="mission-decisions">
+              <fieldset
+                aria-labelledby="mission-question"
+                aria-describedby={error ? "mission-error" : undefined}
+                aria-invalid={error || undefined}
+              >
+                <legend className="visually-hidden">{question.prompt[locale]}</legend>
+                <div className={`mission-options mission-options--${question.id}`}>
+                  {question.options.map((option, index) => (
+                    <label
+                      className="mission-option"
+                      key={option.id}
+                      data-selected={selected?.id === option.id}
+                    >
+                      <input
+                        type="radio"
+                        name={question.id}
+                        value={option.id}
+                        checked={selected?.id === option.id}
+                        onChange={() => {
+                          setSelections({ ...selections, [question.id]: option.id });
+                          setChecked(false);
+                          setError(false);
+                        }}
+                      />
+                      <span className="mission-option__index" aria-hidden="true">
+                        {question.id === "evidence" ? "▤" : String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span>{option.label[locale]}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              {error ? (
+                <p id="mission-error" role="alert" ref={errorRef} tabIndex={-1}>
+                  {copy("เลือกสักข้อก่อนนะ", "Choose an answer first.")}
                 </p>
               ) : null}
-              <div className="guided-actions">
+              {checked && selected && !independent ? (
+                <div className="mission-hint" data-correct={selected.correct} role="status">
+                  <strong>
+                    {selected.correct
+                      ? copy("ใช่เลย", "That fits")
+                      : copy("ลองดูอีกนิด", "Take another look")}
+                  </strong>
+                  <p>{selected.reason[locale]}</p>
+                </div>
+              ) : null}
+              <div className="mission-actions">
                 <button
                   className="player-button player-button--secondary"
                   type="button"
                   onClick={() => {
-                    setValidationError(null);
-                    if (questionIndex > 0) setQuestionIndex(questionIndex - 1);
-                    else goToStage(1);
+                    setStep(step - 1);
+                    setChecked(false);
+                    setError(false);
                   }}
                 >
-                  {th ? "ย้อนกลับ" : "Back"}
+                  {copy("ย้อนกลับ", "Back")}
                 </button>
                 <button className="player-button player-button--primary" type="submit">
-                  {questionIndex === 2
-                    ? th
-                      ? "ดูผลการฝึก"
-                      : "See how you did"
-                    : th
-                      ? "ข้อต่อไป"
-                      : "Next question"}
+                  {!independent && !(checked && selected?.correct)
+                    ? copy("เช็กคำตอบ", "Check my choice")
+                    : step === 3
+                      ? copy("ดูสรุปของฉัน", "See my summary")
+                      : copy("ไปต่อ", "Continue")}
                   <ArrowIcon />
                 </button>
               </div>
             </form>
-          </>
-        ) : null}
-        {state.evaluation ? (
-          <section
-            className={
-              state.evaluation.demonstrated
-                ? "lesson-feedback lesson-feedback--demonstrated"
-                : "lesson-feedback"
-            }
-            aria-labelledby="lesson-feedback-heading"
-          >
-            <h3 id="lesson-feedback-heading" ref={feedbackHeadingRef} tabIndex={-1}>
-              {state.evaluation.demonstrated
-                ? view.feedback.demonstratedHeading
-                : view.feedback.partialHeading}
-            </h3>
-            <p>
-              {state.evaluation.demonstrated
-                ? view.feedback.demonstratedSummary
-                : view.feedback.partialSummary}
-            </p>
-            <ul>
-              {state.evaluation.criterionResults.map((result) => {
-                const criterion = view.practice.criteria.find(
-                  (candidate) => candidate.id === result.criterionId,
-                )!;
-                const met = result.status === "met";
-                return (
-                  <li key={result.criterionId}>
-                    <h4>{criterion.rubric.label}</h4>
-                    <strong>{met ? view.feedback.metLabel : view.feedback.notMetLabel}</strong>
-                    <p>
-                      {met ? criterion.rubric.metDescription : criterion.rubric.notMetDescription}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="lesson-feedback__xp">
-              {formatTemplate(view.feedback.previewXpTemplate, { xp: outcome.previewXp })}
-            </p>
-            <p className="lesson-feedback__boundary">{view.feedback.unsavedXpBoundary}</p>
-          </section>
-        ) : null}
+          </div>
+        </section>
+      ) : null}
 
-        {state.evaluation ? (
-          <div className="guided-actions">
-            <button
-              className="player-button player-button--primary"
-              type="button"
-              onClick={handleRetry}
-            >
-              {th ? "ลองอีกครั้ง" : "Try again"}
-            </button>
+      {finished ? (
+        <section className="mission-result">
+          <div className="mission-result__heading">
+            <span className="mission-result__symbol" aria-hidden="true">
+              {result.allCorrect ? "✓" : "↺"}
+            </span>
+            <p className="mission-eyebrow">
+              {copy("จากคำตอบในโจทย์นี้", "FROM YOUR CHOICES IN THIS CASE")}
+            </p>
+            <h2 ref={headingRef} tabIndex={-1}>
+              {result.allCorrect
+                ? copy("คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary")
+                : copy("มีจุดที่น่าลองเช็กอีกที", "A few things need another look")}
+            </h2>
+            <p>
+              {independent
+                ? result.allCorrect
+                  ? copy(
+                      "รอบนี้คุณเลือกหลักฐานและสรุปได้ตรง โดยไม่มีคำใบ้ระหว่างตอบ",
+                      "You matched the evidence and summary without hints during this round.",
+                    )
+                  : copy(
+                      "ลองเทียบคำตอบกับหลักฐานด้านล่าง",
+                      "Compare your choices with the evidence below.",
+                    )
+                : copy(
+                    "คุณฝึกเช็กหลักฐานและแก้สรุป โดยมีคำแนะนำระหว่างทาง",
+                    "You practised checking and rewriting with guidance along the way.",
+                  )}
+            </p>
+          </div>
+          <div className="mission-before-after">
+            <div className="mission-before">
+              <span>{copy("ก่อนเช็ก · ฉบับ AI", "BEFORE · AI DRAFT")}</span>
+              <p>{mission.before[locale]}</p>
+            </div>
+            <div className="mission-after" data-correct={result.allCorrect}>
+              <span>{copy("หลังเช็ก · สรุปของคุณ", "AFTER · YOUR SUMMARY")}</span>
+              <p>
+                {mission.summaryPrefix[locale]} {summaryChoice?.label[locale]}
+              </p>
+              <hr />
+              <span>{copy("ก่อนนำไปใช้", "BEFORE USING IT")}</span>
+              <p>{actionChoice?.label[locale]}</p>
+            </div>
+          </div>
+          {!result.allCorrect ? (
+            <div className="mission-review">
+              <h3>{copy("จุดที่ควรทบทวน", "What to revisit")}</h3>
+              {result.results
+                .filter((r) => !r.correct)
+                .map((r) => (
+                  <div key={r.id}>
+                    <strong>{stepLabels[mission.questions.findIndex((q) => q.id === r.id)]}</strong>
+                    <p>{r.selected?.reason[locale]}</p>
+                  </div>
+                ))}
+              <details>
+                <summary>
+                  {copy("ดูตัวอย่างสรุปที่ตรงกับข้อมูล", "See a supported summary")}
+                </summary>
+                <p>
+                  {mission.summaryPrefix[locale]}{" "}
+                  {mission.questions[2]!.options.find((o) => o.correct)!.label[locale]}
+                </p>
+                <p>{mission.questions[3]!.options.find((o) => o.correct)!.label[locale]}</p>
+              </details>
+            </div>
+          ) : (
+            <p className="mission-takeaway">
+              {copy(
+                "จำไว้ใช้กับงาน: เช็กที่มา · สรุปเท่าที่รู้ · บอกสิ่งที่ยังขาด",
+                "Take this to work: check the source · stay within the evidence · name the gaps",
+              )}
+            </p>
+          )}
+          <div className="mission-actions mission-result__actions">
+            {caseIndex === 0 ? (
+              <button
+                type="button"
+                className="player-button player-button--primary"
+                onClick={() => restart(1)}
+              >
+                {copy("ลองอีกสถานการณ์", "Try a new situation")}
+                <ArrowIcon />
+              </button>
+            ) : (
+              <TextLink
+                className="player-button player-button--primary"
+                href={`${homeHref}#skill-framework`}
+              >
+                {copy("กลับไปดูทักษะอื่น", "Explore other skills")}
+                <ArrowIcon />
+              </TextLink>
+            )}
             <button
               className="player-button player-button--secondary"
               type="button"
-              onClick={handleReset}
+              onClick={() => restart(caseIndex)}
             >
-              {th ? "ล้างคำตอบ" : "Clear answers"}
+              {copy("ลองโจทย์นี้ใหม่", "Try this case again")}
             </button>
           </div>
-        ) : null}
-      </section>
-      <details className="guided-extras lesson-source-original">
-        <summary>
-          {th ? "เกี่ยวกับเดโมและเกณฑ์การฝึก" : "About the demo and feedback criteria"}
-        </summary>
+        </section>
+      ) : null}
+      <details className="mission-about">
+        <summary>{copy("เกี่ยวกับแบบฝึกนี้", "About this practice")}</summary>
         <p>
-          {th
-            ? "ข้อมูลสมมติทั้งหมด ไม่ใช้คำตอบจากแบบประเมิน และไม่ใช่คำแนะนำเฉพาะคุณ"
-            : "Fictional data. No assessment answers used. Not personal advice."}
+          {copy(
+            "รอบแรกมีคำแนะนำ รอบถัดไปใช้สถานการณ์ใหม่และเฉลยหลังตอบครบ ตรวจตามคำตอบที่กำหนดไว้ ไม่ใช้ AI ให้คะแนน ไม่บันทึกคำตอบ และยังไม่ได้ทดสอบผลการเรียนรู้กับผู้ใช้จริง",
+            "The first round is coached; the second uses a new case with feedback at the end. Checks use authored answers, not AI scoring. Responses are not saved and learning outcomes have not been validated with users.",
+          )}
         </p>
-        <details className="lesson-panel experience-disclosure">
-          <summary>
-            <h2 id="lesson-overview-heading">{th ? "เกี่ยวกับบทเรียนนี้" : "About this lesson"}</h2>
-            <span className="disclosure-plus" aria-hidden="true">
-              +
-            </span>
-          </summary>
-
-          <dl className="lesson-overview">
-            <div>
-              <dt>{view.overview.targetLabel}</dt>
-              <dd>
-                <strong>{th ? "คิดก่อนเชื่อ" : "Think critically"}</strong>
-                <code>{view.lesson.targetCompetencyId}</code>
-              </dd>
-            </div>
-            <div>
-              <dt>{view.overview.stageLabel}</dt>
-              <dd>{th ? "ลองใช้จริง" : "Practising"}</dd>
-            </div>
-            <div>
-              <dt>{view.overview.roiLabel}</dt>
-              <dd>{th ? "รู้ทันความเสี่ยงและรับผิดชอบ" : "Risk and responsibility"}</dd>
-            </div>
-            <div>
-              <dt>{view.overview.timeLabel}</dt>
-              <dd>{view.overview.timeValue}</dd>
-            </div>
-          </dl>
-          <p className="lesson-version-line">
-            <code>{view.lesson.versionId}</code> · <code>{view.lesson.version}</code> ·{" "}
-            <code>{view.lesson.status}</code> · <code>{view.lesson.validationStatus}</code>
-          </p>
-        </details>
-
-        <details className="lesson-panel lesson-rubric experience-disclosure">
-          <summary>
-            <h2 id="lesson-rubric-heading">{th ? "ดูเกณฑ์การฝึก" : "How feedback works"}</h2>
-            <span className="disclosure-plus" aria-hidden="true">
-              +
-            </span>
-          </summary>
-          <header className="lesson-section-heading">
-            <p>{view.rubric.introduction}</p>
-            <p className="lesson-rubric__rule">{view.rubric.demonstratedRule}</p>
-          </header>
-          <ul className="lesson-rubric__criteria">
-            {view.practice.criteria.map((criterion) => (
-              <li key={criterion.id}>
-                <h3>{criterion.rubric.label}</h3>
-                <p>{criterion.rubric.metDescription}</p>
-              </li>
-            ))}
-          </ul>
-        </details>
-
-        <details className="lesson-panel lesson-proof experience-disclosure">
-          <summary>
-            <h2 id="lesson-proof-heading">{th ? "เก็บผลงานได้ไหม?" : "Can I save my work?"}</h2>
-            <span className="disclosure-plus" aria-hidden="true">
-              +
-            </span>
-          </summary>
-          <p className="section-heading__eyebrow">
-            {th ? "ยังอยู่ระหว่างพัฒนา" : "IN DEVELOPMENT"}
-          </p>
-
-          <p>
-            {th
-              ? "ตอนนี้ดูได้แค่ตัวอย่างบันทึก ยังสร้างหรือบันทึกผลงานไม่ได้"
-              : "This is a sample record. Creating and saving proof isn’t available yet."}
-          </p>
-          <p className="lesson-proof__label">{view.proof.placeholderLabel}</p>
-          <h3>{view.proof.fieldsHeading}</h3>
-          <ul>
-            {view.proof.fields.map((field) => (
-              <li key={field.id}>{field.label}</li>
-            ))}
-          </ul>
-          <p className="lesson-proof__boundary">
-            {th
-              ? "ยังพิมพ์ข้อความ อัปโหลด หรือบันทึกไฟล์ไม่ได้"
-              : "No text entry, uploads or saved files."}
-          </p>
-        </details>
-
-        <aside className="lesson-reflection" aria-labelledby="lesson-reflection-heading">
-          <h2 id="lesson-reflection-heading">
-            {th ? "ลองนึกถึงงานของคุณ" : "Think about your work"}
-          </h2>
-          <p>{view.reflection.prompt}</p>
-          <p>
-            {th
-              ? "คิดหรือจดไว้เองได้เลย หน้านี้ไม่เก็บคำตอบ"
-              : "Keep your thoughts to yourself. Nothing is collected here."}
-          </p>
-        </aside>
+        <p>
+          {copy("แบบฝึกเวอร์ชัน", "Practice version")} {sourceVerificationMission.version} ·{" "}
+          {copy("ต้นแบบในเครื่อง", "local prototype")}
+        </p>
+        <p>
+          {copy(
+            "ข้อมูลกรณีแรกมาจากบทเรียนสมมติ",
+            "First-case data comes from the fictional lesson",
+          )}{" "}
+          {sourceVerificationMission.sourceIdentity}
+        </p>
+        <TextLink href={exampleResultHref}>
+          {copy("ดูตัวอย่างผลประเมิน", "View the example assessment result")}
+        </TextLink>
       </details>
       <noscript>
-        <p>
-          {th
-            ? "เปิด JavaScript เพื่อเช็กหลักฐานและลองตอบทีละขั้น"
-            : "Enable JavaScript to check the evidence and try each step."}
-        </p>
+        {copy(
+          "เปิด JavaScript เพื่อทำแบบฝึกแบบโต้ตอบนี้",
+          "Enable JavaScript to use this interactive practice.",
+        )}
       </noscript>
-      <nav className="lesson-actions" aria-label={view.hero.heading}>
-        <TextLink href={homeHref}>{view.actions.homeLabel}</TextLink>
-        <TextLink href={exampleResultHref}>
-          {th ? "กลับไปดูตัวอย่าง" : "Back to the example"}
-        </TextLink>
-      </nav>
     </article>
   );
 }
 
-function formatTemplate(
-  template: string,
-  values: Readonly<Record<string, string | number>>,
-): string {
-  return Object.entries(values).reduce(
-    (formatted, [key, value]) => formatted.replaceAll(`{${key}}`, String(value)),
-    template,
+function EvidenceStrip({ mission, locale }: Readonly<{ mission: MissionCase; locale: Locale }>) {
+  const max = Math.max(...mission.facts.map((fact) => fact.amount ?? 0));
+  return (
+    <figure className="mission-facts">
+      <figcaption>{locale === "th" ? "ข้อมูลที่มี" : "WHAT WE KNOW"}</figcaption>
+      <div className="mission-facts__grid">
+        {mission.facts.map((fact) => (
+          <div key={fact.id} data-missing={fact.amount === null}>
+            <span>{fact.label[locale]}</span>
+            <strong>{fact.value}</strong>
+            <svg viewBox="0 0 100 8" aria-hidden="true">
+              <rect width="100" height="8" rx="4" fill="currentColor" opacity=".12" />
+              {fact.amount !== null ? (
+                <rect
+                  className="mission-fact-bar"
+                  width={max ? (fact.amount / max) * 100 : 0}
+                  height="8"
+                  rx="4"
+                  fill="currentColor"
+                />
+              ) : (
+                <path d="M0 4H100" stroke="currentColor" strokeDasharray="4 4" />
+              )}
+            </svg>
+            <small>{fact.detail[locale]}</small>
+          </div>
+        ))}
+      </div>
+      <p>{mission.scope[locale]}</p>
+    </figure>
   );
 }

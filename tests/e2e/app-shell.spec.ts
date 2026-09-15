@@ -117,7 +117,7 @@ test("the skip link is first, visibly focused, and moves focus to main", async (
   await expect(page.getByRole("main")).toBeFocused();
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "ลองตอบ 6 ข้อ" }).first()).toBeFocused();
+  await expect(page.getByRole("link", { name: "ลองเช็กคำตอบ AI" }).first()).toBeFocused();
 });
 
 test("the 320px and 400%-equivalent reflow view has no horizontal overflow", async ({ page }) => {

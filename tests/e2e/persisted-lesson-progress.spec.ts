@@ -69,11 +69,11 @@ test("public lesson remains static, memory-only and separate from persisted rout
     if (request.method() !== "GET") postRequests.push(request.url());
   });
   await page.goto("/en/lessons/source-verification-practice");
-  await page.locator(".guided-steps button").nth(2).click();
+  await page.getByRole("button", { name: "Check this summary" }).click();
   await expect(page.getByRole("radio")).toHaveCount(3);
   await page.getByRole("radio").first().check();
   await page.reload();
-  await page.locator(".guided-steps button").nth(2).click();
+  await page.getByRole("button", { name: "Check this summary" }).click();
   await expect(page.getByRole("radio").first()).not.toBeChecked();
   expect(postRequests).toEqual([]);
 });

@@ -205,7 +205,7 @@ export const catalogs = {
         headingAccent: "เริ่มแค่อย่างเดียว",
         introduction: "ลองคิด ลองทำ แล้วค่อย ๆ เพิ่มทักษะที่ใช้ได้จริง",
         supporting: "ไม่ต้องสมัคร",
-        ctaLabel: "ลองตอบ 6 ข้อ",
+        ctaLabel: "ลองเช็กคำตอบ AI",
         availability: "เดโมสถานการณ์จำลอง ยังไม่ให้คะแนน",
       },
       evidence: {
@@ -433,7 +433,7 @@ export const catalogs = {
         headingAccent: "Just a place to start.",
         introduction: "Try a scenario. Practise a skill. Take your next step.",
         supporting: "No sign-up needed",
-        ctaLabel: "Try 6 scenarios",
+        ctaLabel: "Try checking an AI answer",
         availability: "Synthetic demo. No assessment score.",
       },
       evidence: {

@@ -31,14 +31,14 @@ export function PublicNarrative({ evidence, locale, messages }: PublicNarrativeP
           </h1>
           <p className="landing-hero__lead">{messages.hero.introduction}</p>
           <div className="landing-hero__action">
-            <TextLink className="narrative-cta" href={assessmentPath(locale)}>
+            <TextLink className="narrative-cta" href={sourceVerificationLessonPath(locale)}>
               {messages.hero.ctaLabel}
               <ArrowIcon />
             </TextLink>
-            <a className="hero-secondary-link" href="#how-rise-pals-works">
-              {locale === "th" ? "ดูเส้นทาง" : "See how it works"}
+            <TextLink className="hero-secondary-link" href={assessmentPath(locale)}>
+              {locale === "th" ? "ลองตอบ 6 ข้อ" : "Try 6 scenarios"}
               <span aria-hidden="true">↘</span>
-            </a>
+            </TextLink>
           </div>
           <p className="landing-hero__supporting">
             {messages.hero.supporting} · {messages.hero.availability}
@@ -195,7 +195,7 @@ export function PublicNarrative({ evidence, locale, messages }: PublicNarrativeP
         <h2 id="closing-heading">
           {locale === "th" ? "พร้อมลองก้าวแรกไหม?" : "Ready for a small first step?"}
         </h2>
-        <TextLink href={assessmentPath(locale)} className="narrative-cta">
+        <TextLink href={sourceVerificationLessonPath(locale)} className="narrative-cta">
           {messages.hero.ctaLabel}
           <ArrowIcon />
         </TextLink>

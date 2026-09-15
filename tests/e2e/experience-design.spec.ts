@@ -39,9 +39,11 @@ for (const locale of ["th", "en"] as const) {
     await page.goto(`/${locale}`);
     await page.locator(".mission-link").click();
     await expect(page).toHaveURL(new RegExp(`/${locale}/lessons/source-verification-practice$`));
-    const shortcut = page.locator(".guided-steps button").nth(2);
+    const shortcut = page.getByRole("button", {
+      name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
+    });
     await shortcut.click();
-    const heading = page.locator("#lesson-practice-heading");
+    const heading = page.locator("#mission-question");
     await expect(heading).toBeInViewport();
     const headingBox = await heading.boundingBox();
     const headerBox = await page.locator(".site-header").boundingBox();

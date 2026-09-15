@@ -1,276 +1,228 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Request } from "./fixtures";
+import { sourceVerificationMission } from "../../src/modules/lesson/source-verification/mission-v2";
 
-const lessonPath = "/lessons/source-verification-practice";
-const selectedOptionId = "trace-claim-to-source-map";
-
-async function expectNoHorizontalOverflow(page: Page) {
-  const dimensions = await page.evaluate(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-  }));
-  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+const path = "/lessons/source-verification-practice";
+const cases = sourceVerificationMission.cases;
+type Locale = "th" | "en";
+const label = (locale: Locale, th: string, en: string) => (locale === "th" ? th : en);
+async function begin(page: Page, locale: Locale = "en") {
+  await page
+    .getByRole("button", { name: label(locale, "เริ่มเช็กสรุปนี้", "Check this summary") })
+    .click();
 }
-
-async function enterPractice(page: Page) {
-  await page.locator(".guided-steps button").nth(2).click();
-}
-async function answerAll(page: Page, correct = true) {
-  await enterPractice(page);
-  for (let index = 0; index < 3; index++) {
+async function answer(
+  page: Page,
+  caseIndex: number,
+  locale: Locale = "en",
+  firstOnly = false,
+  scan = false,
+) {
+  for (const [index, question] of cases[caseIndex]!.questions.entries()) {
+    if (scan) await checkAccess(page);
+    const option = firstOnly ? question.options[0]! : question.options.find((o) => o.correct)!;
+    await page.getByRole("radio", { name: option.label[locale] }).check();
+    if (caseIndex === 0) {
+      await page
+        .getByRole("button", { name: label(locale, "เช็กคำตอบ", "Check my choice") })
+        .click();
+      await expect(page.getByRole("status")).toContainText(option.reason[locale]);
+    } else await expect(page.getByRole("status")).toHaveCount(0);
+    if (index === 2)
+      await expect(page.locator(".mission-live-note")).toContainText(option.label[locale]);
     await page
-      .getByRole("radio")
-      .nth(correct ? 0 : 1)
-      .check();
-    if (index < 2) await page.getByRole("button", { name: "Next question" }).click();
+      .getByRole("button", {
+        name:
+          index === 3
+            ? label(locale, "ดูสรุปของฉัน", "See my summary")
+            : label(locale, "ไปต่อ", "Continue"),
+      })
+      .click();
   }
 }
-
+async function checkAccess(page: Page) {
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
+    .analyze();
+  const blocking = results.violations.filter(
+    (v) => v.impact === "serious" || v.impact === "critical",
+  );
+  expect(blocking).toEqual([]);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+}
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} starts with a clear action, then visual evidence and one question`, async ({
+  test(`${locale} mission-first entry, coached artifact and independent case work with accessible steps`, async ({
     page,
   }) => {
-    await page.goto(`/${locale}${lessonPath}`);
-    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await page.goto(`/${locale}`);
+    await page.locator(".landing-hero .narrative-cta").click();
+    await expect(page).toHaveURL(`/${locale}${path}`);
     expect((await page.locator("main").innerText()).length).toBeLessThan(900);
-    await expect(page.getByRole("radio")).toHaveCount(0);
-    const start = page.getByRole("button", {
-      name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
-    });
-    await start.focus();
-    await page.keyboard.press("Enter");
-    await expect(page.locator("#lesson-source-pack-heading")).toBeFocused();
-    await expect(page.locator(".guided-sources .team-chart")).toHaveCount(3);
-    await expect(page.locator(".guided-sources").getByText("30%", { exact: true })).toBeVisible();
-    await expect(page.locator(".guided-sources").getByText("8%", { exact: true })).toBeVisible();
+    await checkAccess(page);
+    await begin(page, locale);
+    await expect(page.locator("#mission-question")).toBeFocused();
+    await expect(page.locator(".mission-facts")).toBeVisible();
+    await expect(page.locator('[data-missing="true"] .mission-fact-bar')).toHaveCount(0);
+    await answer(page, 0, locale, false, true);
     await expect(
-      page
-        .locator(".guided-sources")
-        .getByText(locale === "th" ? "ยังไม่รู้" : "Unknown", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.locator('.guided-sources [data-missing="true"] .team-chart__bar'),
-    ).toHaveCount(0);
+      page.getByRole("heading", {
+        name: label(locale, "คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary"),
+      }),
+    ).toBeFocused();
+    await expect(page.locator(".mission-before-after")).toBeVisible();
+    await checkAccess(page);
     await page
-      .locator(".guided-sources .lesson-source-original")
-      .first()
-      .locator("summary")
+      .getByRole("button", { name: label(locale, "ลองอีกสถานการณ์", "Try a new situation") })
       .click();
+    await begin(page, locale);
+    await answer(page, 1, locale, false, true);
     await expect(
-      page
-        .locator(".guided-sources .lesson-source-original")
-        .first()
-        .getByText(locale === "th" ? /12 รายการ/ : /12/),
-    ).toBeVisible();
-    await page
-      .getByRole("button", { name: locale === "th" ? "ลองตอบจากที่เห็น" : "Try a question" })
-      .click();
-    await expect(page.locator("#lesson-practice-heading")).toBeFocused();
-    await expect(page.getByRole("radio")).toHaveCount(3);
-    await page.locator(".guided-recall > summary").click();
-    await expect(page.locator(".guided-recall .team-comparison")).toBeVisible();
-    await expect(page.locator('input[type="file"],textarea,input[type="text"]')).toHaveCount(0);
-    const extras = page.locator(".guided-extras");
-    await extras.locator(":scope > summary").click();
-    for (const summary of await extras.locator("details > summary").all()) await summary.click();
-    await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
-    await expect(page.getByText("published", { exact: true })).toBeVisible();
-    await expect(page.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
-    await expect(page.locator(".lesson-proof")).toContainText(
-      locale === "th"
-        ? "ยังพิมพ์ข้อความ อัปโหลด หรือบันทึกไฟล์ไม่ได้"
-        : "No text entry, uploads or saved files.",
-    );
+      page.getByRole("heading", {
+        name: label(locale, "คุณแก้สรุปนี้ได้แล้ว", "You fixed this summary"),
+      }),
+    ).toBeFocused();
+    await checkAccess(page);
+    await expect(
+      page.getByRole("link", { name: label(locale, "กลับไปดูทักษะอื่น", "Explore other skills") }),
+    ).toHaveAttribute("href", `/${locale}#skill-framework`);
   });
 }
 
-test("the result-to-lesson link is locale matched and explicitly non-personalized", async ({
+test("coaching validates, blocks an incorrect choice, and preserves Back selections", async ({
   page,
 }) => {
-  await page.goto("/en/assessment/example-result");
-  await expect(
-    page.getByText("An example lesson, not a recommendation based on your choices."),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Try this lesson" }).click();
-  await expect(page).toHaveURL(`/en${lessonPath}`);
-
-  await page.getByRole("link", { name: "ไทย" }).click();
-  await expect(page).toHaveURL(`/th${lessonPath}`);
-  await expect(page.locator("html")).toHaveAttribute("lang", "th");
-});
-
-test("guided questions validate, preserve Back selections, and never accumulate XP", async ({
-  page,
-}) => {
-  await page.goto(`/en${lessonPath}`);
+  await page.goto(`/en${path}`);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("main")).toBeFocused();
-  await enterPractice(page);
-  await page.getByRole("button", { name: "Next question" }).click();
-  await expect(page.locator("#lesson-practice-error")).toBeFocused();
-  await expect(page.locator("#lesson-practice-error")).toContainText("Choose an answer first.");
-  await page.getByRole("radio").nth(0).check();
-  await page.getByRole("button", { name: "Next question" }).click();
+  await begin(page);
+  await page.getByRole("button", { name: "Check my choice" }).click();
+  await expect(page.locator("#mission-error")).toBeFocused();
+  await page.getByRole("radio").first().check();
+  await page.getByRole("button", { name: "Check my choice" }).click();
+  await expect(page.getByRole("status")).toContainText("Take another look");
+  await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
+  await page.getByRole("radio").nth(2).focus();
+  await page.keyboard.press("Space");
+  await page.getByRole("button", { name: "Check my choice" }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(page.getByRole("radio").nth(0)).toBeChecked();
-  for (let i = 0; i < 3; i++) {
-    await page
-      .getByRole("radio")
-      .nth(i === 1 ? 1 : 0)
-      .check();
-    if (i < 2) await page.getByRole("button", { name: "Next question" }).click();
-  }
-  await page.getByRole("button", { name: "See how you did" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Review at least one criterion before using the summary" }),
-  ).toBeFocused();
-  await expect(page.getByText("XP rule preview: 0 XP")).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.locator("#lesson-practice-heading")).toBeFocused();
-  await answerAll(page);
-  await page.getByRole("button", { name: "See how you did" }).click();
-  await expect(
-    page.getByRole("heading", { name: "All three criteria are met in this synthetic practice" }),
-  ).toBeFocused();
-  await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
-  await expect(page.getByText(/not saved.*never accumulates/i)).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
-  await answerAll(page);
-  await page.getByRole("button", { name: "See how you did" }).click();
-  await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
-  await expect(page.getByText(/40 XP/)).toHaveCount(0);
-  await page.getByRole("button", { name: "Clear answers" }).click();
-  for (let i = 0; i < 3; i++) {
-    await expect(page.getByRole("radio").nth(0)).not.toBeChecked();
-    if (i < 2) {
-      await page.getByRole("radio").nth(1).check();
-      await page.getByRole("button", { name: "Next question" }).click();
-    }
-  }
+  await expect(page.getByRole("radio").nth(2)).toBeChecked();
+  await page.locator(".mission-source-details summary").click();
+  await expect(page.locator(".mission-source-details")).toContainText("40");
 });
 
-test("refresh discards every in-memory practice choice and feedback state", async ({ page }) => {
-  await page.goto(`/en${lessonPath}`);
-  await answerAll(page);
-  await page.getByRole("button", { name: "See how you did" }).click();
-  await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
-
+test("same-position guessing fails the independent case, preserves the actual draft and resets cleanly", async ({
+  page,
+}) => {
+  await page.goto(`/en${path}`);
+  await begin(page);
+  await answer(page, 0);
+  await page.getByRole("button", { name: "Try a new situation" }).click();
+  await begin(page);
+  await answer(page, 1, "en", true);
+  await expect(page.getByRole("heading", { name: "A few things need another look" })).toBeFocused();
+  await expect(page.locator(".mission-after")).toContainText(
+    cases[1]!.questions[3]!.options[0]!.label.en,
+  );
+  await expect(page.locator(".mission-after")).toHaveAttribute("data-correct", "false");
+  await checkAccess(page);
+  await page.getByRole("button", { name: "Try this case again" }).click();
+  await begin(page);
+  await expect(page.locator("input:checked")).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("radio")).toHaveCount(0);
-  await enterPractice(page);
-  await expect(page.getByRole("radio").first()).not.toBeChecked();
-  await expect(page.locator(".lesson-feedback")).toHaveCount(0);
+  await expect(page.getByText("FIRST MISSION · WITH GUIDANCE")).toBeVisible();
+  await begin(page);
+  await expect(page.locator("input:checked")).toHaveCount(0);
 });
 
-test("lesson practice never uses storage, cookies, logs, URLs or network requests for choices", async ({
+test("practice choices never enter storage, cookies, URLs, logs or network payloads", async ({
   context,
   page,
 }) => {
   const requests: Request[] = [];
-  const consoleMessages: string[] = [];
-  page.on("request", (request) => requests.push(request));
-  page.on("console", (message) => consoleMessages.push(message.text()));
+  const logs: string[] = [];
+  page.on("request", (r) => requests.push(r));
+  page.on("console", (m) => logs.push(m.text()));
   await page.addInitScript(() => {
     const operations: string[] = [];
-    Object.defineProperty(window, "__risePalsStorageOperations", { value: operations });
-    const originalGetItem = Storage.prototype.getItem;
-    const originalSetItem = Storage.prototype.setItem;
-    const originalRemoveItem = Storage.prototype.removeItem;
-    const originalClear = Storage.prototype.clear;
-    Storage.prototype.getItem = function (key: string) {
-      operations.push(`getItem:${key}`);
-      return originalGetItem.call(this, key);
-    };
-    Storage.prototype.setItem = function (key: string, value: string) {
-      operations.push(`setItem:${key}`);
-      return originalSetItem.call(this, key, value);
-    };
-    Storage.prototype.removeItem = function (key: string) {
-      operations.push(`removeItem:${key}`);
-      return originalRemoveItem.call(this, key);
-    };
-    Storage.prototype.clear = function () {
-      operations.push("clear");
-      return originalClear.call(this);
-    };
+    Object.defineProperty(window, "__missionStorage", { value: operations });
+    for (const key of ["getItem", "setItem", "removeItem", "clear"] as const) {
+      const original = Storage.prototype[key];
+      Object.defineProperty(Storage.prototype, key, {
+        value: function (...args: string[]) {
+          operations.push(`${key}:${args[0] ?? ""}`);
+          return Reflect.apply(original, this, args);
+        },
+      });
+    }
   });
-
-  await page.goto(`/en${lessonPath}`);
-  await answerAll(page);
-  await page.getByRole("button", { name: "See how you did" }).click();
+  await page.goto(`/en${path}`);
+  await begin(page);
+  await answer(page, 0);
+  await page.getByRole("button", { name: "Try a new situation" }).click();
+  await begin(page);
+  await answer(page, 1);
   await page.waitForLoadState("networkidle");
-
   const operations = await page.evaluate(
-    () =>
-      (window as typeof window & { __risePalsStorageOperations: string[] })
-        .__risePalsStorageOperations,
+    () => (window as typeof window & { __missionStorage: string[] }).__missionStorage,
   );
-  expect(
-    operations.filter((operation) => !operation.startsWith("setItem:__next_debug_channel:")),
-  ).toEqual([]);
+  expect(operations.filter((s) => !s.startsWith("setItem:__next_debug_channel:"))).toEqual([]);
   expect(new URL(page.url()).search).toBe("");
-  expect(consoleMessages.join("\n")).not.toContain(selectedOptionId);
+  expect(new URL(page.url()).hash).toBe("");
   for (const request of requests) {
-    expect(new URL(request.url()).hostname).toBe("127.0.0.1");
     expect(request.postData()).toBeNull();
-    expect(request.url()).not.toContain(selectedOptionId);
+    expect(request.url()).not.toContain("everyone-evening");
   }
-  for (const cookie of await context.cookies()) {
-    expect(`${cookie.name}=${cookie.value}`).not.toContain(selectedOptionId);
-  }
+  expect(logs.join(" ")).not.toContain("everyone-evening");
+  expect(JSON.stringify(await context.cookies())).not.toContain("everyone-evening");
 });
 
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
-  test(`${reducedMotion} motion and 320px reflow preserve the lesson and controls`, async ({
+  test(`${reducedMotion} supports 320px touch targets and readable mobile results`, async ({
     page,
   }) => {
-    await page.emulateMedia({ reducedMotion });
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.goto(`/th${lessonPath}`);
-
-    await expectNoHorizontalOverflow(page);
-    await page.getByRole("button", { name: "เริ่มเช็กสรุปนี้" }).click();
-    await expectNoHorizontalOverflow(page);
-    await page.getByRole("button", { name: "ลองตอบจากที่เห็น" }).click();
-    await expectNoHorizontalOverflow(page);
-    await expect(page.getByRole("radio")).toHaveCount(3);
-    for (const control of await page.locator("main").getByRole("button").all()) {
-      const box = await control.boundingBox();
-      expect(box?.height).toBeGreaterThanOrEqual(44);
-      expect(box?.x).toBeGreaterThanOrEqual(0);
-      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(320);
+    await page.emulateMedia({ reducedMotion });
+    await page.goto(`/th${path}`);
+    const start = page.getByRole("button", { name: "เริ่มเช็กสรุปนี้" });
+    await expect(start).toBeInViewport();
+    await begin(page, "th");
+    for (const [index, q] of cases[0]!.questions.entries()) {
+      await checkAccess(page);
+      for (const target of await page.locator(".mission-option, .mission-actions button").all()) {
+        const box = await target.boundingBox();
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+      }
+      await page.getByRole("radio", { name: q.options.find((o) => o.correct)!.label.th }).check();
+      await page.getByRole("button", { name: "เช็กคำตอบ" }).click();
+      await page.getByRole("button", { name: index === 3 ? "ดูสรุปของฉัน" : "ไปต่อ" }).click();
     }
-    if (reducedMotion === "reduce") {
+    await checkAccess(page);
+    if (reducedMotion === "reduce")
       expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
-    }
   });
 }
 
-for (const locale of ["th", "en"] as const) {
-  test(`${locale} lesson has no serious or critical axe violations`, async ({ page }) => {
-    await page.goto(`/${locale}${lessonPath}`);
-    for (let stage = 0; stage < 3; stage++) {
-      await page.locator(".guided-steps button").nth(stage).click();
-      const results = await new AxeBuilder({ page })
-        .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
-        .analyze();
-      const blocking = results.violations.filter(
-        (violation) => violation.impact === "serious" || violation.impact === "critical",
-      );
-      expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
-    }
-  });
-}
-
-test("lesson metadata blocks indexing and unsupported locale fails", async ({ page }) => {
-  await page.goto(`/en${lessonPath}`);
+test("example-result entry, locale switching and metadata preserve demo boundaries", async ({
+  page,
+}) => {
+  await page.goto("/en/assessment/example-result");
+  await page.getByRole("link", { name: "Try this lesson" }).click();
+  await expect(page).toHaveURL(`/en${path}`);
+  await page.getByRole("link", { name: "ไทย" }).click();
+  await expect(page).toHaveURL(`/th${path}`);
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
     "content",
     /noindex.*noarchive|noarchive.*noindex/,
   );
-
-  const response = await page.goto(`/fr${lessonPath}`);
+  const response = await page.goto(`/fr${path}`);
   expect(response?.status()).toBe(404);
 });

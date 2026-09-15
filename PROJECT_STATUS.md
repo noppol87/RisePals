@@ -1,5 +1,25 @@
 # Rise Pals — Project Status
 
+## Current interactive public mission — 2026-09-15
+
+Jeff approved the experience review. Public mission v2 now supports spotting a
+claim, choosing evidence, composing a corrected summary and choosing a next action.
+The first case is coached; a new fictional survey case withholds feedback until
+completion. Results show the actual chosen summary and label coaching honestly.
+Home entry now leads to the mission. Thai/English, focus, mobile controls and
+reduced motion are covered.
+
+Content is versioned as local prototype 2.0.0, separate from the immutable
+published v1 registry and private attempts. No XP, saved proof, validated skill
+claim or external service was added.
+
+Fresh checks: 418 unit/component tests, both typechecks, lint, formatting, content
+validation and production build pass. The full browser run passed 82/85; three
+mission checks found transient animation contrast. After fixing it, all eight
+mission browser cases pass. Screenshots and the complete changed-file map are
+in `docs/18_INTERACTIVE_MISSION_V2.md`. User testing and hosted setup remain
+outstanding. The sections below record earlier implementation states.
+
 ## Current guided visual lesson — 2026-09-15
 
 Jeff requested a clearer starting point and more visual content in the public

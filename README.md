@@ -1,6 +1,18 @@
 # Rise Pals
 
-## Current experience: a guided visual lesson
+## Current experience: an interactive mission
+
+The public lesson now guides learners through spotting a claim, choosing evidence,
+completing a summary and choosing a next action. A second fictional case lets
+them try the same checks without hints during the round. The result shows their
+actual before/after summary. The home page leads directly into the mission.
+Both Thai and English are available.
+
+The public mission is versioned separately as local prototype 2.0.0; immutable
+published v1 content and private saved attempts retain their existing identities.
+See [implementation, screenshots and checks](docs/18_INTERACTIVE_MISSION_V2.md).
+
+## Previous guided visual lesson
 
 The source-verification lesson now has three stages: an illustrated AI summary,
 a visual comparison of the source data and one question at a time. Back controls

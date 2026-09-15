@@ -17,7 +17,7 @@ describe("public narrative", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("ไม่ต้องเก่งทุกอย่าง");
     expect(
       screen.getAllByRole("link", { name: catalogs.th.landing.hero.ctaLabel })[0],
-    ).toHaveAttribute("href", "/th/assessment");
+    ).toHaveAttribute("href", "/th/lessons/source-verification-practice");
     expect(screen.getByText(/เดโมสถานการณ์จำลอง ยังไม่ให้คะแนน/)).toBeVisible();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(8);

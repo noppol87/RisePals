@@ -1,143 +1,135 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SourceVerificationLesson } from "@/components/source-verification-lesson";
-import { LessonEvidenceVisual, sourceCaseVisual } from "@/components/lesson-evidence-visual";
 import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
 import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification";
+import {
+  evaluateMission,
+  sourceVerificationMission,
+} from "@/modules/lesson/source-verification/mission-v2";
 
 vi.mock("server-only", () => ({}));
-
+const cases = sourceVerificationMission.cases;
 function renderLesson(locale: "th" | "en" = "en") {
-  const view = createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition);
-  return {
-    view,
-    ...render(
-      <SourceVerificationLesson
-        exampleResultHref={`/${locale}/assessment/example-result`}
-        homeHref={`/${locale}`}
-        view={view}
-      />,
-    ),
-  };
+  return render(
+    <SourceVerificationLesson
+      homeHref={`/${locale}`}
+      exampleResultHref={`/${locale}/assessment/example-result`}
+      view={createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition)}
+    />,
+  );
 }
-function enterPractice(container: HTMLElement) {
-  fireEvent.click(container.querySelectorAll(".guided-steps button")[2]!);
+function begin() {
+  fireEvent.click(screen.getByRole("button", { name: "Check this summary" }));
 }
-function chooseResponses(
-  view: ReturnType<typeof createSourceVerificationLessonView>,
-  meets: (index: number) => boolean,
-) {
-  for (const [index, criterion] of view.practice.criteria.entries()) {
-    const group = screen.getByRole("group", { name: criterion.prompt });
-    const option = criterion.options.find(
-      (candidate) => candidate.meetsCriterion === meets(index),
-    )!;
-    fireEvent.click(within(group).getByRole("radio", { name: option.label }));
-    if (index < 2) fireEvent.click(screen.getByRole("button", { name: "Next question" }));
+function finishCoached() {
+  begin();
+  for (const [i, question] of cases[0]!.questions.entries()) {
+    fireEvent.click(
+      screen.getByRole("radio", { name: question.options.find((o) => o.correct)!.label.en }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: i === 3 ? "See my summary" : "Continue" }));
   }
 }
-
-describe("guided source-verification lesson", () => {
+describe("versioned visual mission", () => {
   it.each(["th", "en"] as const)(
-    "starts %s with one story and keeps complete method details available",
+    "offers one clear %s start and keeps prototype boundaries visible",
     (locale) => {
-      const { container, view } = renderLesson(locale);
-      expect(screen.getByRole("heading", { level: 1 })).toBeVisible();
+      renderLesson(locale);
       expect(
         screen.getByRole("button", {
           name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
         }),
       ).toBeVisible();
+      expect(screen.getByText(cases[0]!.before[locale])).toBeVisible();
       expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-      expect(screen.getByText(view.scenario.aiSummary)).toBeVisible();
-      const extras = container.querySelector(".guided-extras")!;
-      for (const summary of extras.querySelectorAll("summary")) fireEvent.click(summary);
-      expect(screen.getByText(view.lesson.versionId)).toBeVisible();
-      expect(screen.getByText(view.rubric.demonstratedRule)).toBeVisible();
-      expect(screen.getByText(view.proof.placeholderLabel)).toBeVisible();
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-      expect(container.querySelector('input[type="file"]')).toBeNull();
+      fireEvent.click(
+        screen.getByText(locale === "th" ? "เกี่ยวกับแบบฝึกนี้" : "About this practice"),
+      );
+      expect(screen.getByText(/2.0.0/)).toBeVisible();
     },
   );
-  it("shows only one question, focuses a missing-answer error and preserves answers on Back", async () => {
-    const { container, view } = renderLesson();
-    enterPractice(container);
-    expect(screen.getAllByRole("radio")).toHaveLength(3);
-    fireEvent.click(screen.getByRole("button", { name: "Next question" }));
-    const error = await screen.findByRole("alert");
-    await waitFor(() => expect(error).toHaveFocus());
-    expect(error).toHaveTextContent("Choose an answer first.");
-    fireEvent.click(screen.getAllByRole("radio")[1]!);
-    fireEvent.click(screen.getByRole("button", { name: "Next question" }));
-    expect(screen.getByRole("group", { name: view.practice.criteria[1]!.prompt })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: /^Back$/ }));
-    expect(screen.getAllByRole("radio")[1]).toBeChecked();
-    expect(screen.queryByText("XP rule preview: 20 XP")).not.toBeInTheDocument();
-  });
-  it("gives criterion-level partial feedback without awarding preview XP", async () => {
-    const { container, view } = renderLesson();
-    enterPractice(container);
-    chooseResponses(view, (index) => index !== 1);
-    fireEvent.click(screen.getByRole("button", { name: "See how you did" }));
-    const heading = await screen.findByRole("heading", { name: view.feedback.partialHeading });
-    await waitFor(() => expect(heading).toHaveFocus());
-    expect(screen.getAllByText(view.feedback.metLabel)).toHaveLength(2);
-    expect(screen.getByText(view.feedback.notMetLabel)).toBeVisible();
-    expect(screen.getByText("XP rule preview: 0 XP")).toBeVisible();
-    expect(screen.getByText(view.feedback.unsavedXpBoundary)).toBeVisible();
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-  });
-  it("requires all criteria, never accumulates XP, and clears all three answers on reset", async () => {
-    const { container, view } = renderLesson();
-    enterPractice(container);
-    chooseResponses(view, () => true);
-    fireEvent.click(screen.getByRole("button", { name: "See how you did" }));
-    expect(
-      await screen.findByRole("heading", { name: view.feedback.demonstratedHeading }),
-    ).toBeVisible();
-    expect(screen.getByText("XP rule preview: 20 XP")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "What would you do?" })).toHaveFocus(),
+  it("focuses missing-answer errors, gives specific coaching, and keeps a wrong answer on the same step", async () => {
+    renderLesson();
+    begin();
+    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
+    fireEvent.click(screen.getAllByRole("radio")[0]!);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      cases[0]!.questions[0]!.options[0]!.reason.en,
     );
-    expect(screen.queryByText("XP rule preview: 20 XP")).not.toBeInTheDocument();
-    chooseResponses(view, () => true);
-    fireEvent.click(screen.getByRole("button", { name: "See how you did" }));
-    expect(await screen.findByText("XP rule preview: 20 XP")).toBeVisible();
-    expect(screen.queryByText(/40 XP/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Clear answers" }));
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("radio")[2]!);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check my choice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Back$/ }));
+    expect(screen.getAllByRole("radio")[2]).toBeChecked();
+  });
+  it("builds a before/after artifact, labels coaching honestly, and starts a clean independent case", () => {
+    renderLesson();
+    finishCoached();
+    expect(screen.getByRole("heading", { name: "You fixed this summary" })).toBeVisible();
+    expect(screen.getByText(/with guidance along the way/)).toBeVisible();
+    expect(screen.getByText(/Team C’s result is still unknown/)).toBeVisible();
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try a new situation" }));
+    begin();
+    expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
+    for (const [i] of cases[1]!.questions.entries()) {
+      fireEvent.click(screen.getAllByRole("radio")[0]!);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: i === 3 ? "See my summary" : "Continue" }),
+      );
+    }
+    expect(screen.getByRole("heading", { name: "A few things need another look" })).toBeVisible();
     expect(
-      [...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every(
-        (r) => !r.checked,
-      ),
-    ).toBe(true);
+      screen.queryByRole("heading", { name: "You fixed this summary" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try this case again" }));
+    begin();
+    expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
   });
 });
-
-describe("fictional case illustration", () => {
-  it("matches the published source figures and renders missing data without a zero-valued bar", () => {
-    const view = createSourceVerificationLessonView("en", sourceVerificationLessonDefinition);
-    const records = view.scenario.sourceRecords.map((r) => r.detail).join(" ");
-    for (const team of sourceCaseVisual.teams) {
-      if (team.improvement !== null) {
-        expect(records).toContain(`${team.improvement}%`);
-        expect(records).toContain(String(team.cases));
+describe("mission evaluation integrity", () => {
+  it.each(cases)(
+    "rejects missing/unknown responses and same-position guessing in $id",
+    (mission) => {
+      expect(evaluateMission(mission, {}).complete).toBe(false);
+      expect(evaluateMission(mission, { claim: "not-an-option" }).complete).toBe(false);
+      for (let i = 0; i < 3; i++) {
+        const answers = Object.fromEntries(mission.questions.map((q) => [q.id, q.options[i]!.id]));
+        expect(evaluateMission(mission, answers).complete).toBe(true);
+        expect(evaluateMission(mission, answers).allCorrect).toBe(false);
       }
-    }
-    expect(records).toContain(String(sourceCaseVisual.days));
-    expect(records).toContain(String(sourceCaseVisual.unresolved));
-    const { container } = render(<LessonEvidenceVisual view={view} />);
-    expect(screen.getByText("Unknown")).toBeVisible();
-    expect(container.querySelector('[data-missing="true"] .team-chart__bar')).toBeNull();
-    expect(screen.getByText("Missing data ≠ zero improvement")).toBeVisible();
-  });
-  it("does not reuse the v1 chart for an unknown version", () => {
-    const original = createSourceVerificationLessonView("en", sourceVerificationLessonDefinition);
-    const view = { ...original, lesson: { ...original.lesson } };
-    Object.defineProperty(view.lesson, "version", { value: "2.0.0" });
-    const { container } = render(<LessonEvidenceVisual view={view} />);
-    expect(container.querySelector(".team-comparison")).toBeNull();
-    fireEvent.click(screen.getByText("Read the fictional source records"));
-    expect(screen.getByText(view.scenario.sourceRecords[0]!.detail)).toBeVisible();
+      const correct = Object.fromEntries(
+        mission.questions.map((q) => [q.id, q.options.find((o) => o.correct)!.id]),
+      );
+      expect(evaluateMission(mission, correct).allCorrect).toBe(true);
+      for (const q of mission.questions) {
+        expect(q.options.filter((o) => o.correct)).toHaveLength(1);
+        for (const o of q.options) {
+          expect(o.label.th.length).toBeGreaterThan(0);
+          expect(o.label.en.length).toBeGreaterThan(0);
+          expect(o.reason.th.length).toBeGreaterThan(0);
+          expect(o.reason.en.length).toBeGreaterThan(0);
+        }
+      }
+    },
+  );
+  it("keeps legacy published identity and its source figures intact", () => {
+    expect(sourceVerificationLessonDefinition.lesson.version).toBe("1.0.0");
+    expect(sourceVerificationMission.sourceIdentity).toBe("source-verification-practice@1.0.0");
+    expect(cases[0]!.facts.map((f) => f.amount)).toEqual([30, 8, null]);
+    expect(cases[1]!.facts.map((f) => f.amount)).toEqual([12, 8, 80]);
+    const source = createSourceVerificationLessonView("en", sourceVerificationLessonDefinition)
+      .scenario.sourceRecords.map((r) => r.detail)
+      .join(" ");
+    for (const number of ["30%", "8%", "12", "40", "60", "2"]) expect(source).toContain(number);
   });
 });
