@@ -18,6 +18,11 @@ structure. The four entries cover smoother work, changes in tools and methods,
 the next opportunity, and an unsure/exploration route. They avoid job titles so
 people in varied work contexts can recognize a relevant situation.
 
+Step two keeps the question and its choices together in the right task panel.
+The chosen goal is a compact context label above the question. The left panel
+states what the journey is trying to find and shows progress, so the right panel
+can be understood without cross-column reading.
+
 ## Evidence boundary
 
 This is an experience hypothesis, not completed user research. The result is

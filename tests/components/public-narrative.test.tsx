@@ -18,9 +18,10 @@ describe("public narrative", () => {
       "อยากให้การทำงานดีขึ้นตรงไหน",
     );
     fireEvent.click(screen.getByRole("button", { name: /อยากรับมือวิธีทำงานใหม่/ }));
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "ช่วงนี้ เรื่องไหนกระทบคุณที่สุด",
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("มาดูกันว่างานติดตรงไหน");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "ช่วงนี้ เรื่องไหนกระทบงานคุณมากที่สุด?" }),
+    ).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /ข้อมูลจาก AI เชื่อได้แค่ไหน/ }));
     expect(screen.getByRole("heading", { name: "คิดก่อนเชื่อและใช้ข้อมูลให้ชัวร์" })).toBeVisible();
     expect(screen.getByText(/ยังไม่บันทึกผล/)).toBeVisible();

@@ -24,6 +24,8 @@ const copy: Record<
     lead: string;
     step: string;
     context: string;
+    situationContextHeading: string;
+    situationContextLead: string;
     situationHeading: string;
     situationLead: string;
     other: string;
@@ -48,7 +50,9 @@ const copy: Record<
     lead: "เลือกเรื่องที่ใกล้ตัวที่สุด เดี๋ยวเราช่วยหาจุดเริ่มให้",
     step: "จุดเริ่ม",
     context: "เลือก 1 เรื่อง",
-    situationHeading: "ช่วงนี้ เรื่องไหนกระทบคุณที่สุด?",
+    situationContextHeading: "มาดูกันว่างานติดตรงไหน",
+    situationContextLead: "อีกหนึ่งคำตอบ แล้วเราจะช่วยชี้ทางเริ่มให้",
+    situationHeading: "ช่วงนี้ เรื่องไหนกระทบงานคุณมากที่สุด?",
     situationLead: "เลือกเหตุการณ์ที่ใกล้เคียง ไม่ต้องตรงทุกคำ",
     other: "ยังไม่ตรงกับฉัน",
     resultEyebrow: "ทางเริ่มของคุณ",
@@ -122,7 +126,9 @@ const copy: Record<
     lead: "Pick what feels closest. We’ll help you find a small first step.",
     step: "Starting point",
     context: "Choose one",
-    situationHeading: "What has affected you most lately?",
+    situationContextHeading: "Let’s find what is getting in the way.",
+    situationContextLead: "One more answer will help us suggest a starting path.",
+    situationHeading: "What has affected your work most lately?",
     situationLead: "Choose the closest situation. It does not need to match perfectly.",
     other: "None of these fits",
     resultEyebrow: "YOUR STARTING PATH",
@@ -213,10 +219,12 @@ export function FirstVisitJourney({ locale }: Readonly<{ locale: Locale }>) {
           {stage === 1
             ? messages.heading
             : stage === 2
-              ? messages.situationHeading
+              ? messages.situationContextHeading
               : messages.resultHeading}
         </h1>
-        <p>{stage === 1 ? messages.lead : stage === 2 ? messages.situationLead : goal?.reason}</p>
+        <p>
+          {stage === 1 ? messages.lead : stage === 2 ? messages.situationContextLead : goal?.reason}
+        </p>
         <div className="first-visit__trail" aria-label={`${messages.step} ${stage} / 3`}>
           {[1, 2, 3].map((item) => (
             <span key={item} className={item <= stage ? "is-active" : undefined} />
@@ -245,6 +253,10 @@ export function FirstVisitJourney({ locale }: Readonly<{ locale: Locale }>) {
               <small>{messages.yourGoal}</small>
               {goal.label}
             </p>
+            <div className="first-visit__question">
+              <h2>{messages.situationHeading}</h2>
+              <p>{messages.situationLead}</p>
+            </div>
             <div className="first-visit__choices first-visit__choices--situations">
               {goal.situations.map((item) => (
                 <button key={item} type="button" onClick={() => setSituation(item)}>

@@ -9,6 +9,11 @@ The flow presents one decision at a time and connects the visitor's stated goal,
 situation and next action in one visual summary. Choices stay in React memory,
 reset on refresh and never create a score, identity, profile or saved result.
 
+After visual review with Jeff, step two now repeats the actionable question
+directly above its choices. The selected goal appears as a compact context label,
+while the left panel only explains the current stage. This removes the need to
+scan across columns before understanding what the choices answer.
+
 Critical source verification has an available fictional mission. Systematic
 thinking and strategic storytelling paths are labelled as still in development
 and offer the existing mission only as a nearby example. The cases remain design

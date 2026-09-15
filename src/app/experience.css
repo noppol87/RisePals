@@ -1583,9 +1583,15 @@ html[lang="en"] .first-visit__intro h1 {
 .first-visit__selected {
   display: grid;
   gap: 3px;
-  margin: 0 0 22px;
+  width: fit-content;
+  margin: 0 0 20px;
+  padding: 9px 13px;
+  border: 1px solid #567064;
+  border-radius: 12px;
+  background: #21473c;
   color: #eaf3df;
-  font-weight: 700;
+  font-size: 0.84rem;
+  font-weight: 650;
 }
 .first-visit__selected small,
 .first-visit__summary small,
@@ -1595,6 +1601,22 @@ html[lang="en"] .first-visit__intro h1 {
   font-size: 0.68rem;
   font-weight: 600;
   letter-spacing: 0.05em;
+}
+.first-visit__question {
+  margin-bottom: 20px;
+}
+.first-visit__question h2 {
+  max-width: 18ch;
+  margin: 0;
+  color: #f7f7ee;
+  font-size: clamp(1.45rem, 2.6vw, 2.25rem);
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+}
+.first-visit__question p {
+  margin: 7px 0 0;
+  color: #b9c9c0;
+  font-size: 0.78rem;
 }
 .first-visit__back {
   align-self: flex-start;
