@@ -1,6 +1,12 @@
 # Rise Pals
 
-## Current experience: shorter copy, more interaction
+## Current experience: a guided visual lesson
+
+The source-verification lesson now has three stages: an illustrated AI summary,
+a visual comparison of the source data and one question at a time. Back controls
+and an evidence reminder keep the task manageable. See [the guided lesson record](docs/16_GUIDED_VISUAL_LESSON.md).
+
+## Concise bilingual experience
 
 The Thai/English interface now leads with a small action and an interactive skill
 map. Conversational Thai and concise English reduce initial landing text by

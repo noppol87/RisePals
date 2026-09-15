@@ -1,5 +1,20 @@
 # Rise Pals — Project Status
 
+## Current guided visual lesson — 2026-09-15
+
+Jeff requested a clearer starting point and more visual content in the public
+source-verification lesson. Implemented three stages, a visual comparison of
+the fictional source data, and one question at a time with Back and evidence
+recall. Initial Thai text is 494 characters, down from 2,408 in the previous
+version. Both locales work. Canonical choices, rubric, preview-XP rules and
+private saved practice remain unchanged.
+
+Fresh checks pass: formatting, lint, both typechecks, 418 unit/component tests,
+25 targeted browser cases (24 initial + one corrected-selector rerun), six alpha
+checks and Netlify offline build. Screenshots, changed-file map and limitations
+are in `docs/16_GUIDED_VISUAL_LESSON.md`. This is a local production-build preview;
+no hosted service, paid resource or DNS change occurred.
+
 ## Current concise experience — 2026-09-15
 
 Jeff requested less text, conversational Thai, equally concise English and more

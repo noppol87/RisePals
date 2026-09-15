@@ -12,37 +12,70 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function enterPractice(page: Page) {
+  await page.locator(".guided-steps button").nth(2).click();
+}
 async function answerAll(page: Page, correct = true) {
-  for (const group of await page.locator("fieldset").all()) {
-    const radios = group.getByRole("radio");
-    await radios.nth(correct ? 0 : 1).check();
+  await enterPractice(page);
+  for (let index = 0; index < 3; index++) {
+    await page
+      .getByRole("radio")
+      .nth(correct ? 0 : 1)
+      .check();
+    if (index < 2) await page.getByRole("button", { name: "Next question" }).click();
   }
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} renders the full versioned lesson, transparent rubric and proof placeholder`, async ({
+  test(`${locale} starts with a clear action, then visual evidence and one question`, async ({
     page,
   }) => {
     await page.goto(`/${locale}${lessonPath}`);
-
-    for (const summary of await page.locator("details > summary").all()) await summary.click();
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    expect((await page.locator("main").innerText()).length).toBeLessThan(900);
+    await expect(page.getByRole("radio")).toHaveCount(0);
+    const start = page.getByRole("button", {
+      name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
+    });
+    await start.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#lesson-source-pack-heading")).toBeFocused();
+    await expect(page.locator(".guided-sources .team-chart")).toHaveCount(3);
+    await expect(page.locator(".guided-sources").getByText("30%", { exact: true })).toBeVisible();
+    await expect(page.locator(".guided-sources").getByText("8%", { exact: true })).toBeVisible();
+    await expect(
+      page
+        .locator(".guided-sources")
+        .getByText(locale === "th" ? "ยังไม่รู้" : "Unknown", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.guided-sources [data-missing="true"] .team-chart__bar'),
+    ).toHaveCount(0);
+    await page
+      .locator(".guided-sources .lesson-source-original")
+      .first()
+      .locator("summary")
+      .click();
+    await expect(
+      page
+        .locator(".guided-sources .lesson-source-original")
+        .first()
+        .getByText(locale === "th" ? /12 รายการ/ : /12/),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: locale === "th" ? "ลองตอบจากที่เห็น" : "Try a question" })
+      .click();
+    await expect(page.locator("#lesson-practice-heading")).toBeFocused();
+    await expect(page.getByRole("radio")).toHaveCount(3);
+    await page.locator(".guided-recall > summary").click();
+    await expect(page.locator(".guided-recall .team-comparison")).toBeVisible();
+    await expect(page.locator('input[type="file"],textarea,input[type="text"]')).toHaveCount(0);
+    const extras = page.locator(".guided-extras");
+    await extras.locator(":scope > summary").click();
+    for (const summary of await extras.locator("details > summary").all()) await summary.click();
     await expect(page.getByText("lesson-source-verification-practice-v1")).toBeVisible();
-    await expect(page.getByText("1.0.0")).toBeVisible();
     await expect(page.getByText("published", { exact: true })).toBeVisible();
     await expect(page.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
-    await expect(page.getByText(locale === "th" ? "ลองใช้จริง" : "Practising")).toBeVisible();
-    await expect(
-      page.getByText(locale === "th" ? "รู้ทันความเสี่ยงและรับผิดชอบ" : "Risk and responsibility"),
-    ).toBeVisible();
-    await expect(
-      page.getByText(locale === "th" ? "ทีมปฏิบัติการไบรต์ริเวอร์" : "Bright River Operations"),
-    ).toBeVisible();
-    await expect(page.locator("fieldset")).toHaveCount(3);
-    await expect(page.getByRole("radio")).toHaveCount(9);
-    await expect(page.locator('input[type="file"], textarea, input[type="text"]')).toHaveCount(0);
-    await expect(page.getByText(/20 XP/)).toHaveCount(1);
-    await expect(page.locator(".lesson-feedback")).toHaveCount(0);
     await expect(page.locator(".lesson-proof")).toContainText(
       locale === "th"
         ? "ยังพิมพ์ข้อความ อัปโหลด หรือบันทึกไฟล์ไม่ได้"
@@ -66,7 +99,7 @@ test("the result-to-lesson link is locale matched and explicitly non-personalize
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
 });
 
-test("keyboard flow focuses incomplete and criterion feedback, then retry and reset do not accumulate XP", async ({
+test("guided questions validate, preserve Back selections, and never accumulate XP", async ({
   page,
 }) => {
   await page.goto(`/en${lessonPath}`);
@@ -74,24 +107,28 @@ test("keyboard flow focuses incomplete and criterion feedback, then retry and re
   await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("main")).toBeFocused();
-
-  await page.getByRole("button", { name: "See how you did" }).click();
-  const error = page.locator("#lesson-practice-error");
-  await expect(error).toBeFocused();
-  await expect(error).toContainText("Choose one response for all three criteria");
-
-  const groups = page.locator("fieldset");
-  await groups.nth(0).getByRole("radio").nth(0).check();
-  await groups.nth(1).getByRole("radio").nth(1).check();
-  await groups.nth(2).getByRole("radio").nth(0).check();
+  await enterPractice(page);
+  await page.getByRole("button", { name: "Next question" }).click();
+  await expect(page.locator("#lesson-practice-error")).toBeFocused();
+  await expect(page.locator("#lesson-practice-error")).toContainText("Choose an answer first.");
+  await page.getByRole("radio").nth(0).check();
+  await page.getByRole("button", { name: "Next question" }).click();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.getByRole("radio").nth(0)).toBeChecked();
+  for (let i = 0; i < 3; i++) {
+    await page
+      .getByRole("radio")
+      .nth(i === 1 ? 1 : 0)
+      .check();
+    if (i < 2) await page.getByRole("button", { name: "Next question" }).click();
+  }
   await page.getByRole("button", { name: "See how you did" }).click();
   await expect(
     page.getByRole("heading", { name: "Review at least one criterion before using the summary" }),
   ).toBeFocused();
   await expect(page.getByText("XP rule preview: 0 XP")).toBeVisible();
-
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "What would you do?" })).toBeFocused();
+  await expect(page.locator("#lesson-practice-heading")).toBeFocused();
   await answerAll(page);
   await page.getByRole("button", { name: "See how you did" }).click();
   await expect(
@@ -99,15 +136,19 @@ test("keyboard flow focuses incomplete and criterion feedback, then retry and re
   ).toBeFocused();
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
   await expect(page.getByText(/not saved.*never accumulates/i)).toBeVisible();
-
   await page.getByRole("button", { name: "Try again" }).click();
+  await answerAll(page);
   await page.getByRole("button", { name: "See how you did" }).click();
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
   await expect(page.getByText(/40 XP/)).toHaveCount(0);
-
   await page.getByRole("button", { name: "Clear answers" }).click();
-  await expect(page.getByRole("radio").first()).not.toBeChecked();
-  await expect(page.locator(".lesson-feedback")).toHaveCount(0);
+  for (let i = 0; i < 3; i++) {
+    await expect(page.getByRole("radio").nth(0)).not.toBeChecked();
+    if (i < 2) {
+      await page.getByRole("radio").nth(1).check();
+      await page.getByRole("button", { name: "Next question" }).click();
+    }
+  }
 });
 
 test("refresh discards every in-memory practice choice and feedback state", async ({ page }) => {
@@ -117,6 +158,8 @@ test("refresh discards every in-memory practice choice and feedback state", asyn
   await expect(page.getByText("XP rule preview: 20 XP")).toBeVisible();
 
   await page.reload();
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await enterPractice(page);
   await expect(page.getByRole("radio").first()).not.toBeChecked();
   await expect(page.locator(".lesson-feedback")).toHaveCount(0);
 });
@@ -188,7 +231,11 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.goto(`/th${lessonPath}`);
 
     await expectNoHorizontalOverflow(page);
-    await expect(page.getByRole("radio")).toHaveCount(9);
+    await page.getByRole("button", { name: "เริ่มเช็กสรุปนี้" }).click();
+    await expectNoHorizontalOverflow(page);
+    await page.getByRole("button", { name: "ลองตอบจากที่เห็น" }).click();
+    await expectNoHorizontalOverflow(page);
+    await expect(page.getByRole("radio")).toHaveCount(3);
     for (const control of await page.locator("main").getByRole("button").all()) {
       const box = await control.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -204,13 +251,16 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
 for (const locale of ["th", "en"] as const) {
   test(`${locale} lesson has no serious or critical axe violations`, async ({ page }) => {
     await page.goto(`/${locale}${lessonPath}`);
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
-      .analyze();
-    const blocking = results.violations.filter(
-      (violation) => violation.impact === "serious" || violation.impact === "critical",
-    );
-    expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+    for (let stage = 0; stage < 3; stage++) {
+      await page.locator(".guided-steps button").nth(stage).click();
+      const results = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag22aa"])
+        .analyze();
+      const blocking = results.violations.filter(
+        (violation) => violation.impact === "serious" || violation.impact === "critical",
+      );
+      expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+    }
   });
 }
 
