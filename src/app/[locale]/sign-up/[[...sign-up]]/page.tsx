@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { Stack } from "@/components/primitives/stack";
 import { isLocale } from "@/lib/i18n/config";
-import { ClerkSignUpPanel } from "@/modules/identity/providers/clerk/client-boundary";
-import { parseClerkDevelopmentConfiguration } from "@/modules/identity/providers/clerk/config";
+import { SupabaseSignUpPanel } from "@/modules/identity/providers/supabase/panel";
+import { parseSupabaseConfiguration } from "@/modules/identity/providers/supabase/config";
 import { safeLocaleReturnPath } from "@/modules/identity/redirects";
 import { profileCopy } from "@/modules/profile/copy";
 
@@ -21,7 +21,7 @@ export default async function SignUpPage({
   }
 
   const copy = profileCopy[localeSegment];
-  const configuration = parseClerkDevelopmentConfiguration(process.env);
+  const configuration = parseSupabaseConfiguration(process.env);
   const returnPath = safeLocaleReturnPath(query.returnTo, localeSegment);
 
   return (
@@ -31,11 +31,10 @@ export default async function SignUpPage({
         <h1>{copy.signUpHeading}</h1>
         <p>{copy.signUpIntroduction}</p>
         <p>{copy.syntheticBoundary}</p>
-        <p className="boundary-note">{copy.localizationFallback}</p>
       </section>
       {configuration.state === "enabled" ? (
         <section className="auth-provider-panel" aria-label={copy.signUpHeading}>
-          <ClerkSignUpPanel locale={localeSegment} returnPath={returnPath} />
+          <SupabaseSignUpPanel locale={localeSegment} returnPath={returnPath} />
         </section>
       ) : (
         <section className="surface-card profile-panel">

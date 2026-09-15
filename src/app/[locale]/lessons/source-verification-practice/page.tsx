@@ -24,13 +24,15 @@ export async function generateMetadata({
     notFound();
   }
 
-  const view = createSourceVerificationLessonView(
-    resolved.locale,
-    sourceVerificationLessonDefinition,
-  );
   return {
-    title: view.metadata.title,
-    description: view.metadata.description,
+    title:
+      resolved.locale === "th"
+        ? "เช็กสรุปก่อนใช้ตัดสินใจ | Rise Pals"
+        : "Check a summary before a decision | Rise Pals",
+    description:
+      resolved.locale === "th"
+        ? "ลองจับจุด หาหลักฐาน และแก้สรุป AI ผ่านสองสถานการณ์สมมติ ไม่บันทึกผล"
+        : "Spot the claim, find evidence, and fix an AI summary in two fictional cases. Progress is not saved.",
     robots: "noindex, noarchive",
     alternates: {
       languages: {

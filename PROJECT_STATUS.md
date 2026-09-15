@@ -1,5 +1,180 @@
 # Rise Pals — Project Status
 
+## Decision-first public mission — 2026-09-16
+
+Jeff requested a full rethink after the lesson still felt confusing when read as
+a first-time user. The public source-verification mission now starts from one
+real responsibility: help a team check an AI summary before it informs a
+decision. Its four steps ask the learner to find an overclaim, choose evidence,
+write within the evidence and choose the next action.
+
+The mission goal stays visible throughout. Each question, short instruction and
+set of choices are grouped together; the evidence and AI answer remain visible
+beside them and on mobile. Feedback explains the selected choice, and the final
+state connects the corrected summary to the decision it may support. Thai and
+English content is versioned as local prototype `2.1.0`.
+
+Fresh checks: formatting, lint, both typechecks, 418 unit/component tests,
+content validation, production build, 16 targeted Chromium checks and all 85
+browser checks pass. Visual review covered Thai desktop and 390px mobile task
+states with no horizontal overflow. Scenarios remain fictional and unvalidated
+with real users. Full details are in `docs/21_DECISION_FIRST_MISSION.md`.
+
+## First-visit journey prototype — 2026-09-16
+
+Jeff approved implementation of the consolidated realignment plan. The public
+Thai and English home page now starts with the visitor's intended change, then
+asks which realistic impact is closest, and shows an explainable starting path.
+The flow presents one decision at a time and connects the visitor's stated goal,
+situation and next action in one visual summary. Choices stay in React memory,
+reset on refresh and never create a score, identity, profile or saved result.
+
+After visual review with Jeff, step two now repeats the actionable question
+directly above its choices. The selected goal appears as a compact context label,
+while the left panel only explains the current stage. This removes the need to
+scan across columns before understanding what the choices answer.
+
+The result action was also clarified after Jeff spotted an ambiguous floating
+arrow. The forward action is now a high-contrast contained button, and changing
+earlier answers is a separate secondary text action beneath it.
+
+Critical source verification has an available fictional mission. Systematic
+thinking and strategic storytelling paths are labelled as still in development
+and offer the existing mission only as a nearby example. The cases remain design
+hypotheses awaiting user research; the interface does not claim validated
+personalization or broad occupational coverage.
+
+Fresh checks: formatting, lint, both typechecks, 418 unit/component tests,
+production build and all 85 browser checks pass. Visual review covered the
+Thai starting and path-summary states at 1440px. The implementation record and
+changed-file map are in `docs/20_FIRST_VISIT_JOURNEY.md`.
+
+## Consolidated product realignment plan — 2026-09-15
+
+Jeff requested a fresh overview incorporating all feedback. The single proposal
+in `docs/19_PRODUCT_REALIGNMENT_PLAN.md` now supersedes the earlier incremental
+planning notes. It preserves the original career-development and 8+2 purpose,
+opens the entry to varied occupations, reveals one task with useful context at
+a time, and grounds later questions in user-selected situations and real impact.
+
+The proposed journey connects finding a relevant starting point, an explainable
+path, practice, evidence and return visits. Self-selected needs remain separate
+from assessed evidence. Research and first-visit testing precede locking content;
+examples and candidate pilot paths are hypotheses, not completed user research.
+The plan has five delivery rounds: discovery, complete experience prototype,
+pilot content, persistence integration and whole-journey validation.
+
+The planning document remains the reference for later research, content,
+persistence and whole-journey rounds. This first implementation does not create
+a hosted resource, deployment, new content version or saved personal path.
+
+## Current interactive public mission — 2026-09-15
+
+Jeff approved the experience review. Public mission v2 now supports spotting a
+claim, choosing evidence, composing a corrected summary and choosing a next action.
+The first case is coached; a new fictional survey case withholds feedback until
+completion. Results show the actual chosen summary and label coaching honestly.
+Home entry now leads to the mission. Thai/English, focus, mobile controls and
+reduced motion are covered.
+
+Content is versioned as local prototype 2.0.0, separate from the immutable
+published v1 registry and private attempts. No XP, saved proof, validated skill
+claim or external service was added.
+
+Fresh checks: 418 unit/component tests, both typechecks, lint, formatting, content
+validation and production build pass. The full browser run passed 82/85; three
+mission checks found transient animation contrast. After fixing it, all eight
+mission browser cases pass. Screenshots and the complete changed-file map are
+in `docs/18_INTERACTIVE_MISSION_V2.md`. User testing and hosted setup remain
+outstanding. The sections below record earlier implementation states.
+
+## Current guided visual lesson — 2026-09-15
+
+Jeff requested a clearer starting point and more visual content in the public
+source-verification lesson. Implemented three stages, a visual comparison of
+the fictional source data, and one question at a time with Back and evidence
+recall. Initial Thai text is 494 characters, down from 2,408 in the previous
+version. Both locales work. Canonical choices, rubric, preview-XP rules and
+private saved practice remain unchanged.
+
+Fresh checks pass: formatting, lint, both typechecks, 418 unit/component tests,
+25 targeted browser cases (24 initial + one corrected-selector rerun), six alpha
+checks and Netlify offline build. Screenshots, changed-file map and limitations
+are in `docs/16_GUIDED_VISUAL_LESSON.md`. This is a local production-build preview;
+no hosted service, paid resource or DNS change occurred.
+
+## Current concise experience — 2026-09-15
+
+Jeff requested less text, conversational Thai, equally concise English and more
+visual interaction. Initial home text is now 82% shorter in Thai and 83% shorter
+in English, measured as visible main-text characters with optional details closed.
+Framework definitions, source qualifications and method details remain available
+through native expandable sections. Lesson, assessment, example-result and
+test-account copy is also shorter. SVG connection tracing and brief control
+motion respect reduced-motion preferences.
+
+The available image tool cannot select or confirm GPT Image 2.5, so this pass
+uses Jeff’s suggested SVG/motion alternative. No raster images were generated.
+Versioned lesson definitions, assessment logic, storage and consent notices are
+unchanged. Actual screenshots and the changed-file map are recorded in
+`docs/15_CONCISE_EXPERIENCE.md`.
+
+Fresh checks: format, lint, both typechecks, 416 unit/component tests and Netlify
+offline build pass. All 88 browser cases pass across the initial run (75) and
+the targeted rerun (13) after updating stale copy selectors. Six expanded-page
+accessibility scans found no serious or critical violations. Six additional
+desktop/mobile/reduced-motion alpha checks pass. Hosted setup is
+still pending; no deployment or DNS changes occurred.
+
+## Current experience design — 2026-09-15
+
+Jeff requested a more beautiful, engaging UI/UX across the website. Implemented
+a warm-ivory/deep-green/lime design with local Thai/English fonts, a native
+interactive skill map, practice entry, clear navigation, scenario progress,
+lesson shortcuts, reduced-motion support and a shared footer/control system.
+The working interface is documented with desktop, mobile and assessment captures
+in `docs/design/`. Scope, changed files and fresh checks are in
+`docs/14_EXPERIENCE_DESIGN.md`.
+
+Fresh design checks pass: format, lint, both typechecks, 416 tests, 85 browser
+tests, six desktop/mobile/reduced-motion checks and Netlify offline packaging.
+Production dependency audit reports zero vulnerabilities.
+
+The Supabase organization "Jeff" is now selected. The cost tool returned 10/month;
+the official compute pricing identifies USD. A cost confirmation question is
+pending; no paid project or deployment has been created. The local UI work is
+independent of that decision.
+
+## Current migration — 2026-09-15
+
+Jeff requested continuing with Supabase, Netlify and GitHub in Codex desktop.
+Work is on `codex/supabase-netlify`, based on main `cd45e7356e902afbf3aafec0bdf8286dbccff7ad`,
+in a fresh checkout at `/Users/jeffsoon/Codex/RisePals/app`. The old working copy
+and Windows branch remain preserved.
+
+Implemented: server-side Supabase email-code authentication, verified identity
+mapping, private session refresh, localized sign-in/up/out, a versioned Supabase
+consent notice, owner-scoped identity migration, a one-time empty-project
+initializer, and Netlify build configuration. Historical Clerk identities remain
+separate and are never linked by matching email. Runtime DB pool is capped at
+one connection per warm instance. Public demo routes remain independent of auth.
+
+Security maintenance: Next.js / eslint-config-next 16.3.5, Sharp override 0.35.4,
+Vitest 4.1.11, @types/node 24.13.4 and patched transitive js-yaml. Supabase packages
+are exactly pinned to @supabase/ssr 0.12.7 and @supabase/supabase-js 2.116.0.
+
+Verified locally: formatting, lint, both typechecks, 416 unit/component tests,
+80 browser tests, 6 responsive/reduced-motion alpha checks, isolated PostgreSQL
+baseline and Supabase migration tests, and safe empty-project initialization.
+Netlify CLI 27.6.0 offline build packaged both server and edge functions with
+Next.js Runtime 5.15.13. Production dependency audit reports 0 vulnerabilities.
+
+No hosted Supabase project, deployment or DNS change has been made. The quoted
+cost confirmation remains pending. Live email-code
+delivery, hosted database permissions and deployed session behavior still need
+verification. Details and changed-file map: `docs/13_SUPABASE_NETLIFY_MIGRATION.md`.
+The records below are historical, not fresh test or deployment evidence.
+
 **Status date:** 2026-08-24  
 **Current phase:** RP-TURN-018 Alpha Hardening and Recovery Accepted by Project Codex  
 **Current turn:** RP-TURN-018 is Accepted; RP-TURN-019 is recommended only, unstarted and unauthorized

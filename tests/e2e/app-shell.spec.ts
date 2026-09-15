@@ -15,7 +15,9 @@ test("the root route resolves to the Thai default", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/th$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("งานกำลังเปลี่ยน");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "อยากให้การทำงานดีขึ้นตรงไหน",
+  );
 });
 
 test("Thai and English routes use complete intentional narrative content", async ({ page }) => {
@@ -23,14 +25,14 @@ test("Thai and English routes use complete intentional narrative content", async
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
   await expect(page.getByRole("navigation", { name: "การนำทางหลัก" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ไทย" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "เตรียมตัวและสร้างคุณค่าใหม่ได้",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("อยากให้การทำงานดีขึ้น");
 
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Work is changing");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "What would you like to improve",
+  );
   await expect(page.getByRole("link", { name: "English" })).toHaveAttribute("aria-current", "page");
 });
 
@@ -39,13 +41,14 @@ test("both evidence items expose attribution, limitations, and exact source dest
 }) => {
   await page.goto("/en");
 
+  await page.locator("#why-now summary").click();
   await expect(page.getByRole("article")).toHaveCount(2);
   await expect(page.getByText(/about one in four workers/)).toBeVisible();
   await expect(page.getByText(/39% of workers’ core skills/)).toBeVisible();
   await expect(page.getByText(/not a Thailand-specific figure/)).toBeVisible();
   await expect(page.getByText(/not a certainty or individual prediction/)).toBeVisible();
 
-  const sources = page.getByRole("link", { name: "Read the original source" });
+  const sources = page.getByRole("link", { name: "Read the source" });
   await expect(sources).toHaveCount(2);
   await expect(sources.nth(0)).toHaveAttribute(
     "href",
@@ -58,20 +61,21 @@ test("both evidence items expose attribution, limitations, and exact source dest
   await expect(page).toHaveURL(/\/en$/);
 });
 
-test("the honest CTA opens the locale-matched player without collecting data on landing", async ({
+test("the first-visit journey opens locale-matched practice without collecting data on landing", async ({
   page,
 }) => {
   await page.goto("/th");
 
-  const cta = page.getByRole("link", { name: "ทดลอง 6 สถานการณ์จำลอง" });
-  await expect(cta).toHaveAttribute("href", "/th/assessment");
-  await expect(page.getByText(/ยังไม่ใช่แบบประเมินที่ผ่านการตรวจสอบ/)).toBeVisible();
-  await expect(page.getByText(/เก็บเฉพาะรหัสตัวเลือกชั่วคราว/)).toBeVisible();
+  await page.getByRole("button", { name: /อยากรับมือวิธีทำงานใหม่/ }).click();
+  await page.getByRole("button", { name: /ข้อมูลจาก AI เชื่อได้แค่ไหน/ }).click();
+  const cta = page.getByRole("link", { name: /เริ่มภารกิจแรก/ });
+  await expect(cta).toHaveAttribute("href", "/th/lessons/source-verification-practice");
+  await expect(page.getByText(/ยังไม่บันทึกผล/)).toBeVisible();
   await expect(page.locator("input, textarea, select, form")).toHaveCount(0);
 
   await cta.click();
-  await expect(page).toHaveURL(/\/th\/assessment$/);
-  await expect(page.getByRole("heading", { name: /ทดลองตอบ 6 สถานการณ์จำลอง/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/th\/lessons\/source-verification-practice$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
 test("the page exposes the complete product loop and the 8+2 distinction", async ({ page }) => {
@@ -79,14 +83,24 @@ test("the page exposes the complete product loop and the 8+2 distinction", async
 
   const loop = page.getByRole("list", { name: "The Rise Pals development loop" });
   await expect(loop.getByRole("listitem")).toHaveCount(6);
-  for (const step of ["Diagnose", "Prioritize", "Learn", "Practice", "Prove", "Opportunity"]) {
+  for (const step of [
+    "Explore",
+    "Focus",
+    "Learn",
+    "Practise",
+    "Show your work",
+    "Find opportunities",
+  ]) {
     await expect(loop.getByRole("heading", { name: step })).toBeVisible();
   }
 
-  await expect(page.getByRole("heading", { name: "8 core competencies" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "+2 behavioural multipliers" })).toBeVisible();
-  await expect(page.getByText(/not ninth and tenth core skills/)).toBeVisible();
-  await expect(page.getByText(/exposes no score or weights/)).toBeVisible();
+  await page.locator("#skill-framework summary").click();
+  await expect(page.getByRole("heading", { name: "8 core skills" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "2 habits that help" })).toBeVisible();
+  await expect(page.getByText(/not a ninth and tenth skill/)).toBeVisible();
+  await expect(
+    page.locator("#skill-framework").getByText(/not your assessment result/),
+  ).toBeVisible();
 });
 
 test("unsupported locale segments return not found", async ({ page }) => {
@@ -109,7 +123,7 @@ test("the skip link is first, visibly focused, and moves focus to main", async (
   await expect(page.getByRole("main")).toBeFocused();
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "ทดลอง 6 สถานการณ์จำลอง" })).toBeFocused();
+  await expect(page.getByRole("button", { name: /อยากให้งานราบรื่นขึ้น/ })).toBeFocused();
 });
 
 test("the 320px and 400%-equivalent reflow view has no horizontal overflow", async ({ page }) => {
@@ -119,6 +133,7 @@ test("the 320px and 400%-equivalent reflow view has no horizontal overflow", asy
   await expectNoHorizontalOverflow(page);
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
+  await page.locator("#why-now summary").click();
   await expect(page.getByRole("article")).toHaveCount(2);
 
   for (const link of await page.getByRole("link").all()) {
@@ -136,6 +151,7 @@ test("the representative desktop shell preserves reading and navigation order", 
   await page.goto("/en");
 
   await expectNoHorizontalOverflow(page);
+  await page.locator("#why-now summary").click();
   await expect(page.getByRole("article")).toHaveCount(2);
   const wordmarkBox = await page
     .getByRole("banner")

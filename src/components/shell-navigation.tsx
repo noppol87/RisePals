@@ -57,6 +57,31 @@ export function ShellNavigation({ currentLocale, messages }: ShellNavigationProp
           </li>
           <li>
             <TextLink
+              href={assessmentPath(currentLocale)}
+              aria-current={
+                onAssessmentRoute ||
+                onPersistedAssessmentRoute ||
+                onExampleResultRoute ||
+                onPersistedAssessmentResultRoute
+                  ? "page"
+                  : undefined
+              }
+            >
+              {currentLocale === "th" ? "สำรวจทักษะ" : "Explore skills"}
+            </TextLink>
+          </li>
+          <li>
+            <TextLink
+              href={sourceVerificationLessonPath(currentLocale)}
+              aria-current={
+                onSourceVerificationLessonRoute || onPersistedLessonRoute ? "page" : undefined
+              }
+            >
+              {currentLocale === "th" ? "ลงมือฝึก" : "Practice"}
+            </TextLink>
+          </li>
+          <li>
+            <TextLink
               href={profilePath(currentLocale)}
               prefetch={false}
               aria-current={onProfileRoute ? "page" : undefined}

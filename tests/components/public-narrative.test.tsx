@@ -1,11 +1,11 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { PublicNarrative } from "@/components/public-narrative";
 import { getPublishedEvidence } from "@/lib/evidence/records";
 import { catalogs, coreCompetencies, multipliers, productLoopSteps } from "@/lib/i18n/catalogs";
 
 describe("public narrative", () => {
-  it("renders the Thai hero, honest internal CTA, and non-collecting availability boundary", () => {
+  it("starts from the visitor's goal and explains an available first step without scoring", () => {
     render(
       <PublicNarrative
         evidence={getPublishedEvidence("th", "2026-08-02")}
@@ -15,16 +15,22 @@ describe("public narrative", () => {
     );
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "งานกำลังเปลี่ยน แต่คุณยังเตรียมตัว",
+      "อยากให้การทำงานดีขึ้นตรงไหน",
     );
-    expect(screen.getByRole("link", { name: catalogs.th.landing.hero.ctaLabel })).toHaveAttribute(
+    fireEvent.click(screen.getByRole("button", { name: /อยากรับมือวิธีทำงานใหม่/ }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("มาดูกันว่างานติดตรงไหน");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "ช่วงนี้ เรื่องไหนกระทบงานคุณมากที่สุด?" }),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /ข้อมูลจาก AI เชื่อได้แค่ไหน/ }));
+    expect(screen.getByRole("heading", { name: "คิดก่อนเชื่อและใช้ข้อมูลให้ชัวร์" })).toBeVisible();
+    expect(screen.getByText(/ยังไม่บันทึกผล/)).toBeVisible();
+    expect(screen.getByRole("link", { name: /เริ่มภารกิจแรก/ })).toHaveAttribute(
       "href",
-      "/th/assessment",
+      "/th/lessons/source-verification-practice",
     );
-    expect(screen.getByText(/ยังไม่ใช่แบบประเมินที่ผ่านการตรวจสอบ/)).toBeVisible();
-    expect(screen.getByText(/เก็บเฉพาะรหัสตัวเลือกชั่วคราว/)).toBeVisible();
+    expect(screen.queryByText(/คะแนน/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders exactly two evidence items with visible qualifiers and direct sources", () => {
@@ -36,6 +42,8 @@ describe("public narrative", () => {
       />,
     );
 
+    expect(screen.getByText(/about one in four workers/)).not.toBeVisible();
+    fireEvent.click(screen.getByText(catalogs.en.landing.evidence.heading));
     expect(screen.getAllByRole("article")).toHaveLength(2);
     expect(screen.getByText(/about one in four workers/)).toBeVisible();
     expect(screen.getByText(/39% of workers’ core skills/)).toBeVisible();
@@ -74,9 +82,10 @@ describe("public narrative", () => {
         within(loop).getByRole("heading", { name: catalogs.en.landing.response.steps[step].name }),
       ).toBeVisible();
     }
-    expect(screen.getByText(/action, feedback, and proof/)).toBeVisible();
+    expect(screen.getByText(catalogs.en.landing.response.practiceNote)).toBeVisible();
+    fireEvent.click(screen.getByText(catalogs.en.landing.framework.heading));
 
-    expect(screen.getByRole("heading", { name: "8 core competencies" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "8 core skills" })).toBeVisible();
     for (const competency of coreCompetencies) {
       expect(
         screen.getByRole("heading", {
@@ -84,7 +93,7 @@ describe("public narrative", () => {
         }),
       ).toBeVisible();
     }
-    expect(screen.getByRole("heading", { name: "+2 behavioural multipliers" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "2 habits that help" })).toBeVisible();
     for (const multiplier of multipliers) {
       expect(
         screen.getByRole("heading", {
@@ -92,7 +101,7 @@ describe("public narrative", () => {
         }),
       ).toBeVisible();
     }
-    expect(screen.getByText(/not ninth and tenth core skills/)).toBeVisible();
-    expect(screen.getByText(/provides no personal risk level, assessment result/)).toBeVisible();
+    expect(screen.getByText(catalogs.en.landing.framework.multipliersIntroduction)).toBeVisible();
+    expect(screen.getByText(catalogs.en.landing.framework.boundary)).toBeVisible();
   });
 });

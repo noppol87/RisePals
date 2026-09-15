@@ -5,7 +5,7 @@ const storageKey = "rise-pals:assessment-player:v1";
 
 async function startEnglishPlayer(page: Page) {
   await page.goto("/en/assessment");
-  const start = page.getByRole("button", { name: "Start the six-scenario prototype" });
+  const start = page.getByRole("button", { name: "Let’s try it" });
   await expect(start).toBeEnabled();
   await start.focus();
   await page.keyboard.press("Enter");
@@ -54,18 +54,16 @@ test("keyboard flow completes six steps without producing a result", async ({ pa
     await continueByKeyboard(page, step === 6);
   }
 
-  await expect(
-    page.getByRole("heading", { name: "You completed the synthetic scenarios" }),
-  ).toBeFocused();
+  await expect(page.getByRole("heading", { name: "You made it through." })).toBeFocused();
   await expect(page.getByText("Answered 6 of 6 scenarios")).toBeVisible();
-  await expect(page.getByText(/calculates and displays no score/)).toBeVisible();
+  await expect(page.getByText(/calculates no score/)).toBeVisible();
   await expect(page.locator("output, [data-score], [data-result]")).toHaveCount(0);
   await expect(page.getByText(/your score|your proficiency|recommended next step/i)).toHaveCount(0);
   const exampleLink = page.getByRole("link", {
-    name: "View a synthetic example result (your choices are not used)",
+    name: "See an example result",
   });
   await expect(exampleLink).toHaveAttribute("href", "/en/assessment/example-result");
-  await expect(page.getByText(/does not read, score, or use the choices/)).toBeVisible();
+  await expect(page.getByText(/does not use your choices/)).toBeVisible();
 });
 
 test("Back preserves answers and refresh resumes the same session step", async ({ page }) => {
@@ -84,9 +82,7 @@ test("Back preserves answers and refresh resumes the same session step", async (
   await page.reload();
   await expect(page.getByRole("heading", { name: "Scenario 2" })).toBeVisible();
   await expect(page.getByRole("radio").nth(2)).toBeChecked();
-  await expect(
-    page.getByText("The step and selections saved temporarily in this tab were restored."),
-  ).toBeVisible();
+  await expect(page.getByText("Welcome back. Pick up where you left off.")).toBeVisible();
 });
 
 test("locale switch preserves the assessment route and temporary progress", async ({ page }) => {
@@ -111,10 +107,10 @@ test("clear removes session state and returns to the prototype intro", async ({ 
     .poll(() => page.evaluate((key) => sessionStorage.getItem(key), storageKey))
     .not.toBeNull();
 
-  await page.getByRole("button", { name: "Clear responses and return to the start" }).click();
+  await page.getByRole("button", { name: "Clear and restart" }).click();
   await expect(
     page.getByRole("heading", {
-      name: "Try six synthetic workplace scenarios, one step at a time",
+      name: "What would you do?",
     }),
   ).toBeVisible();
   await expect
@@ -169,7 +165,7 @@ for (const locale of ["th", "en"] as const) {
     await page.goto(`/${locale}/assessment`);
     const start = page
       .getByRole("button")
-      .filter({ hasText: locale === "th" ? "เริ่มต้น" : "Start" });
+      .filter({ hasText: locale === "th" ? "เริ่มลองกัน" : "Let’s try it" });
     await expect(start).toBeEnabled();
     await start.click();
 

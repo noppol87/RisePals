@@ -1,0 +1,504 @@
+{
+  "schemaVersion": "rise-pals-guided-mission-v2",
+  "version": "2.1.0",
+  "status": "local-prototype",
+  "validationStatus": "unvalidated",
+  "sourceIdentity": "source-verification-practice@1.0.0",
+  "sourceNote": "Operations figures reuse the immutable fictional source pack. Survey is newly authored fictional data. No external learning-outcome review has occurred.",
+  "cases": [
+    {
+      "id": "operations",
+      "mode": "coached",
+      "title": {
+        "th": "ช่วยทีมเช็กสรุปก่อนใช้ตัดสินใจ",
+        "en": "Help the team check a summary before a decision"
+      },
+      "context": {
+        "th": "หัวหน้ากำลังจะใช้ร่างนี้ตัดสินใจว่าจะขยายวิธีทำงานไปทีมอื่นไหม คุณมีหน้าที่เช็กว่าข้อสรุปตรงกับข้อมูลก่อนส่ง",
+        "en": "A manager may use this draft to decide whether to expand a new workflow. Check that its claims match the evidence before it is sent."
+      },
+      "before": {
+        "th": "ทดลอง 60 วัน ทีม A ปิดงานเร็วขึ้น 30% ทุกทีมจึงเร็วขึ้น 30%",
+        "en": "After a 60-day pilot, Team A finished 30% faster. So every team was 30% faster."
+      },
+      "facts": [
+        {
+          "id": "a",
+          "label": {
+            "th": "ทีม A",
+            "en": "Team A"
+          },
+          "value": "30%",
+          "detail": {
+            "th": "12 กรณี",
+            "en": "12 cases"
+          },
+          "amount": 30
+        },
+        {
+          "id": "b",
+          "label": {
+            "th": "ทีม B",
+            "en": "Team B"
+          },
+          "value": "8%",
+          "detail": {
+            "th": "40 กรณี",
+            "en": "40 cases"
+          },
+          "amount": 8
+        },
+        {
+          "id": "c",
+          "label": {
+            "th": "ทีม C",
+            "en": "Team C"
+          },
+          "value": "?",
+          "detail": {
+            "th": "ข้อมูลไม่ครบ",
+            "en": "Incomplete data"
+          },
+          "amount": null
+        }
+      ],
+      "scope": {
+        "th": "ข้อมูลสมมติ · ทดลอง 60 วัน · ทีม C มีปัญหาเร่งด่วนค้าง 2 รายการ",
+        "en": "Fictional · 60-day pilot · Team C has 2 open escalations"
+      },
+      "summaryPrefix": {
+        "th": "ในกลุ่มทดลองนี้ ทีม A เร็วขึ้น 30% ทีม B 8%",
+        "en": "In this pilot, Team A was 30% faster and Team B 8% faster."
+      },
+      "questions": [
+        {
+          "id": "claim",
+          "prompt": {
+            "th": "คำตอบ AI ข้อไหนยังไม่มีข้อมูลรองรับ?",
+            "en": "Which part of the AI answer is not supported by the data?"
+          },
+          "options": [
+            {
+              "id": "pilot-duration",
+              "label": {
+                "th": "ทดลอง 60 วัน",
+                "en": "A 60-day pilot"
+              },
+              "reason": {
+                "th": "ยังไม่ใช่ข้อนี้ บันทึกระบุชัดว่าทดลอง 60 วัน ลองหาข้อความที่เหมารวมผลไปทุกทีม",
+                "en": "Not this one. The record confirms a 60-day pilot. Look for wording that generalizes the result to every team."
+              },
+              "correct": false
+            },
+            {
+              "id": "team-a",
+              "label": {
+                "th": "ทีม A เร็วขึ้น 30%",
+                "en": "Team A was 30% faster"
+              },
+              "reason": {
+                "th": "ยังไม่ใช่ข้อนี้ ตารางรองรับผลของทีม A ที่ 30% แต่ตัวเลขนี้ใช้แทนทีมอื่นไม่ได้",
+                "en": "Not this one. The table supports Team A's 30% result, but that figure cannot represent other teams."
+              },
+              "correct": false
+            },
+            {
+              "id": "all-teams",
+              "label": {
+                "th": "ทุกทีมจึงเร็วขึ้น 30%",
+                "en": "So every team was 30% faster"
+              },
+              "reason": {
+                "th": "ถูกต้อง ข้อมูลมีผลต่างกันในทีม A และ B ส่วนทีม C ยังไม่ครบ จึงสรุปว่า “ทุกทีม 30%” ไม่ได้",
+                "en": "Correct. A and B have different results and C is incomplete, so the evidence cannot support “every team, 30%.”"
+              },
+              "correct": true
+            }
+          ]
+        },
+        {
+          "id": "evidence",
+          "prompt": {
+            "th": "หลักฐานชิ้นไหนตอบได้ตรงที่สุดว่าแต่ละทีมได้ผลเหมือนกันหรือไม่?",
+            "en": "Which record best shows whether every team had the same result?"
+          },
+          "options": [
+            {
+              "id": "duration-record",
+              "label": {
+                "th": "แผนทดลอง · ครบ 60 วันตามกำหนด",
+                "en": "Pilot plan · completed the planned 60 days"
+              },
+              "reason": {
+                "th": "บอกระยะเวลา แต่ยังไม่บอกผลของแต่ละทีม",
+                "en": "This gives the duration, not each team’s result."
+              },
+              "correct": false
+            },
+            {
+              "id": "team-record",
+              "label": {
+                "th": "ตารางรายทีม · A 30% / B 8% / C ข้อมูลไม่ครบ",
+                "en": "Team table · A 30% / B 8% / C incomplete"
+              },
+              "reason": {
+                "th": "ทีม B ได้ 8% และทีม C ยังไม่ครบ จึงยืนยันว่า “ทุกทีม 30%” ไม่ได้",
+                "en": "B shows 8% and C is incomplete. That does not support “every team, 30%”."
+              },
+              "correct": true
+            },
+            {
+              "id": "summary-record",
+              "label": {
+                "th": "สไลด์สรุป · โครงการช่วยให้ทำงานเร็วขึ้น",
+                "en": "Summary slide · the pilot helped teams work faster"
+              },
+              "reason": {
+                "th": "ยังเป็นสรุปกว้าง ๆ ต้องย้อนดูผลแยกทีมก่อน",
+                "en": "This is another broad summary. Check the team-level results."
+              },
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "rewrite",
+          "prompt": {
+            "th": "ควรเขียนผลของทีม C ว่าอย่างไรจึงจะตรงกับสิ่งที่รู้ตอนนี้?",
+            "en": "How should Team C's result be written based on what is known now?"
+          },
+          "options": [
+            {
+              "id": "c-unknown",
+              "label": {
+                "th": "ส่วนทีม C ยังสรุปไม่ได้ เพราะข้อมูลไม่ครบ",
+                "en": "Team C’s result is still unknown because its data is incomplete."
+              },
+              "reason": {
+                "th": "ข้อมูลที่ขาดไม่ได้แปลว่าไม่มีผล ต้องแยก “ยังไม่รู้” ออกจากศูนย์",
+                "en": "Missing data is not zero. Keep “unknown” separate from “no improvement”."
+              },
+              "correct": true
+            },
+            {
+              "id": "c-zero",
+              "label": {
+                "th": "ส่วนทีม C ยังไม่เร็วขึ้น เพราะยังไม่มีผลรายงาน",
+                "en": "Team C has not improved because no result has been reported."
+              },
+              "reason": {
+                "th": "ยังไม่มีข้อมูล ไม่ได้แปลว่าผลเป็นศูนย์",
+                "en": "No result reported does not mean zero improvement."
+              },
+              "correct": false
+            },
+            {
+              "id": "c-estimate",
+              "label": {
+                "th": "ส่วนทีม C น่าจะเร็วขึ้นใกล้เคียงทีม A และ B",
+                "en": "Team C probably improved about as much as A and B."
+              },
+              "reason": {
+                "th": "ยังไม่มีข้อมูลทีม C รองรับการคาดนี้",
+                "en": "There is no Team C evidence for that estimate."
+              },
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "action",
+          "prompt": {
+            "th": "ถ้าสรุปนี้กำลังจะถูกใช้ตัดสินใจ ทีมควรทำอะไรต่อ?",
+            "en": "If this summary will inform a decision, what should the team do next?"
+          },
+          "options": [
+            {
+              "id": "send-note",
+              "label": {
+                "th": "ส่งตัวเลขรวม แล้วเพิ่มหมายเหตุว่าข้อมูลยังไม่ครบ",
+                "en": "Send the overall figure with an incomplete-data note."
+              },
+              "reason": {
+                "th": "หมายเหตุไม่ได้ทำให้ตัวเลขรวมที่ยังไม่มีหลักฐานถูกต้องขึ้น",
+                "en": "A note does not make an unsupported overall figure accurate."
+              },
+              "correct": false
+            },
+            {
+              "id": "request-check",
+              "label": {
+                "th": "ขอข้อมูล C เช็กปัญหาค้าง แล้วส่งเฉพาะส่วนที่ยืนยันได้",
+                "en": "Get C’s data, check open issues, and share only supported claims."
+              },
+              "reason": {
+                "th": "ใช่ แก้ช่องว่างและจำกัดสรุปให้ตรงกับข้อมูลที่ตรวจได้",
+                "en": "Yes. Address the gaps and limit the summary to what can be checked."
+              },
+              "correct": true
+            },
+            {
+              "id": "average-ab",
+              "label": {
+                "th": "ใช้ค่าเฉลี่ย A กับ B แทนผลรวม แล้วค่อยอัปเดต C",
+                "en": "Use A and B’s average as the overall result, then add C later."
+              },
+              "reason": {
+                "th": "สองทีมมีจำนวนกรณีต่างกัน และยังขาด C จึงใช้ค่าเฉลี่ยง่าย ๆ แทนทั้งหมดไม่ได้",
+                "en": "The teams have different sample sizes and C is missing. A simple average cannot represent all teams."
+              },
+              "correct": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "survey",
+      "mode": "independent",
+      "title": {
+        "th": "ลองเอง: ควรจัดอบรมช่วงเย็นให้ทุกคนไหม?",
+        "en": "Your turn: should everyone be scheduled for evening training?"
+      },
+      "context": {
+        "th": "ทีมกำลังจะเลือกเวลาอบรมให้พนักงาน 100 คน แต่มีคนตอบแบบสำรวจ 20 คน ลองเช็กว่าสรุปนี้ใช้ตัดสินใจได้แค่ไหน",
+        "en": "A team is choosing a training time for 100 staff, but only 20 answered the survey. Check how far this summary can support the decision."
+      },
+      "before": {
+        "th": "มีคนตอบแบบสำรวจ 20 คน ทุกคนในบริษัทอยากเรียนหลังเลิกงาน โดยมีผู้ตอบเลือกช่วงเย็น 12 คน",
+        "en": "20 people replied. Everyone at the company wants after-work sessions; 12 respondents chose evenings."
+      },
+      "facts": [
+        {
+          "id": "evening",
+          "label": {
+            "th": "เลือกช่วงเย็น",
+            "en": "Evenings"
+          },
+          "value": "12",
+          "detail": {
+            "th": "คนจากผู้ตอบ 20 คน",
+            "en": "of 20 respondents"
+          },
+          "amount": 12
+        },
+        {
+          "id": "other",
+          "label": {
+            "th": "เลือกเวลาอื่น",
+            "en": "Other times"
+          },
+          "value": "8",
+          "detail": {
+            "th": "คนจากผู้ตอบ 20 คน",
+            "en": "of 20 respondents"
+          },
+          "amount": 8
+        },
+        {
+          "id": "unanswered",
+          "label": {
+            "th": "ยังไม่ตอบ",
+            "en": "No reply"
+          },
+          "value": "80",
+          "detail": {
+            "th": "คนจากทั้งหมด 100 คน",
+            "en": "of 100 staff"
+          },
+          "amount": 80
+        }
+      ],
+      "scope": {
+        "th": "ข้อมูลสมมติ · แบบสำรวจครั้งเดียว · ยังไม่รู้ความต้องการของคนที่ไม่ตอบ",
+        "en": "Fictional · one survey · non-respondents’ preferences are unknown"
+      },
+      "summaryPrefix": {
+        "th": "ผู้ตอบ 12 จาก 20 คนเลือกเรียนช่วงเย็น",
+        "en": "12 of the 20 respondents chose evenings."
+      },
+      "questions": [
+        {
+          "id": "claim",
+          "prompt": {
+            "th": "ข้อความไหนสรุปเกินสิ่งที่แบบสำรวจบอกได้?",
+            "en": "Which statement goes beyond what the survey can tell us?"
+          },
+          "options": [
+            {
+              "id": "twenty-replies",
+              "label": {
+                "th": "มีคนตอบ 20 คน",
+                "en": "20 people replied"
+              },
+              "reason": {
+                "th": "จำนวนผู้ตอบตรงกับข้อมูล",
+                "en": "The response count matches the record."
+              },
+              "correct": false
+            },
+            {
+              "id": "everyone-evening",
+              "label": {
+                "th": "ทุกคนในบริษัทอยากเรียนหลังเลิกงาน",
+                "en": "Everyone wants after-work sessions"
+              },
+              "reason": {
+                "th": "ผู้ตอบบางส่วนเลือกช่วงเย็น ไม่ได้แปลว่าทุกคนเลือกเหมือนกัน",
+                "en": "Some respondents chose evenings. That does not mean everyone did."
+              },
+              "correct": true
+            },
+            {
+              "id": "twelve-evening",
+              "label": {
+                "th": "ผู้ตอบเลือกช่วงเย็น 12 คน",
+                "en": "12 respondents chose evenings"
+              },
+              "reason": {
+                "th": "จำนวนนี้ตรงกับคำตอบในแบบสำรวจ",
+                "en": "This count matches the survey responses."
+              },
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "evidence",
+          "prompt": {
+            "th": "หลักฐานชิ้นไหนแสดงทั้งคำตอบที่ต่างกันและข้อมูลที่ยังขาด?",
+            "en": "Which evidence shows both the different responses and what is still missing?"
+          },
+          "options": [
+            {
+              "id": "schedule",
+              "label": {
+                "th": "ตารางห้อง · ช่วงเย็นมีห้องว่าง",
+                "en": "Room schedule · evenings are available"
+              },
+              "reason": {
+                "th": "ห้องว่างบอกความพร้อมของสถานที่ ไม่ใช่ความต้องการของพนักงาน",
+                "en": "Room availability does not show staff preferences."
+              },
+              "correct": false
+            },
+            {
+              "id": "twelve-comments",
+              "label": {
+                "th": "ความเห็น · 12 คนบอกว่าช่วงเย็นสะดวก",
+                "en": "Comments · 12 people find evenings convenient"
+              },
+              "reason": {
+                "th": "เห็นเฉพาะกลุ่มที่เลือกช่วงเย็น ยังขาดผู้ตอบคนอื่นและคนที่ไม่ตอบ",
+                "en": "This includes only evening supporters, not other respondents or non-respondents."
+              },
+              "correct": false
+            },
+            {
+              "id": "full-survey",
+              "label": {
+                "th": "ผลสำรวจ · เย็น 12 / เวลาอื่น 8 / ไม่ตอบ 80",
+                "en": "Full survey · evenings 12 / other 8 / no reply 80"
+              },
+              "reason": {
+                "th": "เห็นทั้งคำตอบที่ต่างกันและกลุ่มที่ยังไม่ตอบ",
+                "en": "This includes different preferences and the people who did not reply."
+              },
+              "correct": true
+            }
+          ]
+        },
+        {
+          "id": "rewrite",
+          "prompt": {
+            "th": "ควรเติมข้อจำกัดอะไร เพื่อไม่ให้สรุปแทนคนที่ยังไม่ตอบ?",
+            "en": "What limitation should be added so the summary does not speak for non-respondents?"
+          },
+          "options": [
+            {
+              "id": "limited-respondents",
+              "label": {
+                "th": "ยังสรุปแทนพนักงานทั้ง 100 คนไม่ได้",
+                "en": "This cannot yet represent all 100 staff."
+              },
+              "reason": {
+                "th": "คำตอบจาก 20 คนไม่ได้บอกความต้องการของอีก 80 คน",
+                "en": "The 20 responses do not establish what the other 80 want."
+              },
+              "correct": true
+            },
+            {
+              "id": "sixty-percent-all",
+              "label": {
+                "th": "แปลว่า 60% ของพนักงานทั้งบริษัทเลือกช่วงเย็น",
+                "en": "So 60% of all staff prefer evenings."
+              },
+              "reason": {
+                "th": "60% เป็นสัดส่วนในกลุ่มผู้ตอบ ไม่ใช่พนักงานทั้งหมด",
+                "en": "60% describes respondents, not all staff."
+              },
+              "correct": false
+            },
+            {
+              "id": "eighty-no",
+              "label": {
+                "th": "อีก 80 คนไม่ตอบ จึงถือว่าไม่อยากเรียนช่วงเย็น",
+                "en": "The other 80 did not reply, so they do not want evenings."
+              },
+              "reason": {
+                "th": "การไม่ตอบยังไม่บอกว่าเห็นด้วยหรือไม่เห็นด้วย",
+                "en": "No reply does not tell us whether someone agrees."
+              },
+              "correct": false
+            }
+          ]
+        },
+        {
+          "id": "action",
+          "prompt": {
+            "th": "ก่อนเลือกเวลาอบรมให้ทุกคน ทีมควรทำอะไรต่อ?",
+            "en": "Before choosing a time for everyone, what should the team do next?"
+          },
+          "options": [
+            {
+              "id": "book-evenings",
+              "label": {
+                "th": "จองช่วงเย็นให้ทุกคนตามเสียงส่วนใหญ่ของผู้ตอบ",
+                "en": "Book evenings for everyone based on the respondent majority."
+              },
+              "reason": {
+                "th": "ยังไม่รู้ความต้องการของคนส่วนใหญ่ในบริษัท",
+                "en": "Most staff preferences are still unknown."
+              },
+              "correct": false
+            },
+            {
+              "id": "optional-evening",
+              "label": {
+                "th": "บอกขอบเขตผล ถามคนที่ยังไม่ตอบ แล้วค่อยเลือกเวลา",
+                "en": "State the limits, ask non-respondents, then choose a time."
+              },
+              "reason": {
+                "th": "ทำให้ทีมรู้ข้อจำกัดและได้ข้อมูลเพิ่มก่อนตัดสินใจ",
+                "en": "This makes the limits clear and gathers more evidence before deciding."
+              },
+              "correct": true
+            },
+            {
+              "id": "manager-vote",
+              "label": {
+                "th": "ให้หัวหน้าคาดแทนคนที่ไม่ตอบ แล้วรวมเป็นผลสำรวจ",
+                "en": "Ask managers to estimate missing answers and include them."
+              },
+              "reason": {
+                "th": "ความเห็นของหัวหน้าไม่ใช่คำตอบจากพนักงานที่ยังไม่ได้ตอบ",
+                "en": "Managers’ estimates are not responses from those staff."
+              },
+              "correct": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -86,8 +86,8 @@ describe("profile-v1 and consent contract", () => {
       ],
       processing: ["profile", "future-learning-state"],
       exclusions: ["analytics", "marketing", "research"],
-      identityProvider: "clerk-development",
-      identityHostingRegion: "US",
+      identityProvider: "supabase-auth",
+      identityHostingRegion: "project-configured",
     };
     const independentDigest = createHash("sha256")
       .update(JSON.stringify(canonical), "utf8")
@@ -156,8 +156,8 @@ describe("profile-v1 and consent contract", () => {
     expect(Object.keys(profileCopy.th)).toEqual(Object.keys(profileCopy.en));
     expect(privacyNotice.th.summary).toContain("ละเอียดอ่อน");
     expect(privacyNotice.en.summary).toContain("sensitive career data");
-    expect(privacyNotice.th.identity).toContain("สหรัฐอเมริกา");
-    expect(privacyNotice.en.identity).toContain("United States");
+    expect(privacyNotice.th.identity).toContain("Supabase Auth");
+    expect(privacyNotice.en.identity).toContain("Supabase Auth");
     expect(profileCopy.th.localizationFallback).toContain("ทดลอง");
     expect(profileCopy.en.localizationFallback).toContain("experimental");
     expect(measurementNotice.th.independence).toContain("ไม่ปิดกั้น");

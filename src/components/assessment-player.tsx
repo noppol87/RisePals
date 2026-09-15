@@ -154,34 +154,6 @@ export function AssessmentPlayer({
           </h1>
           <p className="assessment-player__lead">{messages.introduction}</p>
 
-          <div className="assessment-boundary" aria-labelledby="assessment-boundary-heading">
-            <h2 id="assessment-boundary-heading">{messages.boundariesHeading}</h2>
-            <ul>
-              {messages.boundaries.map((boundary) => (
-                <li key={boundary}>{boundary}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="assessment-storage-notice" aria-labelledby="storage-notice-heading">
-            <h2 id="storage-notice-heading">{messages.storageHeading}</h2>
-            <p>{messages.storageBody}</p>
-          </div>
-
-          <aside className="assessment-example-link" aria-labelledby="persisted-attempt-heading">
-            <h2 id="persisted-attempt-heading">{messages.persistedAttemptHeading}</h2>
-            <p>{messages.persistedAttemptBody}</p>
-            <TextLink href={persistedAttemptHref} prefetch={false}>
-              {messages.persistedAttemptLinkLabel}
-            </TextLink>
-          </aside>
-
-          {storageMessage ? (
-            <p className="assessment-player__status" role="status">
-              {storageMessage}
-            </p>
-          ) : null}
-
           <div className="assessment-player__actions">
             <button
               className="player-button player-button--primary"
@@ -202,11 +174,53 @@ export function AssessmentPlayer({
             ) : null}
             <TextLink href={homeHref}>{messages.homeLabel}</TextLink>
           </div>
+
+          <details className="experience-disclosure assessment-boundary">
+            <summary>
+              {messages.boundariesHeading}
+              <span className="disclosure-plus" aria-hidden="true">
+                +
+              </span>
+            </summary>
+            <ul>
+              {messages.boundaries.map((boundary) => (
+                <li key={boundary}>{boundary}</li>
+              ))}
+            </ul>
+          </details>
+
+          <div className="assessment-storage-notice" aria-labelledby="storage-notice-heading">
+            <h2 id="storage-notice-heading">{messages.storageHeading}</h2>
+            <p>{messages.storageBody}</p>
+          </div>
+
+          <aside className="assessment-example-link" aria-labelledby="persisted-attempt-heading">
+            <h2 id="persisted-attempt-heading">{messages.persistedAttemptHeading}</h2>
+            <p>{messages.persistedAttemptBody}</p>
+            <TextLink href={persistedAttemptHref} prefetch={false}>
+              {messages.persistedAttemptLinkLabel}
+            </TextLink>
+          </aside>
+
+          {storageMessage ? (
+            <p className="assessment-player__status" role="status">
+              {storageMessage}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
       {state.phase === "question" && currentItem && progress.currentPosition !== null ? (
         <div className="assessment-player__question">
+          <div className="scenario-rail" aria-hidden="true">
+            {view.items.map((item) => (
+              <span
+                key={item.key}
+                data-current={item.key === currentItem.key}
+                data-complete={state.selections.some((selection) => selection.itemKey === item.key)}
+              />
+            ))}
+          </div>
           <header className="assessment-player__step-heading">
             <p className="section-heading__eyebrow">{messages.eyebrow}</p>
             <h1 id="assessment-player-heading" ref={headingRef} tabIndex={-1}>
@@ -310,6 +324,12 @@ export function AssessmentPlayer({
 
       {state.phase === "complete" ? (
         <div className="assessment-player__completion">
+          <div className="completion-seal" aria-hidden="true">
+            <span>✓</span>
+            <small>
+              {progress.answeredCount} / {progress.totalItems}
+            </small>
+          </div>
           <p className="section-heading__eyebrow">{messages.completionEyebrow}</p>
           <h1 id="assessment-player-heading" ref={headingRef} tabIndex={-1}>
             {messages.completionHeading}

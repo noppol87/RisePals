@@ -1,5 +1,70 @@
 # Rise Pals
 
+## Current mission: check before a decision
+
+The public source-verification mission now gives the learner one realistic
+responsibility: check an AI summary before a team uses it to make a decision.
+The mission goal, evidence, AI answer, current question and choices stay visibly
+connected on desktop and mobile. Four short actions lead to a before/after
+summary and a concrete next step. Thai and English use the same concise flow.
+
+The local prototype is versioned as `2.1.0`. See the
+[decision-first mission record](docs/21_DECISION_FIRST_MISSION.md).
+
+## Current experience: start from the visitor's work
+
+The public home now asks one useful question at a time: what the visitor wants
+to improve, which recent situation feels closest, and what a sensible first
+path could be. The recommendation is explicitly based on the visitor's choices,
+not an assessment score. Paths without ready content say so; the existing
+source-verification mission remains an honest available practice. Thai and
+English, keyboard use, reduced motion and 320px reflow are covered.
+
+See [implementation and checks](docs/20_FIRST_VISIT_JOURNEY.md) and the
+[product realignment plan](docs/19_PRODUCT_REALIGNMENT_PLAN.md).
+
+## Interactive mission
+
+The public lesson guides learners through finding an overclaim, choosing evidence,
+writing a supported summary and deciding what should happen before it is used.
+A second fictional case lets them try the same checks without hints during the
+round. The result shows their actual before/after summary. The home page leads
+directly into the mission. Both Thai and English are available.
+
+The public mission is versioned separately as local prototype 2.1.0; immutable
+published v1 content and private saved attempts retain their existing identities.
+See [the current implementation and checks](docs/21_DECISION_FIRST_MISSION.md)
+and the [earlier mission record](docs/18_INTERACTIVE_MISSION_V2.md).
+
+## Previous guided visual lesson
+
+The source-verification lesson now has three stages: an illustrated AI summary,
+a visual comparison of the source data and one question at a time. Back controls
+and an evidence reminder keep the task manageable. See [the guided lesson record](docs/16_GUIDED_VISUAL_LESSON.md).
+
+## Concise bilingual experience
+
+The Thai/English interface now leads with a small action and an interactive skill
+map. Conversational Thai and concise English reduce initial landing text by
+82–83%; optional details keep the full framework and sources available. The
+assessment, lesson, example result and test-account surfaces use shorter copy.
+See [the latest changes and verification](docs/15_CONCISE_EXPERIENCE.md),
+[the original visual design](docs/14_EXPERIENCE_DESIGN.md) and actual screenshots
+in `docs/design/`.
+
+## Current work: Supabase + Netlify migration (15 September 2026)
+
+The active branch `codex/supabase-netlify` uses Supabase Auth for every application
+sign-in and protected operation, Supabase Postgres as the target database, Netlify
+as the hosting target, and this GitHub repository for version history. The legacy
+Clerk adapter and tests remain for compatibility evidence; they are not selected
+by the running application. Existing synthetic-alpha product boundaries still apply.
+
+Start with [the migration and setup guide](docs/13_SUPABASE_NETLIFY_MIGRATION.md).
+The historical sections below describe the previously accepted implementation.
+They do not require continuing the Windows hosting branch or the VS Code review relay.
+
+
 Rise Pals คือแพลตฟอร์มพัฒนาความพร้อมในการทำงานยุค AI สำหรับคนทำงานออฟฟิศไทย ช่วยให้ผู้ใช้รู้ว่าตนเองมีช่องว่างด้านทักษะอะไร ควรพัฒนาอะไรก่อน เรียนผ่านประสบการณ์แบบ gamified และสร้างหลักฐานความสามารถที่ต่อยอดไปสู่โอกาสทางอาชีพได้
 
 **Brand:** Rise Pals  

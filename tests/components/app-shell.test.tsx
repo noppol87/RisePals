@@ -63,7 +63,7 @@ describe("localized application shell", () => {
 
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Choose language" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Work is changing/ })).toBeVisible();
+    expect(screen.getByRole("heading", { name: /You don’t need it all/ })).toBeVisible();
   });
 
   it("preserves the assessment route while switching locale", () => {

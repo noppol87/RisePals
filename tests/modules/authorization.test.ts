@@ -13,7 +13,7 @@ function provider(session: ProviderSession): IdentityProvider {
 
 function database(status: string) {
   const query = vi.fn(async (statement: string) => {
-    if (statement.includes("resolve_or_provision_clerk_identity")) {
+    if (statement.includes("resolve_or_provision_")) {
       return {
         rows: [{ user_id: "10000000-0000-4000-8000-000000000001", status }],
         rowCount: 1,
@@ -44,7 +44,7 @@ describe("server-only account authorization", () => {
     const db = database("active");
     const session = provider({
       state: "authenticated",
-      provider: "clerk",
+      provider: "supabase",
       providerSubject: "guessed-browser-id",
     });
 
@@ -63,8 +63,8 @@ describe("server-only account authorization", () => {
       const result = await withAuthorizedUserTransaction(
         provider({
           state: "authenticated",
-          provider: "clerk",
-          providerSubject: "user_synthetic0001",
+          provider: "supabase",
+          providerSubject: "70000000-0000-4000-8000-000000000001",
         }),
         operation,
         db.pool,
@@ -82,8 +82,8 @@ describe("server-only account authorization", () => {
     const result = await withAuthorizedUserTransaction(
       provider({
         state: "authenticated",
-        provider: "clerk",
-        providerSubject: "user_synthetic0001",
+        provider: "supabase",
+        providerSubject: "70000000-0000-4000-8000-000000000001",
       }),
       operation,
       db.pool,

@@ -11,7 +11,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} private evidence routes fail closed without Clerk and remain loopback-only`, async ({
+  test(`${locale} private evidence routes fail closed without Supabase and remain loopback-only`, async ({
     page,
   }) => {
     const unexpectedOrigins = new Set<string>();

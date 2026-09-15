@@ -7,7 +7,7 @@ export function createApplicationPool(environment: NodeJS.ProcessEnv = process.e
 
   return new Pool({
     connectionString: applicationUrl,
-    max: 10,
+    max: 1,
     statement_timeout: 10_000,
     query_timeout: 12_000,
     application_name: "rise-pals-app",

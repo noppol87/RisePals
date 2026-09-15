@@ -17,6 +17,8 @@ if (!executable) {
 const defaultArguments = mode === "build" ? ["build"] : mode === "e2e" ? ["test"] : ["start"];
 const environment = {
   ...process.env,
+  SUPABASE_URL: "",
+  SUPABASE_PUBLISHABLE_KEY: "",
   CLERK_SECRET_KEY: "",
   CLERK_TELEMETRY_DISABLED: "true",
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",

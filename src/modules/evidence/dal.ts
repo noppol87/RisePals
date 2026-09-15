@@ -33,7 +33,7 @@ import {
   type EvidenceSaveInput,
 } from "@/modules/evidence/types";
 import type { IdentityProvider } from "@/modules/identity/contract";
-import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
+import { createIdentityProvider } from "@/modules/identity/providers/supabase/server";
 import { getPersistedLessonMetadata } from "@/modules/lesson/persistence/contract";
 import { PRIVACY_NOTICE_VERSION, SERVICE_DATA_PURPOSE } from "@/modules/consent/notice";
 
@@ -257,7 +257,7 @@ function clientState(
 
 export async function loadEvidencePageState(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<EvidencePageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     const context = await resolveSourceContext(client, userId);
@@ -277,7 +277,7 @@ export async function loadEvidencePageState(
 
 export async function startEvidenceArtifact(
   rawInput: unknown,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<EvidenceMutationResult> {
   const input = parseEvidenceStartInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -377,7 +377,7 @@ function exactSaveReplay(
 
 export async function saveEvidenceArtifactWithExecution(
   rawInput: EvidenceSaveInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ServerMutationExecution<EvidenceMutationResult>> {
   const input = parseEvidenceSaveInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -464,7 +464,7 @@ export async function saveEvidenceArtifactWithExecution(
 
 export async function saveEvidenceArtifact(
   rawInput: EvidenceSaveInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<EvidenceMutationResult> {
   return (await saveEvidenceArtifactWithExecution(rawInput, identityProvider)).result;
 }
@@ -484,7 +484,7 @@ function exactLifecycleReplay(
 
 export async function mutateEvidenceLifecycleWithExecution(
   rawInput: EvidenceLifecycleInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ServerMutationExecution<EvidenceMutationResult>> {
   const input = parseEvidenceLifecycleInput(rawInput);
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
@@ -574,7 +574,7 @@ export async function mutateEvidenceLifecycleWithExecution(
 
 export async function mutateEvidenceLifecycle(
   rawInput: EvidenceLifecycleInput,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<EvidenceMutationResult> {
   return (await mutateEvidenceLifecycleWithExecution(rawInput, identityProvider)).result;
 }

@@ -39,7 +39,7 @@ describe("application database pool", () => {
     expect(poolConstructor).toHaveBeenCalledWith({
       application_name: "rise-pals-app",
       connectionString: applicationUrl,
-      max: 10,
+      max: 1,
       query_timeout: 12_000,
       statement_timeout: 10_000,
     });

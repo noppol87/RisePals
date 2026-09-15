@@ -1,0 +1,12 @@
+[build]
+command = "npm run build:netlify"
+publish = ".next"
+
+[build.environment]
+NODE_VERSION = "24.18.1"
+NPM_VERSION = "11.16.0"
+NEXT_TELEMETRY_DISABLED = "1"
+
+# Preview builds remain public demonstrations until explicitly configured for a test project.
+[context.deploy-preview.environment]
+RISE_PALS_SECRET_FREE_STANDARD_GATE = "true"

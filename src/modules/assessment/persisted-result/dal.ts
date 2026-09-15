@@ -27,7 +27,7 @@ import type {
   PersistedResultSemanticOutput,
 } from "@/modules/assessment/persisted-result/types";
 import type { IdentityProvider } from "@/modules/identity/contract";
-import { createClerkDevelopmentIdentityProvider } from "@/modules/identity/providers/clerk/server";
+import { createIdentityProvider } from "@/modules/identity/providers/supabase/server";
 import { PRIVACY_NOTICE_VERSION, SERVICE_DATA_PURPOSE } from "@/modules/consent/notice";
 
 export type PersistedResultView = Readonly<{
@@ -500,7 +500,7 @@ function toView(output: PersistedResultSemanticOutput, locale: Locale): Persiste
 
 export async function loadPersistedResultPageState(
   locale: Locale,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<PersistedResultPageState> {
   const result = await withAuthorizedUserTransaction(identityProvider, async (client, userId) => {
     const source = await loadSource(client, userId, false);
@@ -517,7 +517,7 @@ export async function loadPersistedResultPageState(
 export async function generatePersistedResultWithExecution(
   locale: Locale,
   mutationId: string,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<ServerMutationExecution<GeneratePersistedResultResult>> {
   if (!uuidPattern.test(mutationId)) {
     return mutationExecution({ state: "failed" } as const, "not-applied");
@@ -556,7 +556,7 @@ export async function generatePersistedResultWithExecution(
 export async function generatePersistedResult(
   locale: Locale,
   mutationId: string,
-  identityProvider: IdentityProvider = createClerkDevelopmentIdentityProvider(),
+  identityProvider: IdentityProvider = createIdentityProvider(),
 ): Promise<GeneratePersistedResultResult> {
   return (await generatePersistedResultWithExecution(locale, mutationId, identityProvider)).result;
 }

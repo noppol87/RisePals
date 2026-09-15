@@ -1,117 +1,141 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { SourceVerificationLesson } from "@/components/source-verification-lesson";
 import { sourceVerificationLessonDefinition } from "@/modules/lesson/publication/registry";
 import { createSourceVerificationLessonView } from "@/modules/lesson/source-verification";
+import {
+  evaluateMission,
+  sourceVerificationMission,
+} from "@/modules/lesson/source-verification/mission-v2";
 
 vi.mock("server-only", () => ({}));
-
+const cases = sourceVerificationMission.cases;
 function renderLesson(locale: "th" | "en" = "en") {
-  const view = createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition);
-  const rendered = render(
+  return render(
     <SourceVerificationLesson
-      exampleResultHref={`/${locale}/assessment/example-result`}
       homeHref={`/${locale}`}
-      view={view}
+      exampleResultHref={`/${locale}/assessment/example-result`}
+      view={createSourceVerificationLessonView(locale, sourceVerificationLessonDefinition)}
     />,
   );
-  return { view, ...rendered };
 }
-
-function chooseResponses(
-  view: ReturnType<typeof createSourceVerificationLessonView>,
-  meetsCriterion: (index: number) => boolean,
-) {
-  for (const [index, criterion] of view.practice.criteria.entries()) {
-    const group = screen.getByRole("group", { name: new RegExp(criterion.prompt) });
-    const option = criterion.options.find(
-      (candidate) => candidate.meetsCriterion === meetsCriterion(index),
-    )!;
-    fireEvent.click(within(group).getByRole("radio", { name: option.label }));
+function begin() {
+  fireEvent.click(screen.getByRole("button", { name: "Start checking the summary" }));
+}
+function finishCoached() {
+  begin();
+  for (const [i, question] of cases[0]!.questions.entries()) {
+    fireEvent.click(
+      screen.getByRole("radio", { name: question.options.find((o) => o.correct)!.label.en }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
+    fireEvent.click(screen.getByRole("button", { name: i === 3 ? "See my summary" : "Continue" }));
   }
 }
-
-describe("source-verification lesson prototype", () => {
+describe("versioned visual mission", () => {
   it.each(["th", "en"] as const)(
-    "renders the complete %s lesson, transparent rubric, and non-collecting proof boundary",
+    "offers one clear %s start and keeps prototype boundaries visible",
     (locale) => {
-      const { container, view } = renderLesson(locale);
-
-      expect(screen.getByRole("heading", { level: 1, name: view.hero.heading })).toBeVisible();
-      expect(screen.getByText("lesson-source-verification-practice-v1")).toBeVisible();
-      expect(screen.getByText("published", { exact: true })).toBeVisible();
-      expect(screen.getByText("prototype-unvalidated", { exact: true })).toBeVisible();
-      expect(screen.getByText("Practicing")).toBeVisible();
-      expect(screen.getByText("Intelligent Risk & Governance")).toBeVisible();
-      expect(screen.getAllByRole("radio")).toHaveLength(9);
-      expect(screen.getAllByRole("group")).toHaveLength(3);
-      expect(screen.getByText(view.rubric.demonstratedRule)).toBeVisible();
-      expect(screen.getByText(view.proof.placeholderLabel)).toBeVisible();
-      expect(screen.getByText(view.proof.boundary)).toBeVisible();
-      expect(screen.getByText(view.reflection.boundary)).toBeVisible();
+      renderLesson(locale);
+      expect(
+        screen.getByRole("button", {
+          name: locale === "th" ? "เริ่มช่วยทีมเช็กสรุป" : "Start checking the summary",
+        }),
+      ).toBeVisible();
+      expect(screen.getByText(cases[0]!.before[locale])).toBeVisible();
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-      expect(container.querySelector('input[type="file"]')).toBeNull();
-      expect(screen.queryByText(view.feedback.demonstratedHeading)).not.toBeInTheDocument();
-      expect(screen.queryByText(/(?:XP rule preview|ตัวอย่างกติกา XP):/)).not.toBeInTheDocument();
-      expect(screen.getByRole("link", { name: view.actions.backToExampleLabel })).toHaveAttribute(
-        "href",
-        `/${locale}/assessment/example-result`,
+      fireEvent.click(
+        screen.getByText(locale === "th" ? "เกี่ยวกับแบบฝึกนี้" : "About this practice"),
       );
+      expect(screen.getByText(/2.1.0/)).toBeVisible();
     },
   );
-
-  it("focuses an inline error and keeps passive or incomplete viewing at zero XP", async () => {
-    const { view } = renderLesson("en");
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.evaluateLabel }));
-
-    const error = await screen.findByRole("alert");
-    expect(error).toHaveTextContent(view.feedback.incompleteError);
-    await waitFor(() => expect(error).toHaveFocus());
-    expect(screen.queryByText("XP rule preview: 20 XP")).not.toBeInTheDocument();
-    expect(screen.queryByText("XP rule preview: 0 XP")).not.toBeInTheDocument();
+  it("focuses missing-answer errors, gives specific coaching, and keeps a wrong answer on the same step", async () => {
+    renderLesson();
+    begin();
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveFocus());
+    fireEvent.click(screen.getAllByRole("radio")[0]!);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      cases[0]!.questions[0]!.options[0]!.reason.en,
+    );
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("radio")[2]!);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Check this answer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Back$/ }));
+    expect(screen.getAllByRole("radio")[2]).toBeChecked();
   });
-
-  it("shows criterion-level partial feedback and zero preview XP", async () => {
-    const { view } = renderLesson("en");
-    chooseResponses(view, (index) => index !== 1);
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.evaluateLabel }));
-
-    const heading = await screen.findByRole("heading", { name: view.feedback.partialHeading });
-    await waitFor(() => expect(heading).toHaveFocus());
-    expect(screen.getAllByText(view.feedback.metLabel)).toHaveLength(2);
-    expect(screen.getByText(view.feedback.notMetLabel)).toBeVisible();
-    expect(screen.getByText("XP rule preview: 0 XP")).toBeVisible();
-    expect(screen.getByText(view.feedback.unsavedXpBoundary)).toBeVisible();
-  });
-
-  it("requires all three criteria for demonstrated practice and replaces rather than accumulates XP", async () => {
-    const { view } = renderLesson("en");
-    chooseResponses(view, () => true);
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.evaluateLabel }));
-
+  it("builds a before/after artifact, labels coaching honestly, and starts a clean independent case", () => {
+    renderLesson();
+    finishCoached();
     expect(
-      await screen.findByRole("heading", { name: view.feedback.demonstratedHeading }),
+      screen.getByRole("heading", {
+        name: "This summary is safer to use in a decision",
+      }),
     ).toBeVisible();
-    expect(screen.getAllByText(view.feedback.metLabel)).toHaveLength(3);
-    expect(screen.getByText("XP rule preview: 20 XP")).toBeVisible();
-
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.retryLabel }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: view.practice.heading })).toHaveFocus(),
-    );
-    expect(screen.queryByText("XP rule preview: 20 XP")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.evaluateLabel }));
-    expect(await screen.findByText("XP rule preview: 20 XP")).toBeVisible();
-    expect(screen.queryByText(/40 XP/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: view.feedback.resetLabel }));
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: view.practice.heading })).toHaveFocus(),
-    );
+    expect(screen.getByText(/decided what comes next/)).toBeVisible();
+    expect(screen.getByText(/Team C’s result is still unknown/)).toBeVisible();
+    expect(screen.queryByText(/XP/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use this in another situation" }));
+    begin();
+    expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
+    for (const [i] of cases[1]!.questions.entries()) {
+      fireEvent.click(screen.getAllByRole("radio")[0]!);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: i === 3 ? "See my summary" : "Continue" }),
+      );
+    }
+    expect(screen.getByRole("heading", { name: "A few things need another look" })).toBeVisible();
     expect(
-      screen.getAllByRole("radio").every((radio) => !(radio as HTMLInputElement).checked),
-    ).toBe(true);
-    expect(screen.queryByText("XP rule preview: 20 XP")).not.toBeInTheDocument();
+      screen.queryByRole("heading", {
+        name: "This summary is safer to use in a decision",
+      }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try this case again" }));
+    begin();
+    expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
+  });
+});
+describe("mission evaluation integrity", () => {
+  it.each(cases)(
+    "rejects missing/unknown responses and same-position guessing in $id",
+    (mission) => {
+      expect(evaluateMission(mission, {}).complete).toBe(false);
+      expect(evaluateMission(mission, { claim: "not-an-option" }).complete).toBe(false);
+      for (let i = 0; i < 3; i++) {
+        const answers = Object.fromEntries(mission.questions.map((q) => [q.id, q.options[i]!.id]));
+        expect(evaluateMission(mission, answers).complete).toBe(true);
+        expect(evaluateMission(mission, answers).allCorrect).toBe(false);
+      }
+      const correct = Object.fromEntries(
+        mission.questions.map((q) => [q.id, q.options.find((o) => o.correct)!.id]),
+      );
+      expect(evaluateMission(mission, correct).allCorrect).toBe(true);
+      for (const q of mission.questions) {
+        expect(q.options.filter((o) => o.correct)).toHaveLength(1);
+        for (const o of q.options) {
+          expect(o.label.th.length).toBeGreaterThan(0);
+          expect(o.label.en.length).toBeGreaterThan(0);
+          expect(o.reason.th.length).toBeGreaterThan(0);
+          expect(o.reason.en.length).toBeGreaterThan(0);
+        }
+      }
+    },
+  );
+  it("keeps legacy published identity and its source figures intact", () => {
+    expect(sourceVerificationLessonDefinition.lesson.version).toBe("1.0.0");
+    expect(sourceVerificationMission.sourceIdentity).toBe("source-verification-practice@1.0.0");
+    expect(cases[0]!.facts.map((f) => f.amount)).toEqual([30, 8, null]);
+    expect(cases[1]!.facts.map((f) => f.amount)).toEqual([12, 8, 80]);
+    const source = createSourceVerificationLessonView("en", sourceVerificationLessonDefinition)
+      .scenario.sourceRecords.map((r) => r.detail)
+      .join(" ");
+    for (const number of ["30%", "8%", "12", "40", "60", "2"]) expect(source).toContain(number);
   });
 });

@@ -2,7 +2,7 @@ import "server-only";
 import type { Pool, PoolClient } from "pg";
 import { createApplicationPool } from "@/lib/db/server";
 import type { IdentityProvider, ProviderSession } from "@/modules/identity/contract";
-import { isValidatedClerkSession } from "@/modules/identity/contract";
+import { isValidatedProviderSession } from "@/modules/identity/contract";
 
 export type AccountStatus = "active" | "suspended" | "deletion_pending" | "deleted";
 export type AuthorizationFailureReason =
@@ -59,7 +59,7 @@ export async function withAuthorizedUserTransaction<T>(
 ): Promise<AuthorizedTransactionResult<T>> {
   const session = await identityProvider.readSession();
 
-  if (!isValidatedClerkSession(session)) {
+  if (!isValidatedProviderSession(session)) {
     return deniedSession(session);
   }
 
@@ -67,13 +67,18 @@ export async function withAuthorizedUserTransaction<T>(
 
   try {
     await client.query("BEGIN");
-    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended('clerk:' || $1, 0))`, [
+    await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1 || ':' || $2, 0))`, [
+      session.provider,
       session.providerSubject,
     ]);
+    const resolver =
+      session.provider === "supabase"
+        ? "resolve_or_provision_supabase_identity"
+        : "resolve_or_provision_clerk_identity";
     const resolution = await client.query(
       `SELECT user_id, status
-       FROM rise_pals_private.resolve_or_provision_clerk_identity('clerk', $1)`,
-      [session.providerSubject],
+       FROM rise_pals_private.${resolver}($1, $2)`,
+      [session.provider, session.providerSubject],
     );
     const account = parseResolvedAccount(resolution.rows[0]);
 

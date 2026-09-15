@@ -10,7 +10,7 @@ async function expectNoHorizontalOverflow(page: Page) {
 }
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} protected learning routes fail closed without Clerk and remain loopback-only`, async ({
+  test(`${locale} protected learning routes fail closed without Supabase and remain loopback-only`, async ({
     page,
   }) => {
     const unexpectedOrigins = new Set<string>();
@@ -21,7 +21,7 @@ for (const locale of ["th", "en"] as const) {
     await page.goto(`/${locale}/learning`);
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      locale === "th" ? "ความคืบหน้าการเรียนรู้" : "Learning progress",
+      locale === "th" ? "ฝึกไปถึงไหนแล้ว?" : "Your progress",
     );
     await expect(page.locator("form, input")).toHaveCount(0);
     await page.goto(`/${locale}/lessons/source-verification-practice/attempt`);
@@ -69,9 +69,11 @@ test("public lesson remains static, memory-only and separate from persisted rout
     if (request.method() !== "GET") postRequests.push(request.url());
   });
   await page.goto("/en/lessons/source-verification-practice");
-  await expect(page.getByRole("radio")).toHaveCount(9);
+  await page.getByRole("button", { name: "Start checking the summary" }).click();
+  await expect(page.getByRole("radio")).toHaveCount(3);
   await page.getByRole("radio").first().check();
   await page.reload();
+  await page.getByRole("button", { name: "Start checking the summary" }).click();
   await expect(page.getByRole("radio").first()).not.toBeChecked();
   expect(postRequests).toEqual([]);
 });

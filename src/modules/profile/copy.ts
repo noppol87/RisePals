@@ -34,14 +34,13 @@ export type ProfileCopy = Readonly<{
 
 export const profileCopy = {
   th: {
-    eyebrow: "โปรไฟล์อัลฟาแบบข้อมูลสังเคราะห์",
-    onboardingHeading: "ตั้งค่าโปรไฟล์แบบควบคุม",
+    eyebrow: "บัญชีทดลอง",
+    onboardingHeading: "ตั้งค่าโปรไฟล์",
     profileHeading: "โปรไฟล์ของคุณ",
     introduction:
-      "เลือกรหัสที่ใกล้เคียงที่สุด ระบบไม่เก็บชื่อนายจ้าง ตำแหน่งงานแบบเจาะจง เงินเดือน เลขประจำตัว หรือข้อความกังวลด้านอาชีพ",
-    provisional:
-      "ชุดตัวเลือก profile-v1 นี้เป็นเพียงคำศัพท์ชั่วคราวสำหรับอัลฟา และยังไม่ผ่านการตรวจสอบกับผู้ใช้จริง",
-    consentStatus: "สถานะความยินยอมข้อมูลบริการ",
+      "เลือกสายงานและเป้าหมายที่ใกล้เคียงคุณ ไม่ต้องใส่ชื่อนายจ้าง ตำแหน่งเฉพาะ เงินเดือน เลขประจำตัว หรือเรื่องส่วนตัว",
+    provisional: "ตัวเลือกชุดนี้ใช้ทดสอบเท่านั้น ยังไม่ผ่านการทดสอบกับผู้ใช้จริง",
+    consentStatus: "การยินยอมใช้ข้อมูล",
     consentStates: {
       none: "ยังไม่ได้เลือก",
       granted: "ยินยอม",
@@ -52,24 +51,21 @@ export const profileCopy = {
     decline: "ปฏิเสธ",
     withdraw: "ถอนความยินยอม",
     withdrawalBoundary: "การถอนความยินยอมไม่ใช่การลบบัญชีหรือข้อมูล",
-    roleFamily: "ลักษณะบทบาท",
+    roleFamily: "ลักษณะงาน",
     function: "สายงาน",
-    experienceBand: "ช่วงประสบการณ์",
+    experienceBand: "ประสบการณ์",
     timezone: "เขตเวลา",
     goals: "เป้าหมาย (เลือก 1–3 ข้อ)",
     goalHint: "เป้าหมายเป็นข้อมูลอาชีพที่มีความละเอียดอ่อน",
     save: "บันทึกโปรไฟล์",
     logout: "ออกจากระบบ",
-    unavailableHeading: "ยังไม่ได้เชื่อมต่อการยืนยันตัวตนทดลอง",
-    unavailableBody:
-      "หน้านี้พร้อมสำหรับ Clerk Development แต่เครื่องนี้ยังไม่มีคู่กุญแจ Development ที่ Jeff จัดเตรียมไว้ จึงไม่สร้างบัญชีหรือข้อมูลใด ๆ",
-    signInHeading: "เข้าสู่ระบบอัลฟาด้วยอีเมลโค้ด",
-    signInIntroduction: "ใช้เฉพาะอีเมลทดสอบสังเคราะห์ใน Clerk Development ห้ามใช้ข้อมูลบุคคลจริง",
-    signUpHeading: "สร้างบัญชีอัลฟาด้วยอีเมลโค้ด",
-    signUpIntroduction:
-      "สร้างบัญชีด้วยอีเมลทดสอบสังเคราะห์ใน Clerk Development เท่านั้น ห้ามใช้ข้อมูลบุคคลจริง",
-    syntheticBoundary:
-      "Clerk เก็บข้อมูลตัวตนทดลองในสหรัฐอเมริกา และยังไม่ได้รับอนุมัติสำหรับระบบจริง",
+    unavailableHeading: "ยังเข้าสู่ระบบไม่ได้",
+    unavailableBody: "กำลังเตรียมระบบ ลองกลับมาใหม่นะ",
+    signInHeading: "เข้าสู่บัญชีทดลอง",
+    signInIntroduction: "ใช้รหัสที่ส่งไปยังอีเมลทดสอบ",
+    signUpHeading: "สร้างบัญชีทดลอง",
+    signUpIntroduction: "เริ่มด้วยอีเมลทดสอบ แล้วรับรหัสยืนยัน",
+    syntheticBoundary: "ใช้ข้อมูลและอีเมลสมมติเท่านั้น ยังไม่เปิดรับข้อมูลคนจริง",
     localizationFallback:
       "การแปลส่วนยืนยันตัวตนของ Clerk ยังเป็นฟีเจอร์ทดลอง หากข้อความใดแสดงเป็นอังกฤษ ให้ยึดประกาศภาษาไทยในหน้านี้เป็นหลัก",
     accountStateHeading: "บัญชีนี้ยังใช้งานโปรไฟล์ไม่ได้",
@@ -80,14 +76,13 @@ export const profileCopy = {
     },
   },
   en: {
-    eyebrow: "Synthetic alpha profile",
-    onboardingHeading: "Set up a controlled profile",
+    eyebrow: "TEST ACCOUNT",
+    onboardingHeading: "Set up your profile",
     profileHeading: "Your profile",
     introduction:
-      "Choose the closest controlled codes. The service does not collect employer name, exact job title, salary, national identifier or free-text career concerns.",
-    provisional:
-      "This profile-v1 vocabulary is provisional for alpha testing and has not been validated with real users.",
-    consentStatus: "Service-data consent status",
+      "Choose your work area and goals. No employer name, exact job title, salary, ID number or personal story needed.",
+    provisional: "These choices are for testing and have not been validated with real users.",
+    consentStatus: "Data consent",
     consentStates: {
       none: "No decision yet",
       granted: "Granted",
@@ -106,17 +101,14 @@ export const profileCopy = {
     goalHint: "Goals are sensitive career data.",
     save: "Save profile",
     logout: "Sign out",
-    unavailableHeading: "Synthetic authentication is not connected",
-    unavailableBody:
-      "This route is prepared for Clerk Development, but this machine does not have Jeff-supplied Development keys. No account or data was created.",
-    signInHeading: "Sign in to the alpha with an email code",
-    signInIntroduction:
-      "Use synthetic test email identities in Clerk Development only. Real personal data is prohibited.",
-    signUpHeading: "Create an alpha account with an email code",
-    signUpIntroduction:
-      "Create an account with a synthetic test email in Clerk Development only. Real personal data is prohibited.",
+    unavailableHeading: "Sign-in isn’t ready yet",
+    unavailableBody: "We’re setting things up. Please check back later.",
+    signInHeading: "Sign in to your test account",
+    signInIntroduction: "Use the code sent to your test email.",
+    signUpHeading: "Create a test account",
+    signUpIntroduction: "Start with a test email to get your sign-in code.",
     syntheticBoundary:
-      "Clerk hosts synthetic identity data in the United States and is not approved for production.",
+      "Fictional identities and emails only. Real personal data isn’t accepted yet.",
     localizationFallback:
       "Clerk localization is experimental. If vendor UI copy falls back to English, this page remains the authoritative product boundary.",
     accountStateHeading: "This account cannot access the profile",
