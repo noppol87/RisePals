@@ -1,6 +1,6 @@
 import { EvidenceSection } from "@/components/evidence-section";
 import { ArrowIcon, SkillIcon } from "@/components/brand-mark";
-import { SkillOrbit } from "@/components/skill-orbit";
+import { FirstVisitJourney } from "@/components/first-visit-journey";
 import { Stack } from "@/components/primitives/stack";
 import { TextLink } from "@/components/primitives/text-link";
 import type { PublishedEvidence } from "@/lib/evidence/model";
@@ -10,7 +10,7 @@ import {
   productLoopSteps,
   type LandingCatalog,
 } from "@/lib/i18n/catalogs";
-import { assessmentPath, sourceVerificationLessonPath, type Locale } from "@/lib/i18n/config";
+import { sourceVerificationLessonPath, type Locale } from "@/lib/i18n/config";
 
 type PublicNarrativeProps = Readonly<{
   evidence: readonly PublishedEvidence[];
@@ -21,94 +21,7 @@ type PublicNarrativeProps = Readonly<{
 export function PublicNarrative({ evidence, locale, messages }: PublicNarrativeProps) {
   return (
     <Stack className="landing-page">
-      <section className="landing-hero" aria-labelledby="landing-hero-heading">
-        <div className="landing-hero__copy">
-          <p className="section-heading__eyebrow">{messages.hero.eyebrow}</p>
-          <h1 id="landing-hero-heading">
-            {messages.hero.heading}
-            <br />
-            <span>{messages.hero.headingAccent}</span>
-          </h1>
-          <p className="landing-hero__lead">{messages.hero.introduction}</p>
-          <div className="landing-hero__action">
-            <TextLink className="narrative-cta" href={sourceVerificationLessonPath(locale)}>
-              {messages.hero.ctaLabel}
-              <ArrowIcon />
-            </TextLink>
-            <TextLink className="hero-secondary-link" href={assessmentPath(locale)}>
-              {locale === "th" ? "ลองตอบ 6 ข้อ" : "Try 6 scenarios"}
-              <span aria-hidden="true">↘</span>
-            </TextLink>
-          </div>
-          <p className="landing-hero__supporting">
-            {messages.hero.supporting} · {messages.hero.availability}
-          </p>
-        </div>
-        <SkillOrbit locale={locale} framework={messages.framework} />
-      </section>
-
-      <section className="first-mission" aria-labelledby="first-mission-heading" data-reveal>
-        <div className="first-mission__visual" aria-hidden="true">
-          <span className="mission-visual__index">
-            {locale === "th" ? "ภารกิจ / 01" : "MISSION / 01"}
-          </span>
-          <div className="source-stack source-stack--back">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="source-stack source-stack--front">
-            <span className="source-stack__tag">
-              {locale === "th" ? "เช็กก่อนเชื่อ" : "SOURCE CHECK"}
-            </span>
-            <div className="source-stack__headline">
-              {locale === "th" ? "จริงแค่ไหน" : "Is it true?"}
-              <br />
-              {locale === "th" ? "ลองเช็กดู" : "Let’s check."}
-            </div>
-            <div className="source-stack__lines">
-              <span />
-              <span />
-            </div>
-            <div className="source-stack__check">
-              <SkillIcon index={0} />
-            </div>
-          </div>
-          <span className="mission-visual__caption">
-            {locale === "th" ? "คิดก่อนเชื่อ ↗" : "THINK CRITICALLY ↗"}
-          </span>
-        </div>
-        <div className="first-mission__copy">
-          <p className="section-heading__eyebrow">
-            {locale === "th" ? "ลองภารกิจแรก" : "YOUR FIRST MISSION"}
-          </p>
-          <h2 id="first-mission-heading">
-            {locale === "th" ? (
-              <>
-                อย่าเพิ่งเชื่อ AI
-                <br />
-                ลองเช็กคำตอบ
-              </>
-            ) : (
-              <>
-                Trust the AI?
-                <br />
-                Check it first.
-              </>
-            )}
-          </h2>
-          <p>
-            {locale === "th"
-              ? "หาหลักฐานให้เจอ แล้วดูว่าคำตอบของคุณมีจุดไหนที่ทำได้ดี"
-              : "Find the evidence. Make your call. See how you did."}
-          </p>
-          <TextLink href={sourceVerificationLessonPath(locale)} className="mission-link">
-            {locale === "th" ? "ลองภารกิจนี้" : "Try this mission"}
-            <ArrowIcon />
-          </TextLink>
-          <small>{locale === "th" ? "เดโม · ไม่บันทึกผล" : "Demo · progress isn’t saved"}</small>
-        </div>
-      </section>
+      <FirstVisitJourney locale={locale} />
 
       <section
         id="how-rise-pals-works"

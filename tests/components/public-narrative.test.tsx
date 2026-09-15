@@ -5,7 +5,7 @@ import { getPublishedEvidence } from "@/lib/evidence/records";
 import { catalogs, coreCompetencies, multipliers, productLoopSteps } from "@/lib/i18n/catalogs";
 
 describe("public narrative", () => {
-  it("renders the Thai hero, honest internal CTA, and non-collecting availability boundary", () => {
+  it("starts from the visitor's goal and explains an available first step without scoring", () => {
     render(
       <PublicNarrative
         evidence={getPublishedEvidence("th", "2026-08-02")}
@@ -14,13 +14,22 @@ describe("public narrative", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("ไม่ต้องเก่งทุกอย่าง");
-    expect(
-      screen.getAllByRole("link", { name: catalogs.th.landing.hero.ctaLabel })[0],
-    ).toHaveAttribute("href", "/th/lessons/source-verification-practice");
-    expect(screen.getByText(/เดโมสถานการณ์จำลอง ยังไม่ให้คะแนน/)).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "อยากให้การทำงานดีขึ้นตรงไหน",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /อยากรับมือวิธีทำงานใหม่/ }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "ช่วงนี้ เรื่องไหนกระทบคุณที่สุด",
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ข้อมูลจาก AI เชื่อได้แค่ไหน/ }));
+    expect(screen.getByRole("heading", { name: "คิดก่อนเชื่อและใช้ข้อมูลให้ชัวร์" })).toBeVisible();
+    expect(screen.getByText(/ยังไม่บันทึกผล/)).toBeVisible();
+    expect(screen.getByRole("link", { name: /เริ่มภารกิจแรก/ })).toHaveAttribute(
+      "href",
+      "/th/lessons/source-verification-practice",
+    );
+    expect(screen.queryByText(/คะแนน/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(8);
   });
 
   it("renders exactly two evidence items with visible qualifiers and direct sources", () => {

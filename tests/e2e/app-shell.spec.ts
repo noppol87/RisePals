@@ -15,7 +15,9 @@ test("the root route resolves to the Thai default", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/th$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("ไม่ต้องเก่งทุกอย่าง");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "อยากให้การทำงานดีขึ้นตรงไหน",
+  );
 });
 
 test("Thai and English routes use complete intentional narrative content", async ({ page }) => {
@@ -23,12 +25,14 @@ test("Thai and English routes use complete intentional narrative content", async
   await expect(page.locator("html")).toHaveAttribute("lang", "th");
   await expect(page.getByRole("navigation", { name: "การนำทางหลัก" })).toBeVisible();
   await expect(page.getByRole("link", { name: "ไทย" })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("เริ่มแค่อย่างเดียว");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("อยากให้การทำงานดีขึ้น");
 
   await page.getByRole("link", { name: "English" }).click();
   await expect(page).toHaveURL(/\/en$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("You don’t need it all");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(
+    "What would you like to improve",
+  );
   await expect(page.getByRole("link", { name: "English" })).toHaveAttribute("aria-current", "page");
 });
 
@@ -57,19 +61,21 @@ test("both evidence items expose attribution, limitations, and exact source dest
   await expect(page).toHaveURL(/\/en$/);
 });
 
-test("the honest CTA opens the locale-matched player without collecting data on landing", async ({
+test("the first-visit journey opens locale-matched practice without collecting data on landing", async ({
   page,
 }) => {
   await page.goto("/th");
 
-  const cta = page.getByRole("link", { name: "ลองตอบ 6 ข้อ" }).first();
-  await expect(cta).toHaveAttribute("href", "/th/assessment");
-  await expect(page.getByText(/เดโมสถานการณ์จำลอง ยังไม่ให้คะแนน/)).toBeVisible();
+  await page.getByRole("button", { name: /อยากรับมือวิธีทำงานใหม่/ }).click();
+  await page.getByRole("button", { name: /ข้อมูลจาก AI เชื่อได้แค่ไหน/ }).click();
+  const cta = page.getByRole("link", { name: /เริ่มภารกิจแรก/ });
+  await expect(cta).toHaveAttribute("href", "/th/lessons/source-verification-practice");
+  await expect(page.getByText(/ยังไม่บันทึกผล/)).toBeVisible();
   await expect(page.locator("input, textarea, select, form")).toHaveCount(0);
 
   await cta.click();
-  await expect(page).toHaveURL(/\/th\/assessment$/);
-  await expect(page.getByRole("heading", { name: /ถ้าเจอแบบนี้ คุณจะทำยังไง/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/th\/lessons\/source-verification-practice$/);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 });
 
 test("the page exposes the complete product loop and the 8+2 distinction", async ({ page }) => {
@@ -117,7 +123,7 @@ test("the skip link is first, visibly focused, and moves focus to main", async (
   await expect(page.getByRole("main")).toBeFocused();
 
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "ลองเช็กคำตอบ AI" }).first()).toBeFocused();
+  await expect(page.getByRole("button", { name: /อยากให้งานราบรื่นขึ้น/ })).toBeFocused();
 });
 
 test("the 320px and 400%-equivalent reflow view has no horizontal overflow", async ({ page }) => {

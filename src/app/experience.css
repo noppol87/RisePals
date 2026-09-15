@@ -1437,6 +1437,233 @@ html[lang="en"] .landing-hero h1 {
 .landing-page {
   gap: 54px;
 }
+
+/* First visit: one decision at a time, grounded in the visitor's own goal. */
+.first-visit {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+  min-height: 650px;
+  margin-top: 28px;
+  overflow: hidden;
+  border: 1px solid #cad3c3;
+  border-radius: 32px;
+  background: #fffef9;
+  box-shadow: 0 30px 80px -58px #173d32;
+}
+.first-visit::before {
+  content: "";
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  left: -150px;
+  bottom: -170px;
+  border: 1px solid #a9bc93;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 48px rgb(216 235 180 / 24%),
+    0 0 0 96px rgb(216 235 180 / 12%);
+  pointer-events: none;
+}
+.first-visit__intro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(38px, 6vw, 76px);
+  background: #eaf0df;
+}
+.first-visit__intro h1 {
+  margin: 24px 0 18px;
+  max-width: 11ch;
+  font-size: clamp(2.35rem, 4.1vw, 4rem);
+  line-height: 1.24;
+  letter-spacing: -0.055em;
+}
+html[lang="en"] .first-visit__intro h1 {
+  max-width: 12ch;
+  line-height: 1.08;
+}
+.first-visit__intro > p:not(.section-heading__eyebrow) {
+  max-width: 35ch;
+  margin: 0;
+  color: #4b5d50;
+  line-height: 1.8;
+}
+.first-visit__trail {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 48px;
+}
+.first-visit__trail span {
+  width: 32px;
+  height: 4px;
+  border-radius: 99px;
+  background: #cad4bf;
+}
+.first-visit__trail span.is-active {
+  background: #315b45;
+}
+.first-visit__trail small {
+  margin-left: 5px;
+  color: #526253;
+  font-size: 0.7rem;
+}
+.first-visit__task {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: clamp(30px, 6vw, 72px);
+  background: #193d35;
+  color: #f5f7ee;
+}
+.first-visit__prompt {
+  margin: 0 0 18px;
+  color: #cbd8ce;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.first-visit__choices {
+  display: grid;
+  gap: 11px;
+}
+.first-visit__choices button {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  min-height: 70px;
+  width: 100%;
+  padding: 12px 18px;
+  border: 1px solid #537065;
+  border-radius: 18px;
+  color: inherit;
+  background: #244b40;
+  font: inherit;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+.first-visit__choices button > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: #d9e994;
+  color: #173d32;
+  font-size: 1.1rem;
+}
+.first-visit__choices button b {
+  color: #d9e994;
+  font-weight: 500;
+}
+.first-visit__choices button:hover {
+  transform: translateX(4px);
+  border-color: #a8c98d;
+  background: #2d5849;
+}
+.first-visit__choices button:focus-visible,
+.first-visit__back:focus-visible {
+  outline-color: #f0d9ff;
+}
+.first-visit__choices--situations button {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 64px;
+  font-weight: 550;
+}
+.first-visit__selected {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 22px;
+  color: #eaf3df;
+  font-weight: 700;
+}
+.first-visit__selected small,
+.first-visit__summary small,
+.first-visit__path small {
+  display: block;
+  color: #afc2b7;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.first-visit__back {
+  align-self: flex-start;
+  min-height: 44px;
+  margin-top: 14px;
+  padding: 4px 0;
+  border: 0;
+  color: #d7e1d7;
+  background: transparent;
+  font: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  cursor: pointer;
+}
+.first-visit__result-label {
+  margin-bottom: 18px;
+  color: #d9e994;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+.first-visit__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.first-visit__summary p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.first-visit__summary > span {
+  transform: rotate(-90deg);
+  color: #9eb28d;
+}
+.first-visit__path {
+  padding: 22px;
+  border-radius: 20px;
+  background: #f2f2e8;
+  color: #193d35;
+}
+.first-visit__path small {
+  color: #59705f;
+}
+.first-visit__path h2 {
+  margin: 7px 0 8px;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+.first-visit__path p {
+  margin: 0;
+  color: #4a5c52;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.first-visit__result .narrative-cta {
+  margin-top: 20px;
+}
+.first-visit__privacy {
+  position: absolute;
+  right: clamp(30px, 6vw, 72px);
+  bottom: 16px;
+  margin: 0;
+  color: #aabbb0;
+  font-size: 0.62rem;
+}
 .landing-page .framework-section,
 .landing-page .evidence-section {
   padding: 0;
@@ -1532,6 +1759,47 @@ html[lang="en"] .landing-hero h1 {
   .skill-explorer__edition {
     display: none;
   }
+  .first-visit {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    margin-top: 16px;
+    border-radius: 24px;
+  }
+  .first-visit__intro {
+    min-height: 290px;
+    padding: 30px 24px;
+  }
+  .first-visit__intro h1 {
+    max-width: 13ch;
+    margin-block: 18px 13px;
+    font-size: clamp(2rem, 10vw, 3rem);
+  }
+  .first-visit__trail {
+    margin-top: 26px;
+  }
+  .first-visit__task {
+    min-height: 410px;
+    padding: 26px 18px 48px;
+  }
+  .first-visit__choices button {
+    min-height: 62px;
+    padding: 10px 13px;
+    border-radius: 15px;
+    font-size: 0.88rem;
+  }
+  .first-visit__summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .first-visit__summary > span {
+    transform: none;
+  }
+  .first-visit__privacy {
+    right: 18px;
+    bottom: 12px;
+    left: 18px;
+    text-align: center;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .skill-orbit__lines .is-active,
@@ -1539,6 +1807,9 @@ html[lang="en"] .landing-hero h1 {
     animation: none;
   }
   .disclosure-plus {
+    transition: none;
+  }
+  .first-visit__choices button {
     transition: none;
   }
 }

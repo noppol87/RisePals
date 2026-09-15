@@ -1,27 +1,39 @@
 import { expect, test } from "./fixtures";
 
 for (const locale of ["th", "en"] as const) {
-  test(`${locale} skill exploration works by keyboard without creating a score or saved identity`, async ({
+  test(`${locale} first visit finds a starting path by keyboard without creating a score or saved identity`, async ({
     page,
   }) => {
     await page.goto(`/${locale}`);
-    const explorer = page.locator(".skill-explorer");
+    const journey = page.locator(".first-visit");
     const before = await page.evaluate(() => ({
       local: { ...localStorage },
       session: { ...sessionStorage },
       cookie: document.cookie,
     }));
-    const ethics = explorer.getByRole("button", {
-      name: locale === "th" ? "ใช้ข้อมูลอย่างรับผิดชอบ" : "Act responsibly",
+    const goal = journey.getByRole("button", {
+      name: locale === "th" ? /อยากรับมือวิธีทำงานใหม่/ : /Handle new tools/,
     });
-    await ethics.focus();
+    await goal.focus();
     await page.keyboard.press("Enter");
-    await expect(ethics).toHaveAttribute("aria-pressed", "true");
-    await expect(explorer.locator('[aria-pressed="true"]')).toHaveCount(1);
-    await expect(page.locator("#skill-explorer-detail")).toContainText(
-      locale === "th" ? "ใช้ข้อมูลอย่างรับผิดชอบ" : "Act responsibly",
+    const situation = journey.getByRole("button", {
+      name: locale === "th" ? /ข้อมูลจาก AI เชื่อได้แค่ไหน/ : /AI answer is reliable/,
+    });
+    await situation.focus();
+    await page.keyboard.press("Enter");
+    await expect(
+      journey.getByRole("heading", {
+        name:
+          locale === "th" ? "คิดก่อนเชื่อและใช้ข้อมูลให้ชัวร์" : "Check the evidence before acting",
+      }),
+    ).toBeVisible();
+    await expect(journey.getByRole("link")).toHaveAttribute(
+      "href",
+      `/${locale}/lessons/source-verification-practice`,
     );
-    await expect(page.locator("[data-score], [data-result], input, form")).toHaveCount(0);
+    await expect(
+      page.locator("[data-score], [data-result], input, textarea, select, form"),
+    ).toHaveCount(0);
     expect(
       await page.evaluate(() => ({
         local: { ...localStorage },
@@ -30,14 +42,26 @@ for (const locale of ["th", "en"] as const) {
       })),
     ).toEqual(before);
     await page.reload();
-    await expect(
-      explorer.getByRole("button", { name: locale === "th" ? "คิดก่อนเชื่อ" : "Think critically" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(journey.getByRole("heading", { level: 1 })).toContainText(
+      locale === "th" ? "อยากให้การทำงานดีขึ้น" : "What would you like to improve",
+    );
   });
 
   test(`${locale} practice entry and lesson shortcuts reach working content`, async ({ page }) => {
     await page.goto(`/${locale}`);
-    await page.locator(".mission-link").click();
+    await page
+      .getByRole("button", {
+        name: locale === "th" ? /อยากรับมือวิธีทำงานใหม่/ : /Handle new tools/,
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: locale === "th" ? /ข้อมูลจาก AI เชื่อได้แค่ไหน/ : /AI answer is reliable/,
+      })
+      .click();
+    await page
+      .getByRole("link", { name: locale === "th" ? /เริ่มภารกิจแรก/ : /Start your first mission/ })
+      .click();
     await expect(page).toHaveURL(new RegExp(`/${locale}/lessons/source-verification-practice$`));
     const shortcut = page.getByRole("button", {
       name: locale === "th" ? "เริ่มเช็กสรุปนี้" : "Check this summary",
@@ -51,11 +75,11 @@ for (const locale of ["th", "en"] as const) {
   });
 }
 
-test("the mobile skill map keeps all eight touch targets inside the viewport", async ({ page }) => {
+test("the mobile first-visit choices stay usable inside the viewport", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto("/th");
-  const targets = page.locator(".skill-orbit__node");
-  await expect(targets).toHaveCount(8);
+  const targets = page.locator(".first-visit__choices button");
+  await expect(targets).toHaveCount(4);
   for (const target of await targets.all()) {
     const box = await target.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);

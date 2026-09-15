@@ -1,5 +1,44 @@
 # Rise Pals — Project Status
 
+## First-visit journey prototype — 2026-09-16
+
+Jeff approved implementation of the consolidated realignment plan. The public
+Thai and English home page now starts with the visitor's intended change, then
+asks which realistic impact is closest, and shows an explainable starting path.
+The flow presents one decision at a time and connects the visitor's stated goal,
+situation and next action in one visual summary. Choices stay in React memory,
+reset on refresh and never create a score, identity, profile or saved result.
+
+Critical source verification has an available fictional mission. Systematic
+thinking and strategic storytelling paths are labelled as still in development
+and offer the existing mission only as a nearby example. The cases remain design
+hypotheses awaiting user research; the interface does not claim validated
+personalization or broad occupational coverage.
+
+Fresh checks: formatting, lint, both typechecks, 418 unit/component tests,
+production build and all 85 browser checks pass. Visual review covered the
+Thai starting and path-summary states at 1440px. The implementation record and
+changed-file map are in `docs/20_FIRST_VISIT_JOURNEY.md`.
+
+## Consolidated product realignment plan — 2026-09-15
+
+Jeff requested a fresh overview incorporating all feedback. The single proposal
+in `docs/19_PRODUCT_REALIGNMENT_PLAN.md` now supersedes the earlier incremental
+planning notes. It preserves the original career-development and 8+2 purpose,
+opens the entry to varied occupations, reveals one task with useful context at
+a time, and grounds later questions in user-selected situations and real impact.
+
+The proposed journey connects finding a relevant starting point, an explainable
+path, practice, evidence and return visits. Self-selected needs remain separate
+from assessed evidence. Research and first-visit testing precede locking content;
+examples and candidate pilot paths are hypotheses, not completed user research.
+The plan has five delivery rounds: discovery, complete experience prototype,
+pilot content, persistence integration and whole-journey validation.
+
+The planning document remains the reference for later research, content,
+persistence and whole-journey rounds. This first implementation does not create
+a hosted resource, deployment, new content version or saved personal path.
+
 ## Current interactive public mission — 2026-09-15
 
 Jeff approved the experience review. Public mission v2 now supports spotting a

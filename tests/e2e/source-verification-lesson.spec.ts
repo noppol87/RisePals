@@ -59,7 +59,23 @@ for (const locale of ["th", "en"] as const) {
     page,
   }) => {
     await page.goto(`/${locale}`);
-    await page.locator(".landing-hero .narrative-cta").click();
+    await page
+      .getByRole("button", {
+        name: label(locale, "อยากรับมือวิธีทำงานใหม่", "Handle new tools and ways of working"),
+      })
+      .click();
+    await page
+      .getByRole("button", {
+        name: label(
+          locale,
+          "ไม่แน่ใจว่าข้อมูลจาก AI เชื่อได้แค่ไหน",
+          "I am unsure whether an AI answer is reliable",
+        ),
+      })
+      .click();
+    await page
+      .getByRole("link", { name: label(locale, "เริ่มภารกิจแรก", "Start your first mission") })
+      .click();
     await expect(page).toHaveURL(`/${locale}${path}`);
     expect((await page.locator("main").innerText()).length).toBeLessThan(900);
     await checkAccess(page);

@@ -1,6 +1,18 @@
 # Rise Pals
 
-## Current experience: an interactive mission
+## Current experience: start from the visitor's work
+
+The public home now asks one useful question at a time: what the visitor wants
+to improve, which recent situation feels closest, and what a sensible first
+path could be. The recommendation is explicitly based on the visitor's choices,
+not an assessment score. Paths without ready content say so; the existing
+source-verification mission remains an honest available practice. Thai and
+English, keyboard use, reduced motion and 320px reflow are covered.
+
+See [implementation and checks](docs/20_FIRST_VISIT_JOURNEY.md) and the
+[product realignment plan](docs/19_PRODUCT_REALIGNMENT_PLAN.md).
+
+## Interactive mission
 
 The public lesson now guides learners through spotting a claim, choosing evidence,
 completing a summary and choosing a next action. A second fictional case lets
