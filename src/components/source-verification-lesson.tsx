@@ -46,8 +46,17 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
       initial.current = false;
       return;
     }
-    headingRef.current?.focus();
-    headingRef.current?.scrollIntoView?.({ block: "start" });
+    const heading = headingRef.current;
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    window.scrollTo(0, 0);
+    window.requestAnimationFrame(() => {
+      window.scrollTo(0, 0);
+      root.style.scrollBehavior = previousScrollBehavior;
+    });
   }, [step, caseIndex]);
   useEffect(() => {
     if (error) errorRef.current?.focus();
@@ -80,19 +89,24 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
       <header className="mission-topline">
         <TextLink href={homeHref}>{copy("← กลับหน้าหลัก", "← Home")}</TextLink>
         <span>
-          {copy("คิดก่อนเชื่อ", "Think critically")} <span aria-hidden="true">/</span> 0
-          {caseIndex + 1}
+          {step === -1
+            ? copy("ใช้ประมาณ 2 นาที", "About 2 minutes")
+            : copy(`แบบฝึก 0${caseIndex + 1}`, `PRACTICE 0${caseIndex + 1}`)}
         </span>
       </header>
-      <h1 id="mission-title">
-        {copy("เช็กสรุปก่อนใช้ตัดสินใจ", "Check a summary before it informs a decision")}
-      </h1>
-      <p className="mission-boundary">
-        {copy(
-          "ข้อมูลสมมติ · ไม่บันทึกผล · ไม่ใช่การรับรองทักษะ",
-          "Fictional data · not saved · no skill certification",
-        )}
-      </p>
+      {step >= 0 ? (
+        <>
+          <h1 id="mission-title">
+            {copy("เช็กสรุปก่อนใช้ตัดสินใจ", "Check before using a summary")}
+          </h1>
+          <p className="mission-boundary">
+            {copy(
+              "ข้อมูลสมมติ · ไม่บันทึกผล · ไม่ใช่การรับรองทักษะ",
+              "Fictional data · not saved · no skill certification",
+            )}
+          </p>
+        </>
+      ) : null}
       {step >= 0 && !finished ? (
         <ol className="mission-steps" aria-label={copy("ขั้นตอน", "Steps")}>
           {stepLabels.map((label, index) => (
@@ -113,28 +127,45 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
           <div className="mission-intro__copy">
             <p className="mission-eyebrow">
               {independent
-                ? copy("รอบนี้ลองเอง", "NOW TRY IT YOURSELF")
-                : copy("ภารกิจแรก · มีคำใบ้ให้", "FIRST MISSION · WITH GUIDANCE")}
+                ? copy("รอบนี้ลองใช้วิธีเดิมด้วยตัวเอง", "NOW USE THE SAME METHOD YOURSELF")
+                : copy("AI ช่วยร่าง · คุณช่วยตัดสินใจ", "AI DRAFTS · YOU USE JUDGMENT")}
             </p>
-            <h2 ref={headingRef} tabIndex={-1}>
-              {mission.title[locale]}
-            </h2>
-            <p>{mission.context[locale]}</p>
+            <h1 id="mission-title" ref={headingRef} tabIndex={-1}>
+              {independent
+                ? copy(
+                    "ก่อนใช้ผลสำรวจนี้ตัดสินใจ คุณจะเช็กอะไร?",
+                    "What would you check before using this survey to decide?",
+                  )
+                : copy(
+                    "AI ทำร่างแรกให้แล้ว ก่อนส่งต่อ คุณจะเช็กอะไร?",
+                    "AI made the first draft. What would you check before passing it on?",
+                  )}
+            </h1>
+            <p>
+              {independent
+                ? copy(
+                    "ทีมกำลังจะเลือกเวลาอบรมให้พนักงาน 100 คนจากผลสำรวจนี้",
+                    "The team is about to choose a training time for 100 staff from this survey.",
+                  )
+                : copy(
+                    "หัวหน้ากำลังจะใช้สรุปนี้ตัดสินใจว่าจะขยายวิธีทำงานไปทีมอื่น",
+                    "A manager is about to use this summary to decide whether to expand the workflow to other teams.",
+                  )}
+            </p>
             <button
               type="button"
               className="player-button player-button--primary"
               onClick={() => setStep(0)}
             >
-              {copy("เริ่มช่วยทีมเช็กสรุป", "Start checking the summary")}
+              {independent
+                ? copy("เริ่มลองด้วยตัวเอง", "Try it yourself")
+                : copy("ลองหาจุดที่ต้องเช็ก", "Find what needs checking")}
               <ArrowIcon />
             </button>
             <p className="mission-small">
               {independent
-                ? copy("ดูเฉลยหลังตอบครบทั้ง 4 ขั้น", "Feedback comes after all 4 decisions.")
-                : copy(
-                    "หาจุดที่เกินข้อมูล → เลือกหลักฐาน → แก้สรุป → เลือกก้าวต่อ",
-                    "Find the overclaim → choose evidence → fix the summary → decide what comes next",
-                  )}
+                ? copy("4 ขั้น · ดูเฉลยหลังตอบครบ", "4 steps · feedback after you finish")
+                : copy("4 ขั้น · มีคำใบ้", "4 steps · hints included")}
             </p>
           </div>
           <div className="mission-ai-note">
@@ -143,7 +174,19 @@ export function SourceVerificationLesson({ exampleResultHref, homeHref, view }: 
               <span>{copy("ฉบับร่างจาก AI", "AI DRAFT")}</span>
               <span aria-hidden="true">✦</span>
             </div>
-            <blockquote>{mission.before[locale]}</blockquote>
+            {caseIndex === 0 ? (
+              <blockquote>
+                <span>
+                  {copy(
+                    "ทดลอง 60 วัน ทีม A ปิดงานเร็วขึ้น 30%",
+                    "After a 60-day pilot, Team A finished 30% faster.",
+                  )}
+                </span>{" "}
+                <mark>{copy("ทุกทีมจึงเร็วขึ้น 30%", "So every team was 30% faster.")}</mark>
+              </blockquote>
+            ) : (
+              <blockquote>{mission.before[locale]}</blockquote>
+            )}
             <span className="mission-unverified">{copy("ยังไม่ได้ตรวจ", "Not yet checked")}</span>
             <div className="mission-note-lines" aria-hidden="true">
               <span />

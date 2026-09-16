@@ -64,14 +64,16 @@ for (const locale of ["th", "en"] as const) {
       .click();
     await expect(page).toHaveURL(new RegExp(`/${locale}/lessons/source-verification-practice$`));
     const shortcut = page.getByRole("button", {
-      name: locale === "th" ? "เริ่มช่วยทีมเช็กสรุป" : "Start checking the summary",
+      name: locale === "th" ? "ลองหาจุดที่ต้องเช็ก" : "Find what needs checking",
     });
     await shortcut.click();
     const heading = page.locator("#mission-question");
+    await expect(heading).toBeFocused();
     await expect(heading).toBeInViewport();
-    const headingBox = await heading.boundingBox();
     const headerBox = await page.locator(".site-header").boundingBox();
-    expect(headingBox?.y ?? 0).toBeGreaterThanOrEqual((headerBox?.height ?? 0) - 1);
+    await expect
+      .poll(async () => (await heading.boundingBox())?.y ?? 0)
+      .toBeGreaterThanOrEqual((headerBox?.height ?? 0) - 1);
   });
 }
 

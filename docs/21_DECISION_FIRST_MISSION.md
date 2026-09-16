@@ -21,6 +21,12 @@ mission goal visible and asks one concrete action:
 3. write only what the evidence supports;
 4. choose what should happen before the summary is used.
 
+The entry screen now uses one large question and one action. It asks what the
+learner would check after AI produces a first draft, gives the pending workplace
+decision in one sentence and highlights the unsupported leap inside the draft.
+The only primary action says what happens next: find what needs checking. Time,
+step count and guidance are supporting details rather than competing headings.
+
 The question, short instruction and choices now live in one decision column.
 The evidence and AI answer stay together in the other column and remain visible
 at 320px. The progress tracker names the four actions, while the local heading
@@ -70,7 +76,8 @@ v1 and private saved practice identities remain unchanged.
 - unit/component tests — 418 passed across 46 files
 - content validation — mission `2.1.0` passed bilingual and answer-integrity checks
 - production build — passed; 27 static pages generated
-- targeted Chromium run — 16 passed across the first-visit and complete mission flows
+- targeted Chromium run — 22 passed across first visit, public/private boundary
+  and complete mission flows
 - full Chromium run — all 85 browser checks passed
 - 320px browser checks — touch targets, reflow and readable results passed
 - visual review — Thai desktop and 390px mobile task states; the evidence and AI

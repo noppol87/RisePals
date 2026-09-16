@@ -14,8 +14,14 @@ beside them and on mobile. Feedback explains the selected choice, and the final
 state connects the corrected summary to the decision it may support. Thai and
 English content is versioned as local prototype `2.1.0`.
 
+The entry now presents one large question and one action. It connects the target
+learner's value to the judgment applied after an AI first draft, states the
+pending workplace decision in one sentence and visually highlights the claim
+that needs checking. Duplicate lesson headings and unexplained numbering were
+removed.
+
 Fresh checks: formatting, lint, both typechecks, 418 unit/component tests,
-content validation, production build, 16 targeted Chromium checks and all 85
+content validation, production build, 22 targeted Chromium checks and all 85
 browser checks pass. Visual review covered Thai desktop and 390px mobile task
 states with no horizontal overflow. Scenarios remain fictional and unvalidated
 with real users. Full details are in `docs/21_DECISION_FIRST_MISSION.md`.

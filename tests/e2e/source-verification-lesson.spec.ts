@@ -9,7 +9,10 @@ const label = (locale: Locale, th: string, en: string) => (locale === "th" ? th 
 async function begin(page: Page, locale: Locale = "en") {
   await page
     .getByRole("button", {
-      name: label(locale, "เริ่มช่วยทีมเช็กสรุป", "Start checking the summary"),
+      name:
+        locale === "th"
+          ? /ลองหาจุดที่ต้องเช็ก|เริ่มลองด้วยตัวเอง/
+          : /Find what needs checking|Try it yourself/,
     })
     .click();
 }
@@ -164,7 +167,7 @@ test("same-position guessing fails the independent case, preserves the actual dr
   await begin(page);
   await expect(page.locator("input:checked")).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText("FIRST MISSION · WITH GUIDANCE")).toBeVisible();
+  await expect(page.getByText("AI DRAFTS · YOU USE JUDGMENT")).toBeVisible();
   await begin(page);
   await expect(page.locator("input:checked")).toHaveCount(0);
 });
@@ -218,7 +221,7 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.emulateMedia({ reducedMotion });
     await page.goto(`/th${path}`);
-    const start = page.getByRole("button", { name: "เริ่มช่วยทีมเช็กสรุป" });
+    const start = page.getByRole("button", { name: "ลองหาจุดที่ต้องเช็ก" });
     await expect(start).toBeInViewport();
     await begin(page, "th");
     for (const [index, q] of cases[0]!.questions.entries()) {

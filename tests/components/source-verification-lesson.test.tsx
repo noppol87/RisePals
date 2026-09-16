@@ -20,7 +20,7 @@ function renderLesson(locale: "th" | "en" = "en") {
   );
 }
 function begin() {
-  fireEvent.click(screen.getByRole("button", { name: "Start checking the summary" }));
+  fireEvent.click(screen.getByRole("button", { name: /Find what needs checking|Try it yourself/ }));
 }
 function finishCoached() {
   begin();
@@ -39,10 +39,22 @@ describe("versioned visual mission", () => {
       renderLesson(locale);
       expect(
         screen.getByRole("button", {
-          name: locale === "th" ? "เริ่มช่วยทีมเช็กสรุป" : "Start checking the summary",
+          name: locale === "th" ? "ลองหาจุดที่ต้องเช็ก" : "Find what needs checking",
         }),
       ).toBeVisible();
-      expect(screen.getByText(cases[0]!.before[locale])).toBeVisible();
+      expect(
+        screen.getByRole("heading", {
+          name:
+            locale === "th"
+              ? "AI ทำร่างแรกให้แล้ว ก่อนส่งต่อ คุณจะเช็กอะไร?"
+              : "AI made the first draft. What would you check before passing it on?",
+        }),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          locale === "th" ? "ทุกทีมจึงเร็วขึ้น 30%" : "So every team was 30% faster.",
+        ),
+      ).toBeVisible();
       expect(screen.queryByRole("radio")).not.toBeInTheDocument();
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
       fireEvent.click(
